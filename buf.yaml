@@ -1,7 +1,7 @@
 version: v1
 lint:
   use:
-    - STANDARD
+    - DEFAULT
   except:
     - ENUM_VALUE_PREFIX
     - ENUM_ZERO_VALUE_SUFFIX
