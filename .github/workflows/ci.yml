@@ -1,0 +1,160 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  BUF_VERSION: '1.28.1'
+
+jobs:
+  lint-and-validate:
+    name: Lint and Validate Protobuf
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Buf CLI
+      uses: bufbuild/buf-setup-action@v1
+      with:
+        version: ${{ env.BUF_VERSION }}
+
+    - name: Lint Protobuf Files
+      run: buf lint
+
+    - name: Check Breaking Changes
+      if: github.event_name == 'pull_request'
+      run: |
+        # Get the base branch
+        git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
+        buf breaking --against '.git#branch=${{ github.base_ref }}'
+
+    - name: Format Check
+      run: buf format --diff --exit-code
+
+  generate:
+    name: Generate Code
+    runs-on: ubuntu-latest
+    needs: lint-and-validate
+
+    strategy:
+      matrix:
+        language: [go, csharp, python, javascript, java]
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Buf CLI
+      uses: bufbuild/buf-setup-action@v1
+      with:
+        version: ${{ env.BUF_VERSION }}
+
+    - name: Generate ${{ matrix.language }} Code
+      run: |
+        mkdir -p generated/${{ matrix.language }}
+        case "${{ matrix.language }}" in
+          go)
+            buf generate --template buf.gen.go.yaml --output generated/go
+            ;;
+          csharp)
+            buf generate --template buf.gen.csharp.yaml --output generated/csharp
+            ;;
+          python)
+            buf generate --template buf.gen.python.yaml --output generated/python
+            ;;
+          javascript)
+            buf generate --template buf.gen.javascript.yaml --output generated/javascript
+            ;;
+          java)
+            buf generate --template buf.gen.java.yaml --output generated/java
+            ;;
+        esac
+
+    - name: Upload Generated Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: generated-${{ matrix.language }}-code
+        path: generated/${{ matrix.language }}/
+        retention-days: 30
+
+  publish:
+    name: Publish to Buf Registry
+    runs-on: ubuntu-latest
+    needs: [lint-and-validate, generate]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Buf CLI
+      uses: bufbuild/buf-setup-action@v1
+      with:
+        version: ${{ env.BUF_VERSION }}
+
+    - name: Login to Buf Registry
+      run: echo "${{ secrets.BUF_TOKEN }}" | buf registry login --username ${{ secrets.BUF_USERNAME }} --token-stdin
+
+    - name: Push to Buf Registry
+      run: buf push
+
+    - name: Create Release Tag
+      run: |
+        # Generate a tag based on timestamp for versioning
+        TAG="v$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
+        echo "Creating tag: $TAG"
+        git tag $TAG
+        git push origin $TAG
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  validate-schemas:
+    name: Validate Protocol Schemas
+    runs-on: ubuntu-latest
+    needs: lint-and-validate
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Buf CLI
+      uses: bufbuild/buf-setup-action@v1
+      with:
+        version: ${{ env.BUF_VERSION }}
+
+    - name: Export Schema Descriptors
+      run: |
+        mkdir -p descriptors
+        buf build -o descriptors/image.bin
+        buf build -o descriptors/image.json
+
+    - name: Upload Schema Descriptors
+      uses: actions/upload-artifact@v4
+      with:
+        name: protocol-descriptors
+        path: descriptors/
+        retention-days: 90
+
+  notify:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: [lint-and-validate, generate, validate-schemas]
+    if: success()
+
+    steps:
+    - name: Success Notification
+      run: |
+        echo "✅ Geospatial gRPC protocol validation completed successfully"
+        echo "  - Protobuf files validated and formatted"
+        echo "  - Multi-language code generation verified"
+        echo "  - Schema descriptors exported"
+        if [[ "${{ github.ref }}" == "refs/heads/main" && "${{ github.event_name }}" == "push" ]]; then
+          echo "  - Published to Buf Registry"
+        fi

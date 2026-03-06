@@ -1,0 +1,6 @@
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/csharp
+    out: .
+  - remote: buf.build/grpc/csharp
+    out: .
