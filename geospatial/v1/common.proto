@@ -30,18 +30,18 @@ enum NullValue {
 
 // SpatialReference identifies a coordinate system.
 message SpatialReference {
-  int32 wkid = 1;           // Well-known ID (EPSG code)
-  int32 latest_wkid = 2;    // Latest EPSG code for this CRS
-  string wkt = 3;           // Well-Known Text definition
+  int32 wkid = 1; // Well-known ID (EPSG code)
+  int32 latest_wkid = 2; // Latest EPSG code for this CRS
+  string wkt = 3; // Well-Known Text definition
 }
 
 // FieldDefinition describes a field in the layer schema.
 message FieldDefinition {
   string name = 1;
   FieldType field_type = 2;
-  int32 length = 3;         // For string fields
+  int32 length = 3; // For string fields
   bool nullable = 4;
-  string alias = 5;         // Display name
+  string alias = 5; // Display name
 }
 
 // FieldType enumerates supported attribute field types.

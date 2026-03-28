@@ -23,35 +23,35 @@ service FeatureService {
 
 // QueryFeaturesRequest specifies the full set of query parameters.
 message QueryFeaturesRequest {
-  string service_id = 1;                      // Service identifier
-  int32 layer_id = 2;                         // Layer identifier
-  string where = 3;                           // SQL-like where clause
-  repeated int64 object_ids = 4;              // Specific feature IDs to return
-  repeated string out_fields = 5;             // Fields to include in response
-  bool return_geometry = 6;                   // Whether to include geometry
-  SpatialReference out_sr = 7;                // Output spatial reference
-  int32 result_offset = 8;                    // Pagination offset
-  int32 result_record_count = 9;              // Pagination limit
-  string order_by = 10;                       // SQL-like order clause
-  bool return_distinct = 11;                  // Return unique results only
-  bool return_count_only = 12;                // Return count instead of features
-  bool return_ids_only = 13;                  // Return IDs instead of features
-  bool return_extent_only = 14;               // Return extent instead of features
-  repeated StatisticDefinition out_statistics = 15;  // Aggregation statistics
-  repeated string group_by = 16;              // Group by fields
-  int32 geometry_precision = 17;              // Geometry coordinate precision
-  double max_allowable_offset = 18;           // Geometry generalization tolerance
-  SpatialFilter spatial_filter = 19;          // Spatial query constraint
+  string service_id = 1; // Service identifier
+  int32 layer_id = 2; // Layer identifier
+  string where = 3; // SQL-like where clause
+  repeated int64 object_ids = 4; // Specific feature IDs to return
+  repeated string out_fields = 5; // Fields to include in response
+  bool return_geometry = 6; // Whether to include geometry
+  SpatialReference out_sr = 7; // Output spatial reference
+  int32 result_offset = 8; // Pagination offset
+  int32 result_record_count = 9; // Pagination limit
+  string order_by = 10; // SQL-like order clause
+  bool return_distinct = 11; // Return unique results only
+  bool return_count_only = 12; // Return count instead of features
+  bool return_ids_only = 13; // Return IDs instead of features
+  bool return_extent_only = 14; // Return extent instead of features
+  repeated StatisticDefinition out_statistics = 15; // Aggregation statistics
+  repeated string group_by = 16; // Group by fields
+  int32 geometry_precision = 17; // Geometry coordinate precision
+  double max_allowable_offset = 18; // Geometry generalization tolerance
+  SpatialFilter spatial_filter = 19; // Spatial query constraint
 }
 
 // QueryFeaturesResponse contains the full result of a unary feature query.
 message QueryFeaturesResponse {
-  string object_id_field_name = 1;            // Name of the ID field
-  GeometryType geometry_type = 2;              // Layer geometry type
-  SpatialReference spatial_reference = 3;     // Layer spatial reference
-  repeated FieldDefinition fields = 4;        // Layer field definitions
-  repeated Feature features = 5;              // Query result features
-  bool exceeded_transfer_limit = 6;           // Whether result was truncated
+  string object_id_field_name = 1; // Name of the ID field
+  GeometryType geometry_type = 2; // Layer geometry type
+  SpatialReference spatial_reference = 3; // Layer spatial reference
+  repeated FieldDefinition fields = 4; // Layer field definitions
+  repeated Feature features = 5; // Query result features
+  bool exceeded_transfer_limit = 6; // Whether result was truncated
   // For count-only queries.
   int64 count = 7;
   // For ids-only queries.
@@ -77,11 +77,11 @@ message FeaturePage {
 message ApplyEditsRequest {
   string service_id = 1;
   int32 layer_id = 2;
-  repeated Feature adds = 3;                   // Features to create
-  repeated Feature updates = 4;                // Features to update
-  repeated int64 deletes = 5;                  // Feature IDs to delete
-  bool rollback_on_failure = 6;               // Transactional behavior
-  bool force_write = 7;                       // Override optimistic locking
+  repeated Feature adds = 3; // Features to create
+  repeated Feature updates = 4; // Features to update
+  repeated int64 deletes = 5; // Feature IDs to delete
+  bool rollback_on_failure = 6; // Transactional behavior
+  bool force_write = 7; // Override optimistic locking
 }
 
 // ApplyEditsResponse contains add/update/delete results.
@@ -89,18 +89,18 @@ message ApplyEditsResponse {
   repeated EditResult add_results = 1;
   repeated EditResult update_results = 2;
   repeated EditResult delete_results = 3;
-  EditError error = 4;                        // Global error if any
+  EditError error = 4; // Global error if any
 }
 
 // EditResult is the outcome of a single create/update/delete operation.
 message EditResult {
-  int64 object_id = 1;                        // Feature ID affected
-  bool success = 2;                           // Operation success status
-  EditError error = 3;                       // Error details if failed
+  int64 object_id = 1; // Feature ID affected
+  bool success = 2; // Operation success status
+  EditError error = 3; // Error details if failed
 }
 
 // EditError provides details for a failed edit operation.
 message EditError {
-  int32 code = 1;                             // Error code
-  string message = 2;                         // Human-readable error message
+  int32 code = 1; // Error code
+  string message = 2; // Human-readable error message
 }
