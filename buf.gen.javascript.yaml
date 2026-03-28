@@ -1,6 +1,7 @@
-version: v1
+version: v2
 plugins:
-  - remote: buf.build/protocolbuffers/js
+  - remote: buf.build/connectrpc/es
     out: .
-  - remote: buf.build/grpc/js
-    out: .
+    opt:
+      - target=js
+      - import_extension=.js

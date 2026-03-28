@@ -1,4 +1,9 @@
-version: v1
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/geospatial-grpc/proto-go
 plugins:
   - remote: buf.build/protocolbuffers/go
     out: .
