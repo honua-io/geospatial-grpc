@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  BUF_VERSION: '1.28.1'
+  BUF_VERSION: '1.66.0'
 
 jobs:
   lint-and-validate:
