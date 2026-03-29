@@ -249,17 +249,18 @@ message QueryFeaturesRequest {
 
 ## Versioning
 
-### Protocol Versioning
+The protocol is versioned by its proto package (`geospatial.v1`).
+Within a major version, all releases maintain **wire and JSON compatibility**:
+existing serialized messages remain deserializable, and JSON field names do not change.
 
-- **Package Versioning**: `geospatial.v1`, `geospatial.v2`
-- **Backward Compatibility**: New fields are optional
-- **Breaking Changes**: Require new major version
+| Change Type | Examples | Compatibility |
+|-------------|----------|:-------------:|
+| Additive | New optional field, new enum value, new RPC | Safe within major version |
+| Documentation | Comment or spec updates | Safe within major version |
+| Breaking | Remove/rename field, change type/number | Requires new major version |
 
-### Schema Evolution
-
-- **Additive Changes**: Add optional fields, new enum values
-- **Compatible Changes**: Add new service methods
-- **Breaking Changes**: Remove fields, change field types
+For the full versioning policy, deprecation rules, and breaking-change governance process,
+see [`VERSIONING.md`](../VERSIONING.md).
 
 ## Implementation Guidelines
 
