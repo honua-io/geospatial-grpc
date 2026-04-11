@@ -1,0 +1,151 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/execution_types.proto";
+
+// ProcessService provides typed RPC access to geospatial process execution.
+//
+// This service covers the execution lifecycle for analysis workflows:
+// plan validation, dry-run estimation, synchronous and asynchronous execution,
+// and job management.
+//
+// Transport-neutral status mapping for server implementations:
+//   INVALID_ARGUMENT    — plan validation failures
+//   PERMISSION_DENIED   — authorization or policy failures
+//   NOT_FOUND           — unknown process, step kind, or job references
+//   RESOURCE_EXHAUSTED  — quota or rate-limit exceeded
+//   DEADLINE_EXCEEDED   — execution timeout
+//   FAILED_PRECONDITION — plan not validated, or job not in expected state
+//   CANCELLED           — client-initiated cancellation
+//   INTERNAL            — unexpected server errors
+service ProcessService {
+  // ValidatePlan checks a plan for structural and capability issues.
+  rpc ValidatePlan(ValidatePlanRequest) returns (ValidatePlanResponse);
+
+  // DryRunPlan estimates the cost and impact of executing a plan without side effects.
+  rpc DryRunPlan(DryRunPlanRequest) returns (DryRunPlanResponse);
+
+  // ExecutePlan runs a validated plan synchronously and returns the result.
+  rpc ExecutePlan(ExecutePlanRequest) returns (ExecutePlanResponse);
+
+  // ExecutePlanStream runs a plan and streams progress events and the final result.
+  rpc ExecutePlanStream(ExecutePlanRequest) returns (stream ExecutionEvent);
+
+  // SubmitJob submits a plan for asynchronous execution and returns a job handle.
+  rpc SubmitJob(SubmitJobRequest) returns (SubmitJobResponse);
+
+  // GetJob retrieves the current state and progress of a submitted job.
+  rpc GetJob(GetJobRequest) returns (GetJobResponse);
+
+  // GetJobResult retrieves the results of a completed job.
+  rpc GetJobResult(GetJobResultRequest) returns (GetJobResultResponse);
+
+  // CancelJob requests cancellation of a running or pending job.
+  rpc CancelJob(CancelJobRequest) returns (CancelJobResponse);
+}
+
+// ValidatePlanRequest asks the server to check a plan for structural and capability issues.
+message ValidatePlanRequest {
+  ExecutionPlan plan = 1;
+}
+
+// ValidatePlanResponse returns the validation outcome.
+message ValidatePlanResponse {
+  bool valid = 1;
+  repeated PlanValidationIssue issues = 2;
+}
+
+// DryRunPlanRequest asks the server to estimate the impact of executing a plan.
+message DryRunPlanRequest {
+  ExecutionPlan plan = 1;
+}
+
+// DryRunPlanResponse contains the validation outcome and dry-run estimation.
+message DryRunPlanResponse {
+  bool valid = 1;
+  repeated PlanValidationIssue issues = 2;
+  DryRunResult result = 3;
+}
+
+// ExecutePlanRequest submits a plan for synchronous or streaming execution.
+message ExecutePlanRequest {
+  ExecutionPlan plan = 1;
+  ExecutionContext context = 2;
+}
+
+// ExecutePlanResponse returns the complete result of synchronous execution.
+message ExecutePlanResponse {
+  string job_id = 1;
+  ExecutionResult result = 2;
+}
+
+// ExecutionEvent is a streaming message carrying progress, stage, result, or error events.
+message ExecutionEvent {
+  oneof event {
+    JobProgress progress = 1;
+    StageResult stage_result = 2;
+    ExecutionResult result = 3;
+    ErrorDetail error = 4;
+  }
+}
+
+// ExecutionResult contains the output of a completed process execution.
+message ExecutionResult {
+  string result_id = 1;
+  JobState status = 2;
+  string summary = 3;
+  repeated Assumption assumptions = 4;
+  repeated ArtifactRef artifacts = 5;
+  repeated StageResult stage_results = 6;
+  ProvenanceRecord provenance = 7;
+}
+
+// SubmitJobRequest submits a plan for asynchronous execution.
+message SubmitJobRequest {
+  ExecutionPlan plan = 1;
+  ExecutionContext context = 2;
+}
+
+// SubmitJobResponse confirms job submission and returns the job identifier.
+message SubmitJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+}
+
+// GetJobRequest retrieves the current state of a submitted job.
+message GetJobRequest {
+  string job_id = 1;
+}
+
+// GetJobResponse returns the job state and progress.
+message GetJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+  JobProgress progress = 3;
+}
+
+// GetJobResultRequest retrieves the results of a completed job.
+message GetJobResultRequest {
+  string job_id = 1;
+}
+
+// GetJobResultResponse returns the job result.
+message GetJobResultResponse {
+  string job_id = 1;
+  ExecutionResult result = 2;
+}
+
+// CancelJobRequest requests cancellation of a running or pending job.
+message CancelJobRequest {
+  string job_id = 1;
+}
+
+// CancelJobResponse confirms the cancellation outcome.
+message CancelJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+}

@@ -1,0 +1,247 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/common.proto";
+import "geospatial/v1/execution_types.proto";
+
+// PipelineService provides typed RPC access to data publishing pipeline execution.
+//
+// This service covers the execution lifecycle for publishing workflows:
+// pipeline validation, dry-run estimation, synchronous and asynchronous execution,
+// and job management for data ingestion, transformation, and publication.
+//
+// Transport-neutral status mapping for server implementations:
+//   INVALID_ARGUMENT    — pipeline definition validation failures
+//   PERMISSION_DENIED   — authorization or policy failures
+//   NOT_FOUND           — unknown source, target, or job references
+//   RESOURCE_EXHAUSTED  — quota or rate-limit exceeded
+//   DEADLINE_EXCEEDED   — pipeline execution timeout
+//   FAILED_PRECONDITION — pipeline not validated, or job not in expected state
+//   CANCELLED           — client-initiated cancellation
+//   INTERNAL            — unexpected server errors
+service PipelineService {
+  // ValidatePipeline checks a pipeline definition for structural and capability issues.
+  rpc ValidatePipeline(ValidatePipelineRequest) returns (ValidatePipelineResponse);
+
+  // DryRunPipeline estimates the cost and impact of executing a pipeline without side effects.
+  rpc DryRunPipeline(DryRunPipelineRequest) returns (DryRunPipelineResponse);
+
+  // ExecutePipeline runs a pipeline synchronously and returns the result.
+  rpc ExecutePipeline(ExecutePipelineRequest) returns (ExecutePipelineResponse);
+
+  // ExecutePipelineStream runs a pipeline and streams progress events and the final result.
+  rpc ExecutePipelineStream(ExecutePipelineRequest) returns (stream PipelineEvent);
+
+  // SubmitPipelineJob submits a pipeline for asynchronous execution and returns a job handle.
+  rpc SubmitPipelineJob(SubmitPipelineJobRequest) returns (SubmitPipelineJobResponse);
+
+  // GetPipelineJob retrieves the current state and progress of a submitted pipeline job.
+  rpc GetPipelineJob(GetPipelineJobRequest) returns (GetPipelineJobResponse);
+
+  // GetPipelineJobResult retrieves the results of a completed pipeline job.
+  rpc GetPipelineJobResult(GetPipelineJobResultRequest) returns (GetPipelineJobResultResponse);
+
+  // CancelPipelineJob requests cancellation of a running or pending pipeline job.
+  rpc CancelPipelineJob(CancelPipelineJobRequest) returns (CancelPipelineJobResponse);
+}
+
+// PipelineDefinition describes a data publishing pipeline.
+message PipelineDefinition {
+  string pipeline_id = 1;
+  string spec_version = 2;
+  DataSourceRef source = 3;
+  repeated PipelineStage stages = 4;
+  PublishTarget target = 5;
+  repeated SchemaMapping schema_mappings = 6;
+  repeated QualityRule quality_rules = 7;
+}
+
+// DataSourceRef identifies the input data source for a pipeline.
+message DataSourceRef {
+  string source_id = 1;
+  string source_type = 2; // e.g., feature_service, file, database
+  string locator = 3; // URL or connection reference
+  map<string, string> properties = 4;
+}
+
+// PipelineStage describes a single stage within a publishing pipeline.
+// Standard stage kinds: inspect_source, infer_schema, map_schema,
+// normalize_crs, clean_records, dedupe, enrich, quality_check, publish_service.
+message PipelineStage {
+  string stage_id = 1;
+  string kind = 2;
+  map<string, AttributeValue> config = 3;
+  repeated string dependencies = 4;
+}
+
+// PublishTarget describes where pipeline output should be published.
+message PublishTarget {
+  string target_id = 1;
+  string target_type = 2; // e.g., feature_service, map_service
+  string name = 3;
+  SpatialReference target_spatial_reference = 4;
+  map<string, string> properties = 5;
+}
+
+// SchemaMapping describes how a source field maps to a target field.
+message SchemaMapping {
+  string source_field = 1;
+  string target_field = 2;
+  FieldType target_type = 3;
+  string transform_expression = 4;
+}
+
+// QualityRule defines a data quality check to apply during pipeline execution.
+message QualityRule {
+  string rule_id = 1;
+  string rule_type = 2; // e.g., completeness, uniqueness, validity
+  string field = 3;
+  string expression = 4;
+  string message = 5;
+  IssueSeverity severity = 6;
+}
+
+// ValidatePipelineRequest asks the server to check a pipeline definition.
+message ValidatePipelineRequest {
+  PipelineDefinition pipeline = 1;
+}
+
+// ValidatePipelineResponse returns the validation outcome.
+message ValidatePipelineResponse {
+  bool valid = 1;
+  repeated PlanValidationIssue issues = 2;
+}
+
+// DryRunPipelineRequest asks the server to estimate pipeline execution impact.
+message DryRunPipelineRequest {
+  PipelineDefinition pipeline = 1;
+}
+
+// DryRunPipelineResponse contains the validation outcome and dry-run estimation.
+message DryRunPipelineResponse {
+  bool valid = 1;
+  repeated PlanValidationIssue issues = 2;
+  DryRunResult result = 3;
+}
+
+// ExecutePipelineRequest submits a pipeline for synchronous or streaming execution.
+message ExecutePipelineRequest {
+  PipelineDefinition pipeline = 1;
+  ExecutionContext context = 2;
+}
+
+// ExecutePipelineResponse returns the complete result of synchronous pipeline execution.
+message ExecutePipelineResponse {
+  string job_id = 1;
+  PipelineResult result = 2;
+}
+
+// PipelineEvent is a streaming message carrying progress, stage, result, or error events.
+message PipelineEvent {
+  oneof event {
+    JobProgress progress = 1;
+    StageResult stage_result = 2;
+    PipelineResult result = 3;
+    ErrorDetail error = 4;
+  }
+}
+
+// PipelineResult contains the output of a completed pipeline execution.
+message PipelineResult {
+  string result_id = 1;
+  JobState status = 2;
+  string summary = 3;
+  SourceLineage source_lineage = 4;
+  QualityReport quality_report = 5;
+  PublishedServiceInfo published_service = 6;
+  repeated ArtifactRef artifacts = 7;
+  repeated StageResult stage_results = 8;
+  ProvenanceRecord provenance = 9;
+}
+
+// SourceLineage describes the source data processed by a pipeline.
+message SourceLineage {
+  DataSourceRef source = 1;
+  int64 record_count = 2;
+  repeated FieldDefinition inferred_schema = 3;
+  SpatialReference source_spatial_reference = 4;
+  Extent source_extent = 5;
+}
+
+// QualityReport summarizes data quality checks from pipeline execution.
+message QualityReport {
+  int64 total_records = 1;
+  int64 valid_records = 2;
+  int64 invalid_records = 3;
+  int64 cleaned_records = 4;
+  int64 deduplicated_records = 5;
+  repeated QualityIssue issues = 6;
+}
+
+// QualityIssue reports a data quality problem found during pipeline execution.
+message QualityIssue {
+  string rule_id = 1;
+  string field = 2;
+  int64 affected_count = 3;
+  string message = 4;
+  IssueSeverity severity = 5;
+}
+
+// PublishedServiceInfo describes the service created by a publishing pipeline.
+message PublishedServiceInfo {
+  string service_id = 1;
+  string service_url = 2;
+  string service_type = 3;
+  repeated FieldDefinition schema = 4;
+  SpatialReference spatial_reference = 5;
+}
+
+// SubmitPipelineJobRequest submits a pipeline for asynchronous execution.
+message SubmitPipelineJobRequest {
+  PipelineDefinition pipeline = 1;
+  ExecutionContext context = 2;
+}
+
+// SubmitPipelineJobResponse confirms pipeline job submission.
+message SubmitPipelineJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+}
+
+// GetPipelineJobRequest retrieves the current state of a pipeline job.
+message GetPipelineJobRequest {
+  string job_id = 1;
+}
+
+// GetPipelineJobResponse returns the pipeline job state and progress.
+message GetPipelineJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+  JobProgress progress = 3;
+}
+
+// GetPipelineJobResultRequest retrieves the results of a completed pipeline job.
+message GetPipelineJobResultRequest {
+  string job_id = 1;
+}
+
+// GetPipelineJobResultResponse returns the pipeline job result.
+message GetPipelineJobResultResponse {
+  string job_id = 1;
+  PipelineResult result = 2;
+}
+
+// CancelPipelineJobRequest requests cancellation of a pipeline job.
+message CancelPipelineJobRequest {
+  string job_id = 1;
+}
+
+// CancelPipelineJobResponse confirms the pipeline cancellation outcome.
+message CancelPipelineJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+}
