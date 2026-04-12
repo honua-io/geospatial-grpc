@@ -127,7 +127,7 @@ cp -r ../gen/python/* .
 ### .NET Example
 
 ```csharp
-using GeospatialGrpc.V1;
+using Geospatial.V1;
 using Grpc.Net.Client;
 
 // Create gRPC channel
@@ -231,7 +231,7 @@ for feature in response.features:
 ### Get Form Definition
 
 ```csharp
-using GeospatialGrpc.V1;
+using Geospatial.V1;
 
 var formClient = new FormService.FormServiceClient(channel);
 
@@ -415,6 +415,206 @@ var channel = GrpcChannel.ForAddress("https://api.production.com", new GrpcChann
     Credentials = ChannelCredentials.Create(new SslCredentials(), credentials)
 });
 ```
+
+## Step 10: Process Execution and Pipelines
+
+The protocol includes two services for server-side execution workflows:
+
+- **`ProcessService`** — validate, dry-run, and execute geospatial analysis plans (synchronous, streaming, or async job)
+- **`PipelineService`** — validate, dry-run, and execute data publishing pipelines with stage-by-stage progress
+
+Both services share execution infrastructure defined in `execution_types.proto`: job lifecycle states, structured errors with retryability guidance, artifact references, and provenance records.
+
+### Validate and Dry-Run a Plan
+
+#### .NET
+
+```csharp
+using Geospatial.V1;
+
+var processClient = new ProcessService.ProcessServiceClient(channel);
+
+// Build a plan with typed steps
+var plan = new ExecutionPlan
+{
+    PlanId = "buffer-analysis-1",
+    SpecVersion = "1",
+    WorkflowFamily = WorkflowFamily.Analyze
+};
+
+plan.Steps.Add(new PlanStep
+{
+    StepId = "query",
+    Kind = "query_features",
+    Inputs =
+    {
+        ["service_id"] = new ParameterValue { StringValue = "parcels" },
+        ["where"] = new ParameterValue { StringValue = "ZONE = 'R1'" },
+        ["spatial_filter"] = new ParameterValue
+        {
+            SpatialFilterValue = new SpatialFilter
+            {
+                Geometry = new Geometry
+                {
+                    Polygon = new PolygonGeometry
+                    {
+                        Rings = { /* ring coordinates */ }
+                    }
+                },
+                SpatialRelationship = SpatialRelationship.Intersects
+            }
+        }
+    }
+});
+
+plan.Steps.Add(new PlanStep
+{
+    StepId = "buffer",
+    Kind = "geoprocess",
+    Inputs =
+    {
+        ["operation"] = new ParameterValue { StringValue = "buffer" },
+        ["distance"] = new ParameterValue { DoubleValue = 100.0 }
+    },
+    Dependencies = { "query" }
+});
+
+// Validate the plan
+var validation = await processClient.ValidatePlanAsync(
+    new ValidatePlanRequest { Plan = plan });
+
+if (!validation.Valid)
+{
+    foreach (var issue in validation.Issues)
+        Console.WriteLine($"[{issue.Severity}] {issue.NodeId}: {issue.Message}");
+    return;
+}
+
+// Estimate cost before executing
+var dryRun = await processClient.DryRunPlanAsync(
+    new DryRunPlanRequest { Plan = plan });
+
+Console.WriteLine($"Estimated duration: {dryRun.Result.EstimatedDurationSeconds}s");
+foreach (var artifact in dryRun.Result.EstimatedArtifacts)
+    Console.WriteLine($"  {artifact.ArtifactClass}: ~{artifact.EstimatedSizeBytes} bytes");
+```
+
+#### TypeScript
+
+```typescript
+import { ProcessService } from './gen/geospatial/v1/process_service_pb.js';
+import { createClient } from '@connectrpc/connect';
+
+const processClient = createClient(ProcessService, transport);
+
+const plan = {
+  planId: 'buffer-analysis-1',
+  specVersion: '1',
+  workflowFamily: 1, // WORKFLOW_FAMILY_ANALYZE
+  steps: [
+    {
+      stepId: 'query',
+      kind: 'query_features',
+      inputs: {
+        service_id: { kind: { case: 'stringValue', value: 'parcels' } },
+        where: { kind: { case: 'stringValue', value: "ZONE = 'R1'" } }
+      }
+    },
+    {
+      stepId: 'buffer',
+      kind: 'geoprocess',
+      inputs: {
+        operation: { kind: { case: 'stringValue', value: 'buffer' } },
+        distance: { kind: { case: 'doubleValue', value: 100.0 } }
+      },
+      dependencies: ['query']
+    }
+  ]
+};
+
+const validation = await processClient.validatePlan({ plan });
+
+if (!validation.valid) {
+  validation.issues.forEach(issue =>
+    console.log(`[${issue.severity}] ${issue.nodeId}: ${issue.message}`)
+  );
+} else {
+  const dryRun = await processClient.dryRunPlan({ plan });
+  console.log(`Estimated duration: ${dryRun.result?.estimatedDurationSeconds}s`);
+}
+```
+
+#### Python
+
+```python
+from geospatial.v1 import process_service_pb2
+from geospatial.v1 import process_service_pb2_grpc
+from geospatial.v1 import execution_types_pb2
+
+process_stub = process_service_pb2_grpc.ProcessServiceStub(channel)
+
+plan = execution_types_pb2.ExecutionPlan(
+    plan_id='buffer-analysis-1',
+    spec_version='1',
+    workflow_family=execution_types_pb2.WORKFLOW_FAMILY_ANALYZE,
+    steps=[
+        execution_types_pb2.PlanStep(
+            step_id='query',
+            kind='query_features',
+            inputs={
+                'service_id': execution_types_pb2.ParameterValue(string_value='parcels'),
+                'where': execution_types_pb2.ParameterValue(string_value="ZONE = 'R1'"),
+            }
+        ),
+        execution_types_pb2.PlanStep(
+            step_id='buffer',
+            kind='geoprocess',
+            inputs={
+                'operation': execution_types_pb2.ParameterValue(string_value='buffer'),
+                'distance': execution_types_pb2.ParameterValue(double_value=100.0),
+            },
+            dependencies=['query']
+        ),
+    ]
+)
+
+validation = process_stub.ValidatePlan(
+    process_service_pb2.ValidatePlanRequest(plan=plan))
+
+if not validation.valid:
+    for issue in validation.issues:
+        print(f'[{issue.severity}] {issue.node_id}: {issue.message}')
+else:
+    dry_run = process_stub.DryRunPlan(
+        process_service_pb2.DryRunPlanRequest(plan=plan))
+    print(f'Estimated duration: {dry_run.result.estimated_duration_seconds}s')
+```
+
+### Execute Synchronously
+
+```csharp
+var response = await processClient.ExecutePlanAsync(
+    new ExecutePlanRequest
+    {
+        Plan = plan,
+        Context = new ExecutionContext { WorkspaceId = "ws-1" }
+    });
+
+switch (response.OutcomeCase)
+{
+    case ExecutePlanResponse.OutcomeOneofCase.Result:
+        Console.WriteLine($"Completed: {response.Result.Summary}");
+        foreach (var artifact in response.Result.Artifacts)
+            Console.WriteLine($"  Artifact: {artifact.ArtifactId} ({artifact.ArtifactClass})");
+        break;
+    case ExecutePlanResponse.OutcomeOneofCase.Error:
+        Console.WriteLine($"Failed [{response.Error.Category}]: {response.Error.Message}");
+        Console.WriteLine($"  Retryability: {response.Error.Retryability}");
+        break;
+}
+```
+
+See the [Protocol Specification](specification.md) for the full RPC surface, streaming execution, async job management, and pipeline definitions.
 
 ## Next Steps
 

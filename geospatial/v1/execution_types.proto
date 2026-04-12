@@ -1,0 +1,250 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/common.proto";
+import "geospatial/v1/spatial_types.proto";
+
+// Shared types for operator execution contracts across process and pipeline services.
+
+// WorkflowFamily identifies the category of operator workflow.
+// Values are scoped to families with a defined owning service in this package.
+// Values 2-4 are earmarked for publish, build, and deploy families and will
+// be defined when those services are added.
+enum WorkflowFamily {
+  WORKFLOW_FAMILY_UNSPECIFIED = 0;
+  WORKFLOW_FAMILY_ANALYZE = 1;
+}
+
+// JobState represents the lifecycle state of an execution job.
+enum JobState {
+  JOB_STATE_UNSPECIFIED = 0;
+  JOB_STATE_DRAFT = 1;
+  JOB_STATE_AWAITING_CLARIFICATION = 2;
+  JOB_STATE_VALIDATED = 3;
+  JOB_STATE_AWAITING_APPROVAL = 4;
+  JOB_STATE_RUNNING = 5;
+  JOB_STATE_COMPLETED = 6;
+  JOB_STATE_FAILED = 7;
+  JOB_STATE_CANCELLED = 8;
+}
+
+// StageState represents the state of an individual execution stage.
+enum StageState {
+  STAGE_STATE_UNSPECIFIED = 0;
+  STAGE_STATE_PENDING = 1;
+  STAGE_STATE_RUNNING = 2;
+  STAGE_STATE_COMPLETED = 3;
+  STAGE_STATE_NEEDS_USER_INPUT = 4;
+  STAGE_STATE_BLOCKED = 5;
+  STAGE_STATE_FAILED = 6;
+  STAGE_STATE_SKIPPED = 7;
+  STAGE_STATE_CANCELLED = 8;
+}
+
+// ErrorCategory classifies the domain of an execution error.
+enum ErrorCategory {
+  ERROR_CATEGORY_UNSPECIFIED = 0;
+  ERROR_CATEGORY_VALIDATION = 1;
+  ERROR_CATEGORY_AUTHORIZATION = 2;
+  ERROR_CATEGORY_POLICY = 3;
+  ERROR_CATEGORY_EXECUTION = 4;
+  ERROR_CATEGORY_ARTIFACT = 5;
+  ERROR_CATEGORY_PACKAGING = 6;
+  ERROR_CATEGORY_DEPLOYMENT = 7;
+}
+
+// Retryability classifies how a failed operation may be retried.
+enum Retryability {
+  RETRYABILITY_UNSPECIFIED = 0;
+  RETRYABILITY_FIX_PLAN_AND_RETRY = 1;
+  RETRYABILITY_FIX_DATA_AND_RETRY = 2;
+  RETRYABILITY_INSUFFICIENT_QUOTA = 3;
+  RETRYABILITY_TRANSIENT_BACKEND_ERROR = 4;
+  RETRYABILITY_PERMANENT_FAILURE = 5;
+}
+
+// ArtifactClass identifies the type of an execution artifact.
+enum ArtifactClass {
+  ARTIFACT_CLASS_UNSPECIFIED = 0;
+  ARTIFACT_CLASS_SCALAR = 1;
+  ARTIFACT_CLASS_FEATURE_LAYER = 2;
+  ARTIFACT_CLASS_TABLE = 3;
+  ARTIFACT_CLASS_RASTER = 4;
+  ARTIFACT_CLASS_FILE = 5;
+  ARTIFACT_CLASS_REPORT = 6;
+  ARTIFACT_CLASS_MAP = 7;
+  ARTIFACT_CLASS_APP_BUNDLE = 8;
+  ARTIFACT_CLASS_SERVICE_DEFINITION = 9;
+}
+
+// IssueSeverity classifies the severity of a validation or quality issue.
+enum IssueSeverity {
+  ISSUE_SEVERITY_UNSPECIFIED = 0;
+  ISSUE_SEVERITY_ERROR = 1;
+  ISSUE_SEVERITY_WARNING = 2;
+  ISSUE_SEVERITY_INFO = 3;
+}
+
+// ExecutionPlan describes a sequence of steps to execute.
+message ExecutionPlan {
+  string plan_id = 1;
+  string spec_version = 2;
+  WorkflowFamily workflow_family = 3;
+  repeated PlanStep steps = 4;
+  repeated string expected_outputs = 5;
+}
+
+// PlanStep describes a single step within an execution plan.
+// Standard step kinds for analysis workflows: query_features, geoprocess,
+// aggregate, render_map, export. Standard kinds should use the typed
+// ParameterValue branches where a canonical message exists (e.g.,
+// spatial_filter_value for query_features spatial filters).
+message PlanStep {
+  string step_id = 1;
+  string kind = 2;
+  map<string, ParameterValue> inputs = 3;
+  repeated string dependencies = 4;
+}
+
+// ErrorDetail provides structured error information for execution failures.
+message ErrorDetail {
+  string error_code = 1;
+  ErrorCategory category = 2;
+  string message = 3;
+  // Descriptive label for the execution phase where the error occurred.
+  string phase = 4;
+  // Correlates to PlanStep.step_id (ProcessService) or PipelineStage.stage_id (PipelineService).
+  string node_id = 5;
+  Retryability retryability = 6;
+  string suggested_action = 7;
+  map<string, string> details = 8;
+}
+
+// ArtifactRef identifies a produced artifact and its metadata.
+message ArtifactRef {
+  string artifact_id = 1;
+  ArtifactClass artifact_class = 2;
+  int32 artifact_version = 3;
+  string producer_ref = 4;
+  string workspace_ref = 5;
+  string retention_policy_ref = 6;
+  string materialization_state = 7;
+}
+
+// EstimatedArtifact describes an artifact expected from a dry run.
+message EstimatedArtifact {
+  ArtifactClass artifact_class = 1;
+  int64 estimated_size_bytes = 2;
+  string description = 3;
+}
+
+// SideEffect describes an external effect that execution would produce.
+message SideEffect {
+  string effect_type = 1;
+  string target = 2;
+  string description = 3;
+}
+
+// CostEstimate provides estimated resource consumption for execution.
+message CostEstimate {
+  string units = 1;
+  double amount = 2;
+}
+
+// DryRunResult contains the estimated impact of executing a plan without side effects.
+message DryRunResult {
+  int64 estimated_duration_seconds = 1;
+  repeated EstimatedArtifact estimated_artifacts = 2;
+  repeated SideEffect side_effects = 3;
+  CostEstimate cost_estimate = 4;
+}
+
+// JobProgress reports the current state of a running job.
+message JobProgress {
+  string job_id = 1;
+  JobState state = 2;
+  int32 progress_percent = 3;
+  // Correlates to PlanStep.step_id (ProcessService) or PipelineStage.stage_id (PipelineService).
+  string current_node_id = 4;
+  int64 started_at = 5; // UTC milliseconds since epoch
+  int64 updated_at = 6; // UTC milliseconds since epoch
+  string message = 7;
+}
+
+// StageResult reports the outcome of an individual execution stage.
+message StageResult {
+  // Correlates to PlanStep.step_id (ProcessService) or PipelineStage.stage_id (PipelineService).
+  string node_id = 1;
+  StageState state = 2;
+  ErrorDetail error = 3;
+  repeated ArtifactRef partial_artifacts = 4;
+}
+
+// PlanValidationIssue describes a problem found during plan or pipeline validation.
+message PlanValidationIssue {
+  // Correlates to PlanStep.step_id (ProcessService) or PipelineStage.stage_id (PipelineService).
+  string node_id = 1;
+  string field = 2;
+  string message = 3;
+  IssueSeverity severity = 4;
+}
+
+// Assumption records a decision or inference made during execution.
+message Assumption {
+  string assumption_id = 1;
+  string description = 2;
+  string rationale = 3;
+  bool user_confirmed = 4;
+}
+
+// ProvenanceRecord captures the full execution lineage for a result.
+message ProvenanceRecord {
+  repeated string source_dataset_refs = 1;
+  repeated string process_definition_refs = 2;
+  repeated Assumption assumptions = 3;
+  int64 executed_at = 4; // UTC milliseconds since epoch
+  int64 duration_seconds = 5;
+}
+
+// ParameterValue represents a typed parameter for step inputs and stage config.
+// Scalar, list, and struct branches handle generic parameters. Typed branches
+// for canonical geospatial messages let standard step and stage kinds reference
+// protocol-owned types directly instead of requiring ad-hoc struct encoding.
+message ParameterValue {
+  oneof kind {
+    string string_value = 1;
+    int64 int64_value = 2;
+    double double_value = 3;
+    bool bool_value = 4;
+    bytes bytes_value = 5;
+    ParameterList list_value = 6;
+    ParameterMap struct_value = 7;
+    // Typed geospatial branches — reuse canonical protocol messages.
+    SpatialFilter spatial_filter_value = 8;
+    SpatialReference spatial_reference_value = 9;
+    Geometry geometry_value = 10;
+    Extent extent_value = 11;
+    StatisticDefinition statistic_value = 12;
+  }
+}
+
+// ParameterList is an ordered sequence of parameter values.
+message ParameterList {
+  repeated ParameterValue values = 1;
+}
+
+// ParameterMap is a string-keyed structure of parameter values.
+message ParameterMap {
+  map<string, ParameterValue> fields = 1;
+}
+
+// ExecutionContext provides optional execution preferences.
+message ExecutionContext {
+  string workspace_id = 1;
+  int64 timeout_seconds = 2;
+  map<string, string> metadata = 3;
+}

@@ -1,0 +1,3 @@
+obj/Debug/net8.0/geospatial/v1/FormService.cs \
+obj/Debug/net8.0/geospatial/v1/FormServiceGrpc.cs: ../../geospatial/v1/common.proto\
+ ../../geospatial/v1/form_service.proto

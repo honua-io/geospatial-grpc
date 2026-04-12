@@ -88,8 +88,10 @@ The example uses these NuGet packages:
 
 ## Next Steps
 
+- **Process Execution**: Use `ProcessService` to validate, dry-run, and execute analysis plans — see the [Getting Started guide](../../docs/getting-started.md#step-10-process-execution-and-pipelines)
+- **Data Publishing**: Use `PipelineService` to run data ingestion and publishing pipelines
 - **Explore Streaming**: Modify the example to use `QueryFeaturesStream` for large datasets
 - **Add Authentication**: Implement API key or OAuth authentication
-- **Error Retry**: Add retry logic with exponential backoff
+- **Error Retry**: Add retry logic with exponential backoff; use `ErrorDetail.Retryability` for execution errors
 - **Offline Support**: Cache responses for offline scenarios
 - **Real-time Updates**: Use bidirectional streaming for live collaboration
