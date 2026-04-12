@@ -30,12 +30,15 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 |---------|---------|--------------|
 | `FeatureService` | Geospatial CRUD operations | Query, stream, edit features |
 | `FormService` | Mobile data collection | Dynamic forms, validation, collaboration |
+| `ProcessService` | Geospatial process execution | Plan validation, dry-run, sync/streaming/async execution |
+| `PipelineService` | Data publishing pipelines | Pipeline validation, dry-run, stage-by-stage execution |
 
 ### Key Message Types
 
 - **Spatial Types**: Point, Polygon, MultiPolygon geometries with Z/M support
 - **Feature**: Attributes + geometry with flexible typing
 - **Form Controls**: Rich input types (location, media, validation)
+- **Execution Types**: Plans, steps, jobs, artifacts, provenance, and structured errors
 - **Mobile Optimizations**: Battery, network, and device-aware
 
 ## 🚀 Quick Start
@@ -45,10 +48,13 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 ```bash
 # View proto definitions
 ls geospatial/v1/
-# ├── common.proto          # Shared types
-# ├── spatial_types.proto   # Geometry definitions
-# ├── feature_service.proto # Feature CRUD
-# └── form_service.proto    # Mobile forms
+# ├── common.proto            # Shared types
+# ├── spatial_types.proto     # Geometry definitions
+# ├── feature_service.proto   # Feature CRUD
+# ├── form_service.proto      # Mobile forms
+# ├── execution_types.proto   # Shared execution infrastructure
+# ├── process_service.proto   # Process execution
+# └── pipeline_service.proto  # Data publishing pipelines
 ```
 
 ### 2. Generate Client Libraries
@@ -141,6 +147,7 @@ for feature in response.features:
 
 - **[Protocol Specification](docs/specification.md)** - Detailed protocol documentation
 - **[Getting Started Guide](docs/getting-started.md)** - Developer quick start
+- **[Versioning Policy](VERSIONING.md)** - Compatibility guarantees and change governance
 - **[API Reference](docs/api.md)** - Generated API documentation
 - **[Examples](examples/)** - Code samples for multiple languages
 
@@ -148,16 +155,21 @@ for feature in response.features:
 
 ```
 geospatial-grpc/
-├── geospatial/v1/           # Protocol definitions
-│   ├── common.proto         # Shared types and enums
-│   ├── spatial_types.proto  # Geometry types
-│   ├── feature_service.proto# Feature CRUD operations
-│   └── form_service.proto   # Mobile data collection
-├── docs/                    # Protocol documentation
-├── examples/                # Language-specific examples
-├── gen/                     # Generated client libraries
-├── buf.yaml                 # Buf configuration
-├── buf.gen.yaml             # Code generation config
+├── geospatial/v1/              # Protocol definitions
+│   ├── common.proto            # Shared types and enums
+│   ├── spatial_types.proto     # Geometry types
+│   ├── feature_service.proto   # Feature CRUD operations
+│   ├── form_service.proto      # Mobile data collection
+│   ├── execution_types.proto   # Shared execution infrastructure
+│   ├── process_service.proto   # Geospatial process execution
+│   └── pipeline_service.proto  # Data publishing pipelines
+├── docs/                       # Protocol documentation
+├── examples/                   # Language-specific examples
+├── gen/                        # Generated client libraries
+├── buf.yaml                    # Buf configuration
+├── buf.gen.yaml                # Code generation config
+├── CONTRIBUTING.md             # Contribution guidelines
+├── VERSIONING.md               # Versioning and compatibility policy
 └── README.md
 ```
 

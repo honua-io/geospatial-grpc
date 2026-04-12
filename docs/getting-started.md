@@ -416,6 +416,17 @@ var channel = GrpcChannel.ForAddress("https://api.production.com", new GrpcChann
 });
 ```
 
+## Step 10: Process Execution and Pipelines
+
+The protocol includes two services for server-side execution workflows:
+
+- **`ProcessService`** — validate, dry-run, and execute geospatial analysis plans (synchronous, streaming, or async job)
+- **`PipelineService`** — validate, dry-run, and execute data publishing pipelines with stage-by-stage progress
+
+Both services share execution infrastructure defined in `execution_types.proto`: job lifecycle states, structured errors with retryability guidance, artifact references, and provenance records.
+
+See the [Protocol Specification](specification.md) for the full RPC surface, message definitions, and execution semantics.
+
 ## Next Steps
 
 - **Explore Examples**: Check the `examples/` directory for complete projects

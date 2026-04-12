@@ -115,7 +115,7 @@ An `ExecutionPlan` contains a sequence of typed steps. Each `PlanStep` has a `ki
 
 #### Job Lifecycle
 
-Jobs transition through these states: `DRAFT` → `VALIDATED` → `RUNNING` → `COMPLETED` or `FAILED`. Additional states include `AWAITING_CLARIFICATION`, `AWAITING_APPROVAL`, and `CANCELLED`. The `GetJob` RPC returns the current state and `JobProgress` with percentage, current step, and timestamps.
+Jobs transition through these states: `DRAFT` → `VALIDATED` → `RUNNING` → `COMPLETED` or `FAILED`. Additional states include `AWAITING_CLARIFICATION`, `AWAITING_APPROVAL`, and `CANCELLED`. The `GetJob` RPC returns the current state and `JobProgress` with percentage, current node identifier, and timestamps.
 
 #### Error Model
 
@@ -168,6 +168,10 @@ Both services share types defined in `execution_types.proto`:
 - **Artifacts**: `ArtifactRef` with class, version, and workspace/producer references
 - **Dry-run**: `DryRunResult` with estimated artifacts, side effects, and cost
 - **Provenance**: `ProvenanceRecord` with source datasets, assumptions, and timing
+
+#### Node Identifier Convention
+
+Shared messages (`JobProgress`, `StageResult`, `PlanValidationIssue`, `ErrorDetail`) use a neutral `node_id` field to identify the plan node where an event, result, or issue originated. For `ProcessService`, `node_id` correlates to `PlanStep.step_id`. For `PipelineService`, `node_id` correlates to `PipelineStage.stage_id`. Implementations must populate `node_id` with the identifier from the corresponding service-specific definition.
 
 ## Data Types
 
@@ -291,6 +295,8 @@ Process and pipeline execution errors use a structured `ErrorDetail` model with 
 | `policy` | Operation violates platform policy |
 | `execution` | Runtime failure during step execution |
 | `artifact` | Artifact production or storage failure |
+| `packaging` | Build or packaging failure |
+| `deployment` | Deployment or publication failure |
 
 Each error includes a `retryability` field to guide client recovery:
 

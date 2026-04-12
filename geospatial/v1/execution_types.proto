@@ -10,12 +10,14 @@ import "geospatial/v1/common.proto";
 // Shared types for operator execution contracts across process and pipeline services.
 
 // WorkflowFamily identifies the category of operator workflow.
+// Values are scoped to families with a defined owning service in this package.
+// Families for future services (publish, build, deploy) will be added when
+// those services are defined.
 enum WorkflowFamily {
   WORKFLOW_FAMILY_UNSPECIFIED = 0;
   WORKFLOW_FAMILY_ANALYZE = 1;
-  WORKFLOW_FAMILY_PUBLISH_DATA = 2;
-  WORKFLOW_FAMILY_BUILD_APP = 3;
-  WORKFLOW_FAMILY_AUTOMATE_DEPLOY = 4;
+  reserved 2, 3, 4;
+  reserved "WORKFLOW_FAMILY_PUBLISH_DATA", "WORKFLOW_FAMILY_BUILD_APP", "WORKFLOW_FAMILY_AUTOMATE_DEPLOY";
 }
 
 // JobState represents the lifecycle state of an execution job.
@@ -112,8 +114,10 @@ message ErrorDetail {
   string error_code = 1;
   ErrorCategory category = 2;
   string message = 3;
-  string stage = 4;
-  string step_id = 5;
+  // Descriptive label for the execution phase where the error occurred.
+  string phase = 4;
+  // Correlates to PlanStep.step_id (ProcessService) or PipelineStage.stage_id (PipelineService).
+  string node_id = 5;
   Retryability retryability = 6;
   string suggested_action = 7;
   map<string, string> details = 8;
@@ -163,7 +167,8 @@ message JobProgress {
   string job_id = 1;
   JobState state = 2;
   int32 progress_percent = 3;
-  string current_step_id = 4;
+  // Correlates to PlanStep.step_id (ProcessService) or PipelineStage.stage_id (PipelineService).
+  string current_node_id = 4;
   int64 started_at = 5; // UTC milliseconds since epoch
   int64 updated_at = 6; // UTC milliseconds since epoch
   string message = 7;
@@ -171,7 +176,8 @@ message JobProgress {
 
 // StageResult reports the outcome of an individual execution stage.
 message StageResult {
-  string stage = 1;
+  // Correlates to PlanStep.step_id (ProcessService) or PipelineStage.stage_id (PipelineService).
+  string node_id = 1;
   StageState state = 2;
   ErrorDetail error = 3;
   repeated ArtifactRef partial_artifacts = 4;
@@ -179,7 +185,8 @@ message StageResult {
 
 // PlanValidationIssue describes a problem found during plan or pipeline validation.
 message PlanValidationIssue {
-  string step_id = 1;
+  // Correlates to PlanStep.step_id (ProcessService) or PipelineStage.stage_id (PipelineService).
+  string node_id = 1;
   string field = 2;
   string message = 3;
   IssueSeverity severity = 4;
