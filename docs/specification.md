@@ -135,6 +135,10 @@ Pipeline stage kinds follow the same convention. For example, `normalize_crs` us
 
 Jobs transition through these states: `DRAFT` → `VALIDATED` → `RUNNING` → `COMPLETED` or `FAILED`. Additional states include `AWAITING_CLARIFICATION`, `AWAITING_APPROVAL`, and `CANCELLED`. The `GetJob` RPC returns the current state and `JobProgress` with percentage, current node identifier, and timestamps.
 
+#### Process Results
+
+`ExecutionResult` contains the output of a completed process execution: a `result_id`, the terminal `status` (`JobState`), a human-readable `summary`, any `assumptions` recorded during execution, produced `artifacts` (`ArtifactRef` list), per-step `stage_results`, and a `ProvenanceRecord` with source dataset references and timing.
+
 #### Error Model
 
 Execution errors are returned as `ErrorDetail` messages with:

@@ -87,12 +87,17 @@ python/
 ├── README.md                 # This file
 └── geospatial/               # Generated Python modules (after generation)
     └── v1/
+        ├── common_pb2.py
+        ├── spatial_types_pb2.py
         ├── feature_service_pb2.py
         ├── feature_service_pb2_grpc.py
         ├── form_service_pb2.py
         ├── form_service_pb2_grpc.py
-        ├── common_pb2.py
-        └── spatial_types_pb2.py
+        ├── execution_types_pb2.py
+        ├── process_service_pb2.py
+        ├── process_service_pb2_grpc.py
+        ├── pipeline_service_pb2.py
+        └── pipeline_service_pb2_grpc.py
 ```
 
 ## Dependencies
@@ -234,6 +239,8 @@ async def test_error_handling():
 
 ## Next Steps
 
+- **Process Execution**: Use `ProcessService` to validate, dry-run, and execute analysis plans — see the [Getting Started guide](../../docs/getting-started.md#step-10-process-execution-and-pipelines)
+- **Data Publishing**: Use `PipelineService` to run data ingestion and publishing pipelines
 - **Web Framework**: Integrate with FastAPI, Django, or Flask
 - **Data Processing**: Use with pandas, geopandas for analysis
 - **Machine Learning**: Feed geospatial data to ML models
