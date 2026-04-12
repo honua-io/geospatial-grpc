@@ -1,6 +1,6 @@
 # Geospatial gRPC Protocol Standard
 
-> Open source gRPC protocol definitions for geospatial data access and mobile field data collection
+> Open source gRPC protocol definitions for geospatial data access, mobile data collection, and execution workflows
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Buf Registry](https://img.shields.io/badge/buf-registry-blue)](https://buf.build/geospatial/standard)
@@ -11,6 +11,8 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 
 - **Feature data access**: Query, stream, and edit geospatial features
 - **Mobile data collection**: Modern alternative to OpenRosa XML forms
+- **Process execution**: Validate, dry-run, and execute geospatial analysis workflows
+- **Data publishing**: Ingest, transform, and publish geospatial datasets
 - **Real-time collaboration**: Multi-user editing and synchronization
 - **Cross-platform compatibility**: Native mobile, web, and desktop apps
 

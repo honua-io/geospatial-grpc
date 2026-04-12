@@ -5,6 +5,9 @@ syntax = "proto3";
 
 package geospatial.v1;
 
+import "geospatial/v1/common.proto";
+import "geospatial/v1/spatial_types.proto";
+
 // Shared types for operator execution contracts across process and pipeline services.
 
 // WorkflowFamily identifies the category of operator workflow.
@@ -97,7 +100,9 @@ message ExecutionPlan {
 
 // PlanStep describes a single step within an execution plan.
 // Standard step kinds for analysis workflows: query_features, geoprocess,
-// aggregate, render_map, export.
+// aggregate, render_map, export. Standard kinds should use the typed
+// ParameterValue branches where a canonical message exists (e.g.,
+// spatial_filter_value for query_features spatial filters).
 message PlanStep {
   string step_id = 1;
   string kind = 2;
@@ -205,9 +210,10 @@ message ProvenanceRecord {
   int64 duration_seconds = 5;
 }
 
-// ParameterValue represents a typed parameter that may be scalar, a list,
-// or a key-value structure. Supports the nested and repeated shapes required
-// by standard step kinds (e.g., query_features spatial filters, object ID lists).
+// ParameterValue represents a typed parameter for step inputs and stage config.
+// Scalar, list, and struct branches handle generic parameters. Typed branches
+// for canonical geospatial messages let standard step and stage kinds reference
+// protocol-owned types directly instead of requiring ad-hoc struct encoding.
 message ParameterValue {
   oneof kind {
     string string_value = 1;
@@ -217,6 +223,12 @@ message ParameterValue {
     bytes bytes_value = 5;
     ParameterList list_value = 6;
     ParameterMap struct_value = 7;
+    // Typed geospatial branches — reuse canonical protocol messages.
+    SpatialFilter spatial_filter_value = 8;
+    SpatialReference spatial_reference_value = 9;
+    Geometry geometry_value = 10;
+    Extent extent_value = 11;
+    StatisticDefinition statistic_value = 12;
   }
 }
 

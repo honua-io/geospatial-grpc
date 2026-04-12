@@ -2,7 +2,7 @@
 
 ## Overview
 
-This specification defines standardized gRPC protocols for geospatial data access and mobile field data collection. The protocols are designed to provide type-safe, high-performance alternatives to traditional REST APIs and XML-based form systems.
+This specification defines standardized gRPC protocols for geospatial data access, mobile field data collection, process execution, and data publishing pipelines. The protocols provide type-safe, high-performance service contracts for spatial feature CRUD, mobile forms, analysis workflow execution, and dataset publishing.
 
 ## Design Principles
 
@@ -107,7 +107,21 @@ service ProcessService {
 
 #### Execution Plans
 
-An `ExecutionPlan` contains a sequence of typed steps. Each `PlanStep` has a `kind` (e.g., `query_features`, `geoprocess`, `aggregate`, `render_map`, `export`), typed inputs as `map<string, ParameterValue>`, and dependency references to other steps. Steps form a DAG that the platform resolves and executes in order. `ParameterValue` supports scalar, list, and nested-struct shapes so step inputs can represent complex parameters (e.g., spatial filters, field lists) without ad hoc string encoding.
+An `ExecutionPlan` contains a sequence of typed steps. Each `PlanStep` has a `kind` (e.g., `query_features`, `geoprocess`, `aggregate`, `render_map`, `export`), typed inputs as `map<string, ParameterValue>`, and dependency references to other steps. Steps form a DAG that the platform resolves and executes in order. `ParameterValue` supports scalar, list, and struct branches for generic parameters, plus typed branches for canonical geospatial messages (`SpatialFilter`, `SpatialReference`, `Geometry`, `Extent`, `StatisticDefinition`). Typed branches let standard step kinds reference existing protocol-owned types directly instead of requiring ad-hoc struct encoding.
+
+Standard step kind parameter conventions:
+
+| Step Kind | Parameter Key | Typed Branch |
+|-----------|--------------|--------------|
+| `query_features` | `spatial_filter` | `spatial_filter_value` (`SpatialFilter`) |
+| `query_features` | `out_sr` | `spatial_reference_value` (`SpatialReference`) |
+| `query_features` | `out_statistics` | `list_value` of `statistic_value` (`StatisticDefinition`) |
+| `query_features` | `object_ids` | `list_value` of `int64_value` |
+| `query_features` | `out_fields` | `list_value` of `string_value` |
+| `geoprocess` | `input_geometry` | `geometry_value` (`Geometry`) |
+| `geoprocess` | `clip_extent` | `extent_value` (`Extent`) |
+
+Pipeline stage kinds follow the same convention. For example, `normalize_crs` uses `spatial_reference_value` for its `target_sr` parameter.
 
 #### Validation Semantics
 
@@ -180,7 +194,7 @@ Both services share types defined in `execution_types.proto`:
 - **Artifacts**: `ArtifactRef` with class, version, and workspace/producer references
 - **Dry-run**: `DryRunResult` with estimated artifacts, side effects, and cost
 - **Provenance**: `ProvenanceRecord` with source datasets, assumptions, and timing
-- **Parameters**: `ParameterValue` (scalar/list/struct) for step inputs and stage config
+- **Parameters**: `ParameterValue` (scalar/list/struct/typed geospatial) for step inputs and stage config
 
 #### Execution Context
 
@@ -310,7 +324,7 @@ enum ValidationSeverity {
 Process and pipeline execution errors use a structured `ErrorDetail` model with machine-parseable codes, domain categories, and retryability classification. Execution-phase failures — errors that occur after the server begins executing a plan or pipeline — are always reported through `ErrorDetail` rather than gRPC status codes, so the structured error model is available to the client. The error surface is consistent across execution modes:
 
 - **Streaming** (`ExecutePlanStream` / `ExecutePipelineStream`): A terminal `error` event carries the `ErrorDetail`.
-- **Unary** (`ExecutePlan` / `ExecutePipeline`): The gRPC status is `OK` and the response `outcome` oneof carries either `result` or `error`. The schema enforces that exactly one is set.
+- **Unary** (`ExecutePlan` / `ExecutePipeline`): The gRPC status is `OK` and the response `outcome` oneof carries either `result` or `error`. The `oneof` guarantees mutual exclusion (at most one branch is set on the wire); servers MUST populate exactly one.
 - **Async results** (`GetJobResult` / `GetPipelineJobResult`): The gRPC status is `OK` and the response `outcome` oneof carries `result` or `error` for completed/failed jobs.
 
 | Category | Description |
