@@ -80,7 +80,7 @@ message DataSourceRef {
 message PipelineStage {
   string stage_id = 1;
   string kind = 2;
-  map<string, AttributeValue> config = 3;
+  map<string, ParameterValue> config = 3;
   repeated string dependencies = 4;
 }
 
@@ -145,8 +145,10 @@ message ExecutePipelineRequest {
 // result is populated; on terminal failure, only error is populated.
 message ExecutePipelineResponse {
   string job_id = 1;
-  PipelineResult result = 2;
-  ErrorDetail error = 3;
+  oneof outcome {
+    PipelineResult result = 2;
+    ErrorDetail error = 3;
+  }
 }
 
 // PipelineEvent is a streaming message carrying progress, stage, result, or error events.
@@ -243,8 +245,10 @@ message GetPipelineJobResultRequest {
 // error field carries the structured ErrorDetail.
 message GetPipelineJobResultResponse {
   string job_id = 1;
-  PipelineResult result = 2;
-  ErrorDetail error = 3;
+  oneof outcome {
+    PipelineResult result = 2;
+    ErrorDetail error = 3;
+  }
 }
 
 // CancelPipelineJobRequest requests cancellation of a pipeline job.

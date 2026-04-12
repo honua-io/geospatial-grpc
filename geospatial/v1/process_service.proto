@@ -88,8 +88,10 @@ message ExecutePlanRequest {
 // result is populated; on terminal failure, only error is populated.
 message ExecutePlanResponse {
   string job_id = 1;
-  ExecutionResult result = 2;
-  ErrorDetail error = 3;
+  oneof outcome {
+    ExecutionResult result = 2;
+    ErrorDetail error = 3;
+  }
 }
 
 // ExecutionEvent is a streaming message carrying progress, stage, result, or error events.
@@ -147,8 +149,10 @@ message GetJobResultRequest {
 // error field carries the structured ErrorDetail.
 message GetJobResultResponse {
   string job_id = 1;
-  ExecutionResult result = 2;
-  ErrorDetail error = 3;
+  oneof outcome {
+    ExecutionResult result = 2;
+    ErrorDetail error = 3;
+  }
 }
 
 // CancelJobRequest requests cancellation of a running or pending job.

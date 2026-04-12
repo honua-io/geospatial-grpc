@@ -5,19 +5,15 @@ syntax = "proto3";
 
 package geospatial.v1;
 
-import "geospatial/v1/common.proto";
-
 // Shared types for operator execution contracts across process and pipeline services.
 
 // WorkflowFamily identifies the category of operator workflow.
 // Values are scoped to families with a defined owning service in this package.
-// Families for future services (publish, build, deploy) will be added when
-// those services are defined.
+// Values 2-4 are earmarked for publish, build, and deploy families and will
+// be defined when those services are added.
 enum WorkflowFamily {
   WORKFLOW_FAMILY_UNSPECIFIED = 0;
   WORKFLOW_FAMILY_ANALYZE = 1;
-  reserved 2, 3, 4;
-  reserved "WORKFLOW_FAMILY_PUBLISH_DATA", "WORKFLOW_FAMILY_BUILD_APP", "WORKFLOW_FAMILY_AUTOMATE_DEPLOY";
 }
 
 // JobState represents the lifecycle state of an execution job.
@@ -105,7 +101,7 @@ message ExecutionPlan {
 message PlanStep {
   string step_id = 1;
   string kind = 2;
-  map<string, AttributeValue> inputs = 3;
+  map<string, ParameterValue> inputs = 3;
   repeated string dependencies = 4;
 }
 
@@ -207,6 +203,31 @@ message ProvenanceRecord {
   repeated Assumption assumptions = 3;
   int64 executed_at = 4; // UTC milliseconds since epoch
   int64 duration_seconds = 5;
+}
+
+// ParameterValue represents a typed parameter that may be scalar, a list,
+// or a key-value structure. Supports the nested and repeated shapes required
+// by standard step kinds (e.g., query_features spatial filters, object ID lists).
+message ParameterValue {
+  oneof kind {
+    string string_value = 1;
+    int64 int64_value = 2;
+    double double_value = 3;
+    bool bool_value = 4;
+    bytes bytes_value = 5;
+    ParameterList list_value = 6;
+    ParameterMap struct_value = 7;
+  }
+}
+
+// ParameterList is an ordered sequence of parameter values.
+message ParameterList {
+  repeated ParameterValue values = 1;
+}
+
+// ParameterMap is a string-keyed structure of parameter values.
+message ParameterMap {
+  map<string, ParameterValue> fields = 1;
 }
 
 // ExecutionContext provides optional execution preferences.

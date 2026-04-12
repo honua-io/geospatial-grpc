@@ -107,7 +107,7 @@ service ProcessService {
 
 #### Execution Plans
 
-An `ExecutionPlan` contains a sequence of typed steps. Each `PlanStep` has a `kind` (e.g., `query_features`, `geoprocess`, `aggregate`, `render_map`, `export`), typed inputs, and dependency references to other steps. Steps form a DAG that the platform resolves and executes in order.
+An `ExecutionPlan` contains a sequence of typed steps. Each `PlanStep` has a `kind` (e.g., `query_features`, `geoprocess`, `aggregate`, `render_map`, `export`), typed inputs as `map<string, ParameterValue>`, and dependency references to other steps. Steps form a DAG that the platform resolves and executes in order. `ParameterValue` supports scalar, list, and nested-struct shapes so step inputs can represent complex parameters (e.g., spatial filters, field lists) without ad hoc string encoding.
 
 #### Validation Semantics
 
@@ -180,6 +180,7 @@ Both services share types defined in `execution_types.proto`:
 - **Artifacts**: `ArtifactRef` with class, version, and workspace/producer references
 - **Dry-run**: `DryRunResult` with estimated artifacts, side effects, and cost
 - **Provenance**: `ProvenanceRecord` with source datasets, assumptions, and timing
+- **Parameters**: `ParameterValue` (scalar/list/struct) for step inputs and stage config
 
 #### Execution Context
 
@@ -191,7 +192,7 @@ Both `ExecutePlanRequest` and `ExecutePipelineRequest` accept an optional `Execu
 
 #### Node Identifier Convention
 
-Shared messages (`JobProgress`, `StageResult`, `PlanValidationIssue`, `ErrorDetail`) use a neutral `node_id` field to identify the plan node where an event, result, or issue originated. For `ProcessService`, `node_id` correlates to `PlanStep.step_id`. For `PipelineService`, `node_id` correlates to `PipelineStage.stage_id`. Implementations must populate `node_id` with the identifier from the corresponding service-specific definition.
+Shared messages (`StageResult`, `PlanValidationIssue`, `ErrorDetail`) use a `node_id` field and `JobProgress` uses a `current_node_id` field to identify the plan node where an event, result, or issue originated. For `ProcessService`, the value correlates to `PlanStep.step_id`. For `PipelineService`, it correlates to `PipelineStage.stage_id`. Implementations must populate these fields with the identifier from the corresponding service-specific definition.
 
 ## Data Types
 
@@ -309,8 +310,8 @@ enum ValidationSeverity {
 Process and pipeline execution errors use a structured `ErrorDetail` model with machine-parseable codes, domain categories, and retryability classification. Execution-phase failures — errors that occur after the server begins executing a plan or pipeline — are always reported through `ErrorDetail` rather than gRPC status codes, so the structured error model is available to the client. The error surface is consistent across execution modes:
 
 - **Streaming** (`ExecutePlanStream` / `ExecutePipelineStream`): A terminal `error` event carries the `ErrorDetail`.
-- **Unary** (`ExecutePlan` / `ExecutePipeline`): The gRPC status is `OK` and the response `error` field carries the `ErrorDetail`. On success, only `result` is populated; on terminal failure, only `error` is populated.
-- **Async results** (`GetJobResult` / `GetPipelineJobResult`): The gRPC status is `OK` and the response `error` field carries the `ErrorDetail` for failed jobs.
+- **Unary** (`ExecutePlan` / `ExecutePipeline`): The gRPC status is `OK` and the response `outcome` oneof carries either `result` or `error`. The schema enforces that exactly one is set.
+- **Async results** (`GetJobResult` / `GetPipelineJobResult`): The gRPC status is `OK` and the response `outcome` oneof carries `result` or `error` for completed/failed jobs.
 
 | Category | Description |
 |----------|-------------|
@@ -416,7 +417,7 @@ see [`VERSIONING.md`](../VERSIONING.md).
 - **Rate Limiting**: Protect against abuse
 - **Dry-Run Isolation**: `DryRunPlan` and `DryRunPipeline` must not modify persistent state or produce side effects
 - **Job Cancellation**: `CancelJob` / `CancelPipelineJob` is best-effort; the server should transition the job to `CANCELLED` as soon as practical but may complete the current stage first
-- **Node ID Population**: Populate `node_id` in `JobProgress`, `StageResult`, `PlanValidationIssue`, and `ErrorDetail` with the step or stage identifier from the originating service
+- **Node ID Population**: Populate `node_id` in `StageResult`, `PlanValidationIssue`, and `ErrorDetail` — and `current_node_id` in `JobProgress` — with the step or stage identifier from the originating service
 
 ### Client Implementation
 
