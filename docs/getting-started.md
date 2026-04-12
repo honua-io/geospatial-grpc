@@ -127,7 +127,7 @@ cp -r ../gen/python/* .
 ### .NET Example
 
 ```csharp
-using GeospatialGrpc.V1;
+using Geospatial.V1;
 using Grpc.Net.Client;
 
 // Create gRPC channel
@@ -231,7 +231,7 @@ for feature in response.features:
 ### Get Form Definition
 
 ```csharp
-using GeospatialGrpc.V1;
+using Geospatial.V1;
 
 var formClient = new FormService.FormServiceClient(channel);
 
@@ -430,7 +430,7 @@ Both services share execution infrastructure defined in `execution_types.proto`:
 #### .NET
 
 ```csharp
-using GeospatialGrpc.V1;
+using Geospatial.V1;
 
 var processClient = new ProcessService.ProcessServiceClient(channel);
 

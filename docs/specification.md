@@ -125,11 +125,11 @@ Pipeline stage kinds follow the same convention. For example, `normalize_crs` us
 
 #### Validation Semantics
 
-`ValidatePlan` and `DryRunPlan` are advisory — they let clients check a plan before committing to execution, but they do not produce a server-side validation token. Servers re-validate the plan on `ExecutePlan` and `SubmitJob` and return `INVALID_ARGUMENT` if the plan is structurally invalid. Clients are encouraged to call `ValidatePlan` or `DryRunPlan` first but are not required to.
+`ValidatePlan` and `DryRunPlan` are advisory — they let clients check a plan before committing to execution, but they do not produce a server-side validation token. Servers re-validate the plan on `ExecutePlan`, `ExecutePlanStream`, and `SubmitJob` and return `INVALID_ARGUMENT` if the plan is structurally invalid. Clients are encouraged to call `ValidatePlan` or `DryRunPlan` first but are not required to.
 
 #### Dry-Run Semantics
 
-`DryRunPlan` validates the plan and returns a `DryRunResult` with estimated duration, expected artifact sizes, identified side effects (such as external publication), and cost estimates. Dry-run execution must not modify any persistent state. Clients should call `DryRunPlan` before `ExecutePlan` for expensive or destructive operations.
+`DryRunPlan` validates the plan and returns a `DryRunResult` with estimated duration, expected artifact sizes, identified side effects (such as external publication), and cost estimates. The response includes the same `valid` and `issues` fields as `ValidatePlan`, so a single call provides both validation and estimation. Dry-run execution must not modify any persistent state. Clients should call `DryRunPlan` before `ExecutePlan` for expensive or destructive operations.
 
 #### Job Lifecycle
 
@@ -179,7 +179,7 @@ service PipelineService {
 
 #### Pipeline Validation Semantics
 
-`ValidatePipeline` and `DryRunPipeline` are advisory. Servers re-validate the pipeline definition on `ExecutePipeline` and `SubmitPipelineJob` and return `INVALID_ARGUMENT` if invalid. Clients are encouraged to validate first but are not required to.
+`ValidatePipeline` and `DryRunPipeline` are advisory. Servers re-validate the pipeline definition on `ExecutePipeline`, `ExecutePipelineStream`, and `SubmitPipelineJob` and return `INVALID_ARGUMENT` if invalid. Clients are encouraged to validate first but are not required to. `DryRunPipeline` returns the same `valid` and `issues` fields alongside the `DryRunResult`, so a single call provides both validation and estimation.
 
 #### Pipeline Definitions
 
@@ -187,7 +187,7 @@ A `PipelineDefinition` describes a data publishing workflow with a source, trans
 
 #### Publishing Results
 
-`PipelineResult` includes source lineage (original schema, record count, extent), a quality report (valid/invalid/cleaned/deduplicated counts with per-rule issues), published service information, produced artifacts, and a provenance record.
+`PipelineResult` contains the output of a completed pipeline execution: a `result_id`, the terminal `status` (`JobState`), a human-readable `summary`, source lineage (original schema, record count, extent), a quality report (valid/invalid/cleaned/deduplicated counts with per-rule issues), published service information, produced `artifacts`, per-stage `stage_results`, and a `ProvenanceRecord`.
 
 #### Shared Execution Infrastructure
 
