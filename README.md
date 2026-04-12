@@ -82,7 +82,7 @@ ls gen/
 
 #### .NET Example
 ```csharp
-using GeospatialGrpc.V1;
+using Geospatial.V1;
 using Grpc.Net.Client;
 
 var channel = GrpcChannel.ForAddress("https://api.example.com");
