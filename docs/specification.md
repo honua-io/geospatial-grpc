@@ -187,7 +187,7 @@ A `PipelineDefinition` describes a data publishing workflow with a source, trans
 
 #### Publishing Results
 
-`PipelineResult` contains the output of a completed pipeline execution: a `result_id`, the terminal `status` (`JobState`), a human-readable `summary`, source lineage (original schema, record count, extent), a quality report (valid/invalid/cleaned/deduplicated counts with per-rule issues), published service information, produced `artifacts`, per-stage `stage_results`, and a `ProvenanceRecord`.
+`PipelineResult` contains the output of a completed pipeline execution: a `result_id`, the terminal `status` (`JobState`), a human-readable `summary`, source lineage (source reference, record count, inferred schema, spatial reference, and extent), a quality report (total, valid, invalid, cleaned, and deduplicated record counts with per-rule issues), published service information, produced `artifacts`, per-stage `stage_results`, and a `ProvenanceRecord`.
 
 #### Shared Execution Infrastructure
 
