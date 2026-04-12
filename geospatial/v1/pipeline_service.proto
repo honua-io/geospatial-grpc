@@ -17,12 +17,17 @@ import "geospatial/v1/execution_types.proto";
 // Transport-neutral status mapping for server implementations:
 //
 // Request-phase failures (returned as non-OK gRPC status, no response body):
-//   INVALID_ARGUMENT    — pipeline definition validation failures
+//   INVALID_ARGUMENT    — malformed requests or invalid pipeline definitions on
+//                         ExecutePipeline/SubmitPipeline (re-validation at execution time)
 //   PERMISSION_DENIED   — authorization or policy failures
 //   NOT_FOUND           — unknown source, target, or job references
 //   RESOURCE_EXHAUSTED  — quota or rate-limit exceeded
 //   FAILED_PRECONDITION — job not in expected state for the requested operation
 //   INTERNAL            — unexpected server errors
+//
+// Note: ValidatePipeline and DryRunPipeline always return gRPC status OK with a
+// structured response containing valid=false and populated issues when
+// validation fails. They do not use INVALID_ARGUMENT for definition issues.
 //
 // Execution-phase failures (after execution begins) are returned with gRPC
 // status OK: unary RPCs populate the response error field; streaming RPCs
