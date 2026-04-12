@@ -19,7 +19,7 @@ import "geospatial/v1/execution_types.proto";
 //   NOT_FOUND           — unknown process, step kind, or job references
 //   RESOURCE_EXHAUSTED  — quota or rate-limit exceeded
 //   DEADLINE_EXCEEDED   — execution timeout
-//   FAILED_PRECONDITION — plan not validated, or job not in expected state
+//   FAILED_PRECONDITION — job not in expected state for the requested operation
 //   CANCELLED           — client-initiated cancellation
 //   INTERNAL            — unexpected server errors
 service ProcessService {
@@ -29,7 +29,7 @@ service ProcessService {
   // DryRunPlan estimates the cost and impact of executing a plan without side effects.
   rpc DryRunPlan(DryRunPlanRequest) returns (DryRunPlanResponse);
 
-  // ExecutePlan runs a validated plan synchronously and returns the result.
+  // ExecutePlan runs a plan synchronously and returns the result.
   rpc ExecutePlan(ExecutePlanRequest) returns (ExecutePlanResponse);
 
   // ExecutePlanStream runs a plan and streams progress events and the final result.
@@ -78,9 +78,12 @@ message ExecutePlanRequest {
 }
 
 // ExecutePlanResponse returns the complete result of synchronous execution.
+// On terminal failure, the error field carries the structured ErrorDetail;
+// on success, only result is populated.
 message ExecutePlanResponse {
   string job_id = 1;
   ExecutionResult result = 2;
+  ErrorDetail error = 3;
 }
 
 // ExecutionEvent is a streaming message carrying progress, stage, result, or error events.
@@ -134,9 +137,11 @@ message GetJobResultRequest {
 }
 
 // GetJobResultResponse returns the job result.
+// For failed jobs, the error field carries the structured ErrorDetail.
 message GetJobResultResponse {
   string job_id = 1;
   ExecutionResult result = 2;
+  ErrorDetail error = 3;
 }
 
 // CancelJobRequest requests cancellation of a running or pending job.

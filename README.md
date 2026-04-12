@@ -148,7 +148,6 @@ for feature in response.features:
 - **[Protocol Specification](docs/specification.md)** - Detailed protocol documentation
 - **[Getting Started Guide](docs/getting-started.md)** - Developer quick start
 - **[Versioning Policy](VERSIONING.md)** - Compatibility guarantees and change governance
-- **[API Reference](docs/api.md)** - Generated API documentation
 - **[Examples](examples/)** - Code samples for multiple languages
 
 ## 🏗️ Repository Structure

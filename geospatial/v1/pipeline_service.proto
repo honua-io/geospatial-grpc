@@ -20,7 +20,7 @@ import "geospatial/v1/execution_types.proto";
 //   NOT_FOUND           — unknown source, target, or job references
 //   RESOURCE_EXHAUSTED  — quota or rate-limit exceeded
 //   DEADLINE_EXCEEDED   — pipeline execution timeout
-//   FAILED_PRECONDITION — pipeline not validated, or job not in expected state
+//   FAILED_PRECONDITION — job not in expected state for the requested operation
 //   CANCELLED           — client-initiated cancellation
 //   INTERNAL            — unexpected server errors
 service PipelineService {
@@ -135,9 +135,12 @@ message ExecutePipelineRequest {
 }
 
 // ExecutePipelineResponse returns the complete result of synchronous pipeline execution.
+// On terminal failure, the error field carries the structured ErrorDetail;
+// on success, only result is populated.
 message ExecutePipelineResponse {
   string job_id = 1;
   PipelineResult result = 2;
+  ErrorDetail error = 3;
 }
 
 // PipelineEvent is a streaming message carrying progress, stage, result, or error events.
@@ -230,9 +233,11 @@ message GetPipelineJobResultRequest {
 }
 
 // GetPipelineJobResultResponse returns the pipeline job result.
+// For failed jobs, the error field carries the structured ErrorDetail.
 message GetPipelineJobResultResponse {
   string job_id = 1;
   PipelineResult result = 2;
+  ErrorDetail error = 3;
 }
 
 // CancelPipelineJobRequest requests cancellation of a pipeline job.

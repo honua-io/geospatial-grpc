@@ -109,6 +109,10 @@ service ProcessService {
 
 An `ExecutionPlan` contains a sequence of typed steps. Each `PlanStep` has a `kind` (e.g., `query_features`, `geoprocess`, `aggregate`, `render_map`, `export`), typed inputs, and dependency references to other steps. Steps form a DAG that the platform resolves and executes in order.
 
+#### Validation Semantics
+
+`ValidatePlan` and `DryRunPlan` are advisory — they let clients check a plan before committing to execution, but they do not produce a server-side validation token. Servers re-validate the plan on `ExecutePlan` and `SubmitJob` and return `INVALID_ARGUMENT` if the plan is structurally invalid. Clients are encouraged to call `ValidatePlan` or `DryRunPlan` first but are not required to.
+
 #### Dry-Run Semantics
 
 `DryRunPlan` validates the plan and returns a `DryRunResult` with estimated duration, expected artifact sizes, identified side effects (such as external publication), and cost estimates. Dry-run execution must not modify any persistent state. Clients should call `DryRunPlan` before `ExecutePlan` for expensive or destructive operations.
@@ -122,7 +126,7 @@ Jobs transition through these states: `DRAFT` → `VALIDATED` → `RUNNING` → 
 Execution errors are returned as `ErrorDetail` messages with:
 
 - `error_code`: Machine-parseable error code
-- `category`: Domain classification (validation, authorization, policy, execution, artifact)
+- `category`: Domain classification (validation, authorization, policy, execution, artifact, packaging, deployment)
 - `retryability`: How to recover (fix plan, fix data, retry transient error, permanent failure)
 - `suggested_action`: Human-readable recovery guidance
 
@@ -151,6 +155,10 @@ service PipelineService {
 }
 ```
 
+#### Pipeline Validation Semantics
+
+`ValidatePipeline` and `DryRunPipeline` are advisory. Servers re-validate the pipeline definition on `ExecutePipeline` and `SubmitPipelineJob` and return `INVALID_ARGUMENT` if invalid. Clients are encouraged to validate first but are not required to.
+
 #### Pipeline Definitions
 
 A `PipelineDefinition` describes a data publishing workflow with a source, transformation stages, target, schema mappings, and quality rules. Standard stage kinds include: `inspect_source`, `infer_schema`, `map_schema`, `normalize_crs`, `clean_records`, `dedupe`, `enrich`, `quality_check`, `publish_service`.
@@ -168,6 +176,14 @@ Both services share types defined in `execution_types.proto`:
 - **Artifacts**: `ArtifactRef` with class, version, and workspace/producer references
 - **Dry-run**: `DryRunResult` with estimated artifacts, side effects, and cost
 - **Provenance**: `ProvenanceRecord` with source datasets, assumptions, and timing
+
+#### Execution Context
+
+Both `ExecutePlanRequest` and `ExecutePipelineRequest` accept an optional `ExecutionContext`:
+
+- `workspace_id`: Scopes artifacts and job state to a workspace.
+- `timeout_seconds`: Server-enforced execution deadline. The server returns `DEADLINE_EXCEEDED` if the timeout is reached.
+- `metadata`: Arbitrary key-value pairs forwarded to the execution environment (e.g., correlation IDs, caller tags).
 
 #### Node Identifier Convention
 
@@ -257,7 +273,7 @@ Standard gRPC status codes are used for error conditions:
 - `PERMISSION_DENIED`: Access denied
 - `RESOURCE_EXHAUSTED`: Rate limiting or quota exceeded
 - `DEADLINE_EXCEEDED`: Execution timeout
-- `FAILED_PRECONDITION`: Required state not met (e.g., plan not validated)
+- `FAILED_PRECONDITION`: Required state not met (e.g., job not in expected state)
 - `CANCELLED`: Client-initiated cancellation
 - `INTERNAL`: Server error
 
@@ -286,7 +302,11 @@ enum ValidationSeverity {
 
 ### Execution Errors
 
-Process and pipeline execution errors use a structured `ErrorDetail` model with machine-parseable codes, domain categories, and retryability classification:
+Process and pipeline execution errors use a structured `ErrorDetail` model with machine-parseable codes, domain categories, and retryability classification. The error surface is consistent across execution modes:
+
+- **Streaming** (`ExecutePlanStream` / `ExecutePipelineStream`): A terminal `error` event carries the `ErrorDetail`.
+- **Unary** (`ExecutePlan` / `ExecutePipeline`): The response `error` field carries the `ErrorDetail`. On success, only `result` is populated; on terminal failure, only `error` is populated.
+- **Async results** (`GetJobResult` / `GetPipelineJobResult`): The response `error` field carries the `ErrorDetail` for failed jobs.
 
 | Category | Description |
 |----------|-------------|
@@ -390,13 +410,17 @@ see [`VERSIONING.md`](../VERSIONING.md).
 - **Transaction Support**: Implement rollback for failed edits
 - **Connection Pooling**: Manage database connections efficiently
 - **Rate Limiting**: Protect against abuse
+- **Dry-Run Isolation**: `DryRunPlan` and `DryRunPipeline` must not modify persistent state or produce side effects
+- **Job Cancellation**: `CancelJob` / `CancelPipelineJob` is best-effort; the server should transition the job to `CANCELLED` as soon as practical but may complete the current stage first
+- **Node ID Population**: Populate `node_id` in `JobProgress`, `StageResult`, `PlanValidationIssue`, and `ErrorDetail` with the step or stage identifier from the originating service
 
 ### Client Implementation
 
 - **Connection Management**: Reuse gRPC channels
-- **Error Handling**: Implement retry logic with backoff
+- **Error Handling**: Implement retry logic with backoff; use the `retryability` field in `ErrorDetail` to decide whether to retry, revise, or abort
 - **Offline Support**: Cache data and queue operations
 - **Progress Reporting**: Show progress for long operations
+- **Streaming Consumption**: Consume `ExecutePlanStream` / `ExecutePipelineStream` events incrementally; expect interleaved `progress`, `stage_result`, and a terminal `result` or `error` event
 
 ## Compliance and Standards
 
