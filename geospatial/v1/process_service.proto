@@ -14,14 +14,20 @@ import "geospatial/v1/execution_types.proto";
 // and job management.
 //
 // Transport-neutral status mapping for server implementations:
+//
+// Request-phase failures (returned as non-OK gRPC status, no response body):
 //   INVALID_ARGUMENT    — plan validation failures
 //   PERMISSION_DENIED   — authorization or policy failures
 //   NOT_FOUND           — unknown process, step kind, or job references
 //   RESOURCE_EXHAUSTED  — quota or rate-limit exceeded
-//   DEADLINE_EXCEEDED   — execution timeout
 //   FAILED_PRECONDITION — job not in expected state for the requested operation
-//   CANCELLED           — client-initiated cancellation
 //   INTERNAL            — unexpected server errors
+//
+// Execution-phase failures (after execution begins) are returned with gRPC
+// status OK: unary RPCs populate the response error field; streaming RPCs
+// send a terminal error event. This ensures the structured ErrorDetail is
+// always available to the client. DEADLINE_EXCEEDED and CANCELLED may still
+// arrive as gRPC-level codes from client deadlines or transport cancellation.
 service ProcessService {
   // ValidatePlan checks a plan for structural and capability issues.
   rpc ValidatePlan(ValidatePlanRequest) returns (ValidatePlanResponse);
@@ -78,8 +84,8 @@ message ExecutePlanRequest {
 }
 
 // ExecutePlanResponse returns the complete result of synchronous execution.
-// On terminal failure, the error field carries the structured ErrorDetail;
-// on success, only result is populated.
+// The gRPC status is OK regardless of execution outcome. On success, only
+// result is populated; on terminal failure, only error is populated.
 message ExecutePlanResponse {
   string job_id = 1;
   ExecutionResult result = 2;
@@ -137,7 +143,8 @@ message GetJobResultRequest {
 }
 
 // GetJobResultResponse returns the job result.
-// For failed jobs, the error field carries the structured ErrorDetail.
+// The gRPC status is OK regardless of job outcome. For failed jobs, the
+// error field carries the structured ErrorDetail.
 message GetJobResultResponse {
   string job_id = 1;
   ExecutionResult result = 2;

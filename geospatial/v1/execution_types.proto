@@ -90,7 +90,7 @@ enum IssueSeverity {
   ISSUE_SEVERITY_INFO = 3;
 }
 
-// ExecutionPlan describes a validated sequence of steps to execute.
+// ExecutionPlan describes a sequence of steps to execute.
 message ExecutionPlan {
   string plan_id = 1;
   string spec_version = 2;

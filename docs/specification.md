@@ -127,8 +127,12 @@ Execution errors are returned as `ErrorDetail` messages with:
 
 - `error_code`: Machine-parseable error code
 - `category`: Domain classification (validation, authorization, policy, execution, artifact, packaging, deployment)
+- `message`: Human-readable error description
+- `phase`: Execution phase where the error occurred (e.g., validation, planning, execution)
+- `node_id`: Identifies the plan step that produced the error (correlates to `PlanStep.step_id`; see [Node Identifier Convention](#node-identifier-convention))
 - `retryability`: How to recover (fix plan, fix data, retry transient error, permanent failure)
 - `suggested_action`: Human-readable recovery guidance
+- `details`: Optional key-value map for additional machine-readable context
 
 ### PipelineService
 
@@ -182,7 +186,7 @@ Both services share types defined in `execution_types.proto`:
 Both `ExecutePlanRequest` and `ExecutePipelineRequest` accept an optional `ExecutionContext`:
 
 - `workspace_id`: Scopes artifacts and job state to a workspace.
-- `timeout_seconds`: Server-enforced execution deadline. The server returns `DEADLINE_EXCEEDED` if the timeout is reached.
+- `timeout_seconds`: Server-enforced execution deadline. If the timeout is reached, the server reports it as an execution-phase error via `ErrorDetail` (see [Execution Errors](#execution-errors)).
 - `metadata`: Arbitrary key-value pairs forwarded to the execution environment (e.g., correlation IDs, caller tags).
 
 #### Node Identifier Convention
@@ -266,16 +270,16 @@ Forms adapt to device capabilities and conditions:
 
 ### gRPC Status Codes
 
-Standard gRPC status codes are used for error conditions:
+Standard gRPC status codes are used for request-phase failures — errors detected before execution begins. The server returns a non-OK gRPC status with no response body:
 
 - `NOT_FOUND`: Resource does not exist
 - `INVALID_ARGUMENT`: Invalid request parameters
 - `PERMISSION_DENIED`: Access denied
 - `RESOURCE_EXHAUSTED`: Rate limiting or quota exceeded
-- `DEADLINE_EXCEEDED`: Execution timeout
 - `FAILED_PRECONDITION`: Required state not met (e.g., job not in expected state)
-- `CANCELLED`: Client-initiated cancellation
 - `INTERNAL`: Server error
+
+`DEADLINE_EXCEEDED` and `CANCELLED` may arrive as gRPC-level status codes from client deadlines or transport-layer cancellation. Server-detected execution timeouts and server-initiated cancellations are reported via `ErrorDetail` (see [Execution Errors](#execution-errors)).
 
 ### Application Errors
 
@@ -302,11 +306,11 @@ enum ValidationSeverity {
 
 ### Execution Errors
 
-Process and pipeline execution errors use a structured `ErrorDetail` model with machine-parseable codes, domain categories, and retryability classification. The error surface is consistent across execution modes:
+Process and pipeline execution errors use a structured `ErrorDetail` model with machine-parseable codes, domain categories, and retryability classification. Execution-phase failures — errors that occur after the server begins executing a plan or pipeline — are always reported through `ErrorDetail` rather than gRPC status codes, so the structured error model is available to the client. The error surface is consistent across execution modes:
 
 - **Streaming** (`ExecutePlanStream` / `ExecutePipelineStream`): A terminal `error` event carries the `ErrorDetail`.
-- **Unary** (`ExecutePlan` / `ExecutePipeline`): The response `error` field carries the `ErrorDetail`. On success, only `result` is populated; on terminal failure, only `error` is populated.
-- **Async results** (`GetJobResult` / `GetPipelineJobResult`): The response `error` field carries the `ErrorDetail` for failed jobs.
+- **Unary** (`ExecutePlan` / `ExecutePipeline`): The gRPC status is `OK` and the response `error` field carries the `ErrorDetail`. On success, only `result` is populated; on terminal failure, only `error` is populated.
+- **Async results** (`GetJobResult` / `GetPipelineJobResult`): The gRPC status is `OK` and the response `error` field carries the `ErrorDetail` for failed jobs.
 
 | Category | Description |
 |----------|-------------|
@@ -324,8 +328,8 @@ Each error includes a `retryability` field to guide client recovery:
 |-------------|---------------|
 | `fix_plan_and_retry` | Revise the plan and resubmit |
 | `fix_data_and_retry` | Address source data issues |
-| `transient_backend_error` | Retry the same request |
 | `insufficient_quota` | Request quota increase or reduce scope |
+| `transient_backend_error` | Retry the same request |
 | `permanent_failure` | Operation cannot succeed as specified |
 
 ## Security Considerations

@@ -15,14 +15,20 @@ import "geospatial/v1/execution_types.proto";
 // and job management for data ingestion, transformation, and publication.
 //
 // Transport-neutral status mapping for server implementations:
+//
+// Request-phase failures (returned as non-OK gRPC status, no response body):
 //   INVALID_ARGUMENT    — pipeline definition validation failures
 //   PERMISSION_DENIED   — authorization or policy failures
 //   NOT_FOUND           — unknown source, target, or job references
 //   RESOURCE_EXHAUSTED  — quota or rate-limit exceeded
-//   DEADLINE_EXCEEDED   — pipeline execution timeout
 //   FAILED_PRECONDITION — job not in expected state for the requested operation
-//   CANCELLED           — client-initiated cancellation
 //   INTERNAL            — unexpected server errors
+//
+// Execution-phase failures (after execution begins) are returned with gRPC
+// status OK: unary RPCs populate the response error field; streaming RPCs
+// send a terminal error event. This ensures the structured ErrorDetail is
+// always available to the client. DEADLINE_EXCEEDED and CANCELLED may still
+// arrive as gRPC-level codes from client deadlines or transport cancellation.
 service PipelineService {
   // ValidatePipeline checks a pipeline definition for structural and capability issues.
   rpc ValidatePipeline(ValidatePipelineRequest) returns (ValidatePipelineResponse);
@@ -135,8 +141,8 @@ message ExecutePipelineRequest {
 }
 
 // ExecutePipelineResponse returns the complete result of synchronous pipeline execution.
-// On terminal failure, the error field carries the structured ErrorDetail;
-// on success, only result is populated.
+// The gRPC status is OK regardless of execution outcome. On success, only
+// result is populated; on terminal failure, only error is populated.
 message ExecutePipelineResponse {
   string job_id = 1;
   PipelineResult result = 2;
@@ -233,7 +239,8 @@ message GetPipelineJobResultRequest {
 }
 
 // GetPipelineJobResultResponse returns the pipeline job result.
-// For failed jobs, the error field carries the structured ErrorDetail.
+// The gRPC status is OK regardless of job outcome. For failed jobs, the
+// error field carries the structured ErrorDetail.
 message GetPipelineJobResultResponse {
   string job_id = 1;
   PipelineResult result = 2;
