@@ -352,7 +352,7 @@ Every deployment request also carries a `DeploymentOperationMode` (`CREATE`, `UP
 #### Health Telemetry
 
 - `GetDeploymentHealth` returns a point-in-time health snapshot: overall `DeploymentHealthStatus` (`HEALTHY`, `DEGRADED`, `UNHEALTHY`, `UNKNOWN`), `HealthCheckResult` entries, and an `observed_at` timestamp.
-- `StreamDeploymentHealth` streams `DeploymentHealthEvent` messages continuously. Servers MAY terminate the stream with `DEADLINE_EXCEEDED` after a documented idle window; clients reconnect to resume telemetry, matching the expectations for `ExecuteRenderStream` / `ExecutePlanStream`.
+- `StreamDeploymentHealth` streams `DeploymentHealthEvent` messages continuously. Unlike the execution streams (`ExecuteDeploymentStream`, `ExecuteRenderStream`, `ExecutePlanStream`), it is not subject to the terminal in-band `ErrorDetail` contract: `DeploymentHealthEvent` carries observed health only, and terminal failures surface as non-OK gRPC status codes. Servers MAY terminate the stream with `DEADLINE_EXCEEDED` after a documented idle window; clients reconnect to resume telemetry.
 
 #### Consumer Expectations
 

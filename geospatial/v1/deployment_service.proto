@@ -39,13 +39,18 @@ import "geospatial/v1/packaging_types.proto";
 // validation fails. They do not use INVALID_ARGUMENT for spec issues.
 //
 // Execution-phase failures (after execution begins) are returned with gRPC
-// status OK: unary RPCs populate the response error field; streaming RPCs
-// send a terminal error event. This ensures the structured ErrorDetail is
-// always available to the client. DEADLINE_EXCEEDED and CANCELLED may still
-// arrive as gRPC-level codes from client deadlines or transport cancellation.
+// status OK for execution RPCs: unary execution RPCs populate the response
+// error field; the execution stream (ExecuteDeploymentStream) sends a
+// terminal error event. This ensures the structured ErrorDetail is always
+// available to the client for execution flows. DEADLINE_EXCEEDED and
+// CANCELLED may still arrive as gRPC-level codes from client deadlines or
+// transport cancellation.
 //
-// StreamDeploymentHealth is long-lived by design. Servers MAY terminate the
-// stream with DEADLINE_EXCEEDED after a documented idle window; clients are
+// StreamDeploymentHealth is a long-lived telemetry stream, not an execution
+// stream, and is exempt from the in-band terminal-error contract above.
+// DeploymentHealthEvent carries observed health only; terminal failures
+// surface as non-OK gRPC status codes. Servers MAY terminate the stream
+// with DEADLINE_EXCEEDED after a documented idle window, and clients are
 // expected to reconnect to resume telemetry.
 service DeploymentService {
   // ValidateDeployment checks a deployment spec for structural and capability issues.
