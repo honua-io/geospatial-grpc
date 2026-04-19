@@ -1,0 +1,260 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/execution_types.proto";
+import "geospatial/v1/packaging_types.proto";
+
+// DeploymentService provides typed RPC access to deployment promotion and
+// lifecycle management.
+//
+// This service covers the execution lifecycle for deployment workflows:
+// deployment validation, dry-run estimation, synchronous and streaming
+// execution, job management, rollback, and continuous health telemetry.
+// A deployment promotes an AppPackage, MapPackage, or other deployable
+// ArtifactRef to a live target.
+//
+// Transport-neutral status mapping for server implementations:
+//
+// Request-phase failures (returned as non-OK gRPC status, no response body):
+//   INVALID_ARGUMENT    — malformed requests or invalid deployment specs on
+//                         ExecuteDeployment/ExecuteDeploymentStream/SubmitDeploymentJob
+//                         and RollbackDeployment (re-validation at execution time)
+//   PERMISSION_DENIED   — authorization or policy failures
+//   NOT_FOUND           — unknown deployment, revision, target, or job references
+//   RESOURCE_EXHAUSTED  — quota or rate-limit exceeded
+//   FAILED_PRECONDITION — job not in expected state for the requested operation
+//   INTERNAL            — unexpected server errors
+//
+// Note: ValidateDeployment and DryRunDeployment always return gRPC status OK
+// with a structured response containing valid=false and populated issues when
+// validation fails. They do not use INVALID_ARGUMENT for spec issues.
+//
+// Execution-phase failures (after execution begins) are returned with gRPC
+// status OK: unary RPCs populate the response error field; streaming RPCs
+// send a terminal error event. This ensures the structured ErrorDetail is
+// always available to the client. DEADLINE_EXCEEDED and CANCELLED may still
+// arrive as gRPC-level codes from client deadlines or transport cancellation.
+//
+// StreamDeploymentHealth is long-lived by design. Servers MAY terminate the
+// stream with DEADLINE_EXCEEDED after a documented idle window; clients are
+// expected to reconnect to resume telemetry.
+service DeploymentService {
+  // ValidateDeployment checks a deployment spec for structural and capability issues.
+  rpc ValidateDeployment(ValidateDeploymentRequest) returns (ValidateDeploymentResponse);
+
+  // DryRunDeployment estimates the cost and impact of executing a deployment without side effects.
+  rpc DryRunDeployment(DryRunDeploymentRequest) returns (DryRunDeploymentResponse);
+
+  // ExecuteDeployment runs a deployment synchronously and returns the result.
+  rpc ExecuteDeployment(ExecuteDeploymentRequest) returns (ExecuteDeploymentResponse);
+
+  // ExecuteDeploymentStream runs a deployment and streams progress events and the final result.
+  rpc ExecuteDeploymentStream(ExecuteDeploymentRequest) returns (stream DeploymentEvent);
+
+  // SubmitDeploymentJob submits a deployment spec for asynchronous execution and returns a job handle.
+  rpc SubmitDeploymentJob(SubmitDeploymentJobRequest) returns (SubmitDeploymentJobResponse);
+
+  // GetDeploymentJob retrieves the current state and progress of a deployment job.
+  rpc GetDeploymentJob(GetDeploymentJobRequest) returns (GetDeploymentJobResponse);
+
+  // GetDeploymentJobResult retrieves the results of a completed deployment job.
+  rpc GetDeploymentJobResult(GetDeploymentJobResultRequest) returns (GetDeploymentJobResultResponse);
+
+  // CancelDeploymentJob requests cancellation of a running or pending deployment job.
+  rpc CancelDeploymentJob(CancelDeploymentJobRequest) returns (CancelDeploymentJobResponse);
+
+  // RollbackDeployment reverts a deployment to a prior revision.
+  rpc RollbackDeployment(RollbackDeploymentRequest) returns (RollbackDeploymentResponse);
+
+  // GetDeploymentHealth returns a point-in-time health snapshot for a deployment.
+  rpc GetDeploymentHealth(GetDeploymentHealthRequest) returns (GetDeploymentHealthResponse);
+
+  // StreamDeploymentHealth streams health telemetry events for a deployment.
+  rpc StreamDeploymentHealth(StreamDeploymentHealthRequest) returns (stream DeploymentHealthEvent);
+}
+
+// DeploymentOperationMode classifies a deployment request.
+enum DeploymentOperationMode {
+  DEPLOYMENT_OPERATION_MODE_UNSPECIFIED = 0;
+  DEPLOYMENT_OPERATION_MODE_CREATE = 1;
+  DEPLOYMENT_OPERATION_MODE_UPDATE = 2;
+  DEPLOYMENT_OPERATION_MODE_REDEPLOY = 3;
+}
+
+// ValidateDeploymentRequest asks the server to check a deployment spec.
+message ValidateDeploymentRequest {
+  DeploymentSpec spec = 1;
+  DeploymentOperationMode operation_mode = 2;
+}
+
+// ValidateDeploymentResponse returns the validation outcome.
+message ValidateDeploymentResponse {
+  bool valid = 1;
+  repeated PlanValidationIssue issues = 2;
+}
+
+// DryRunDeploymentRequest asks the server to estimate deployment execution impact.
+message DryRunDeploymentRequest {
+  DeploymentSpec spec = 1;
+  DeploymentOperationMode operation_mode = 2;
+}
+
+// DryRunDeploymentResponse contains the validation outcome and dry-run estimation.
+message DryRunDeploymentResponse {
+  bool valid = 1;
+  repeated PlanValidationIssue issues = 2;
+  DryRunResult result = 3;
+}
+
+// ExecuteDeploymentRequest submits a deployment for synchronous or streaming execution.
+message ExecuteDeploymentRequest {
+  DeploymentSpec spec = 1;
+  DeploymentOperationMode operation_mode = 2;
+  ExecutionContext context = 3;
+}
+
+// ExecuteDeploymentResponse returns the complete result of synchronous execution.
+// The gRPC status is OK regardless of execution outcome. On success, only
+// result is populated; on terminal failure, only error is populated.
+message ExecuteDeploymentResponse {
+  string job_id = 1;
+  oneof outcome {
+    DeploymentResult result = 2;
+    ErrorDetail error = 3;
+  }
+}
+
+// DeploymentEvent is a streaming message carrying progress, stage, result, or error events.
+message DeploymentEvent {
+  oneof event {
+    JobProgress progress = 1;
+    StageResult stage_result = 2;
+    DeploymentResult result = 3;
+    ErrorDetail error = 4;
+  }
+}
+
+// DeploymentResult contains the output of a completed deployment execution.
+message DeploymentResult {
+  string result_id = 1;
+  JobState status = 2;
+  string summary = 3;
+  repeated Assumption assumptions = 4;
+  string deployment_id = 5;
+  // Monotonic revision tag assigned by the server.
+  string revision = 6;
+  repeated DeploymentEndpoint endpoints = 7;
+  // Committed deployment spec.
+  DeploymentSpec spec = 8;
+  repeated ArtifactRef artifacts = 9;
+  repeated StageResult stage_results = 10;
+  ProvenanceRecord provenance = 11;
+}
+
+// SubmitDeploymentJobRequest submits a deployment spec for asynchronous execution.
+message SubmitDeploymentJobRequest {
+  DeploymentSpec spec = 1;
+  DeploymentOperationMode operation_mode = 2;
+  ExecutionContext context = 3;
+}
+
+// SubmitDeploymentJobResponse confirms deployment job submission.
+message SubmitDeploymentJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+}
+
+// GetDeploymentJobRequest retrieves the current state of a deployment job.
+message GetDeploymentJobRequest {
+  string job_id = 1;
+}
+
+// GetDeploymentJobResponse returns the deployment job state and progress.
+message GetDeploymentJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+  JobProgress progress = 3;
+}
+
+// GetDeploymentJobResultRequest retrieves the results of a completed deployment job.
+message GetDeploymentJobResultRequest {
+  string job_id = 1;
+}
+
+// GetDeploymentJobResultResponse returns the deployment job result.
+// The gRPC status is OK regardless of job outcome. For failed jobs, the
+// error field carries the structured ErrorDetail.
+message GetDeploymentJobResultResponse {
+  string job_id = 1;
+  oneof outcome {
+    DeploymentResult result = 2;
+    ErrorDetail error = 3;
+  }
+}
+
+// CancelDeploymentJobRequest requests cancellation of a deployment job.
+message CancelDeploymentJobRequest {
+  string job_id = 1;
+}
+
+// CancelDeploymentJobResponse confirms the deployment cancellation outcome.
+message CancelDeploymentJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+}
+
+// RollbackDeploymentRequest asks the server to revert a deployment to a prior revision.
+message RollbackDeploymentRequest {
+  string deployment_id = 1;
+  // Target revision to roll back to. If empty, the server selects the
+  // immediately prior successful revision.
+  string target_revision = 2;
+  ExecutionContext context = 3;
+}
+
+// RollbackDeploymentResponse returns the outcome of a rollback operation.
+// The gRPC status is OK regardless of execution outcome. On success, only
+// result is populated; on terminal failure, only error is populated.
+message RollbackDeploymentResponse {
+  string deployment_id = 1;
+  oneof outcome {
+    DeploymentResult result = 2;
+    ErrorDetail error = 3;
+  }
+}
+
+// GetDeploymentHealthRequest asks for a point-in-time health snapshot.
+message GetDeploymentHealthRequest {
+  string deployment_id = 1;
+  // Optional revision. When empty, the server returns health for the active revision.
+  string revision = 2;
+}
+
+// GetDeploymentHealthResponse returns a health snapshot for a deployment.
+message GetDeploymentHealthResponse {
+  string deployment_id = 1;
+  string revision = 2;
+  DeploymentHealthStatus status = 3;
+  repeated HealthCheckResult check_results = 4;
+  int64 observed_at = 5; // UTC milliseconds since epoch
+}
+
+// StreamDeploymentHealthRequest opens a continuous health telemetry stream.
+message StreamDeploymentHealthRequest {
+  string deployment_id = 1;
+  // Optional revision. When empty, the stream follows the active revision.
+  string revision = 2;
+}
+
+// DeploymentHealthEvent reports observed deployment health.
+message DeploymentHealthEvent {
+  string deployment_id = 1;
+  string revision = 2;
+  DeploymentHealthStatus status = 3;
+  repeated HealthCheckResult check_results = 4;
+  int64 observed_at = 5; // UTC milliseconds since epoch
+}

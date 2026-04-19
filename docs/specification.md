@@ -2,7 +2,7 @@
 
 ## Overview
 
-This specification defines standardized gRPC protocols for geospatial data access, mobile field data collection, process execution, and data publishing pipelines. The protocols provide type-safe, high-performance service contracts for spatial feature CRUD, mobile forms, analysis workflow execution, and dataset publishing.
+This specification defines standardized gRPC protocols for geospatial data access, mobile field data collection, process execution, data publishing pipelines, map rendering, application building, and deployment. The protocols provide type-safe, high-performance service contracts for spatial feature CRUD, mobile forms, analysis workflow execution, dataset publishing, packaged map composition, application bundle synthesis, and deployment promotion.
 
 ## Design Principles
 
@@ -189,9 +189,178 @@ A `PipelineDefinition` describes a data publishing workflow with a source, trans
 
 `PipelineResult` contains the output of a completed pipeline execution: a `result_id`, the terminal `status` (`JobState`), a human-readable `summary`, source lineage (source reference, record count, inferred schema, spatial reference, and extent), a quality report (total, valid, invalid, cleaned, and deduplicated record counts with per-rule issues), published service information, produced `artifacts`, per-stage `stage_results`, and a `ProvenanceRecord`.
 
+### RenderService
+
+The `RenderService` provides typed RPC access to map composition and packaging. It produces a `MapPackage` — a deterministic, MapLibre-compatible map composition — that downstream runtimes can hydrate without interpretation drift. It supports:
+
+- **Render Validation**: Check a render spec for structural and capability issues
+- **Dry-Run Estimation**: Estimate the cost and artifact footprint of a render without side effects
+- **Synchronous Execution**: Run a render and receive the complete `MapPackage`
+- **Streaming Execution**: Receive progress and stage events as rendering proceeds
+- **Asynchronous Jobs**: Submit long-running renders as jobs with polling and cancellation
+
+#### Key Methods
+
+```protobuf
+service RenderService {
+  rpc ValidateRender(ValidateRenderRequest) returns (ValidateRenderResponse);
+  rpc DryRunRender(DryRunRenderRequest) returns (DryRunRenderResponse);
+  rpc ExecuteRender(ExecuteRenderRequest) returns (ExecuteRenderResponse);
+  rpc ExecuteRenderStream(ExecuteRenderRequest) returns (stream RenderEvent);
+  rpc SubmitRenderJob(SubmitRenderJobRequest) returns (SubmitRenderJobResponse);
+  rpc GetRenderJob(GetRenderJobRequest) returns (GetRenderJobResponse);
+  rpc GetRenderJobResult(GetRenderJobResultRequest) returns (GetRenderJobResultResponse);
+  rpc CancelRenderJob(CancelRenderJobRequest) returns (CancelRenderJobResponse);
+}
+```
+
+#### Render Specs
+
+A `RenderSpec` describes a map composition: `style_spec` (MapLibre style hints as a typed `ParameterMap`), one or more `LayerBinding` entries (typed source kind, `source_ref`, typed `filter`, typed `style_overrides`), a `target_spatial_reference`, an optional `target_extent`, and a `preview_only` flag. The typed `ParameterValue` branches (`spatial_filter_value`, `spatial_reference_value`, `geometry_value`, `extent_value`) apply here the same way they do to `PlanStep` inputs.
+
+#### Render Validation and Dry-Run Semantics
+
+`ValidateRender` and `DryRunRender` are advisory, matching `ValidatePlan` and `DryRunPlan`. Servers re-validate the render spec on `ExecuteRender`, `ExecuteRenderStream`, and `SubmitRenderJob`. `DryRunRender` returns the validation outcome alongside a `DryRunResult`.
+
+#### Render Results
+
+`RenderResult` contains: `result_id`, terminal `status`, human-readable `summary`, any `assumptions` recorded during execution, the produced `map_package` (a canonical `MapPackage`), produced `artifacts`, per-stage `stage_results`, and a `ProvenanceRecord`. When `RenderSpec.preview_only` is true, `map_package` may be unset and the preview artifact is carried on `MapPackage.preview_artifact` instead of the packaged outputs.
+
+#### MapPackage Contract
+
+`MapPackage` is the canonical map composition object shared across services and consumer SDKs:
+
+- `package_id`, `spec_version` — stable identifier and MapPackage contract version (independent of the proto package version)
+- `map_artifact`, `style_artifact`, `preview_artifact` — `ArtifactRef` handles for the packaged map bundle, the MapLibre style JSON, and an optional preview
+- `spatial_reference`, `extent` — canonical CRS and envelope
+- `source_refs` — upstream dataset references for provenance lookups
+- `metadata` — free-form display metadata (title, description, attribution)
+- `workspace_ref` — workspace handle consistent with `ArtifactRef.workspace_ref`
+
+MapLibre style JSON is carried as opaque bytes inside `style_artifact`, not typed proto fields, so MapPackage evolution is decoupled from upstream MapLibre releases.
+
+#### Consumer Expectations
+
+- `honua-server-731` packages `MapPackage` outputs without redefining its shape.
+- `honua-sdk-js-21` hydrates a MapLibre runtime directly from a `MapPackage`, keying compatibility on `MapPackage.spec_version`.
+- MCP extensions and the operator orchestration host call `ExecuteRender` / `ExecuteRenderStream` without wrapping them in bespoke render shapes.
+
+### BuilderService
+
+The `BuilderService` provides typed RPC access to application bundle synthesis. It produces an `AppPackage` — a deterministic bundle — suitable for direct deployment or for embedding `MapPackage` references. It supports:
+
+- **Build Validation**: Check a build spec for structural and capability issues
+- **Dry-Run Estimation**: Estimate the cost and artifact footprint of a build without side effects
+- **Synchronous Execution**: Run a build and receive the complete `AppPackage`
+- **Streaming Execution**: Receive progress and stage events as the build proceeds
+- **Asynchronous Jobs**: Submit long-running builds as jobs with polling and cancellation
+
+#### Key Methods
+
+```protobuf
+service BuilderService {
+  rpc ValidateBuild(ValidateBuildRequest) returns (ValidateBuildResponse);
+  rpc DryRunBuild(DryRunBuildRequest) returns (DryRunBuildResponse);
+  rpc ExecuteBuild(ExecuteBuildRequest) returns (ExecuteBuildResponse);
+  rpc ExecuteBuildStream(ExecuteBuildRequest) returns (stream BuildEvent);
+  rpc SubmitBuildJob(SubmitBuildJobRequest) returns (SubmitBuildJobResponse);
+  rpc GetBuildJob(GetBuildJobRequest) returns (GetBuildJobResponse);
+  rpc GetBuildJobResult(GetBuildJobResultRequest) returns (GetBuildJobResultResponse);
+  rpc CancelBuildJob(CancelBuildJobRequest) returns (CancelBuildJobResponse);
+}
+```
+
+#### Build Specs
+
+A `BuildSpec` describes an application synthesis request: `template_ref` (app template registry reference), `intent` (typed `ParameterMap` — title, summary, audience, capability flags), one or more `DataBinding` entries (typed source kind, `source_ref`, typed `selection`, role), `map_package_refs` for embedded maps, and `target_platforms` (e.g., `"web"`, `"mobile"`).
+
+#### Build Validation and Dry-Run Semantics
+
+`ValidateBuild` and `DryRunBuild` are advisory. Servers re-validate the build spec on `ExecuteBuild`, `ExecuteBuildStream`, and `SubmitBuildJob`. `DryRunBuild` returns the validation outcome alongside a `DryRunResult`.
+
+#### Build Results
+
+`BuildResult` contains: `result_id`, terminal `status`, human-readable `summary`, `assumptions`, the produced `app_package` (a canonical `AppPackage`), produced `artifacts`, per-stage `stage_results`, and a `ProvenanceRecord`.
+
+#### AppPackage Contract
+
+`AppPackage` is the canonical application bundle object shared across services and consumer SDKs:
+
+- `package_id`, `spec_version` — stable identifier and AppPackage contract version
+- `bundle_artifact`, `manifest_artifact` — `ArtifactRef` handles for the built static bundle and the typed manifest (routes, entry points, capabilities)
+- `map_package_refs` — identifiers of `MapPackage` instances embedded in the app
+- `runtime_config` — typed `ParameterMap` of runtime configuration (feature flags, env bindings)
+- `metadata` — free-form display metadata (title, description, icons)
+- `workspace_ref` — workspace handle consistent with `ArtifactRef.workspace_ref`
+
+#### Consumer Expectations
+
+- `honua-server-731` promotes a `BuildResult.app_package` into a packaged artifact set for deployment.
+- `honua-sdk-js-21` can discover embedded `map_package_refs` directly from the `AppPackage` and hydrate each runtime.
+- MCP extensions and the operator orchestration host call `ExecuteBuild` / `ExecuteBuildStream` without wrapping them in bespoke build shapes.
+
+### DeploymentService
+
+The `DeploymentService` provides typed RPC access to deployment promotion and lifecycle management. A deployment promotes an `AppPackage`, `MapPackage`, or other deployable `ArtifactRef` to a live target. It supports:
+
+- **Deployment Validation**: Check a deployment spec for structural and capability issues
+- **Dry-Run Estimation**: Estimate the cost and impact of a deployment without applying it
+- **Synchronous Execution**: Run a deployment and receive the complete result
+- **Streaming Execution**: Receive progress and stage events as the deployment proceeds
+- **Asynchronous Jobs**: Submit long-running deployments as jobs with polling and cancellation
+- **Rollback**: Revert to a prior deployment revision
+- **Health Telemetry**: Point-in-time snapshots and continuous streaming
+
+#### Key Methods
+
+```protobuf
+service DeploymentService {
+  rpc ValidateDeployment(ValidateDeploymentRequest) returns (ValidateDeploymentResponse);
+  rpc DryRunDeployment(DryRunDeploymentRequest) returns (DryRunDeploymentResponse);
+  rpc ExecuteDeployment(ExecuteDeploymentRequest) returns (ExecuteDeploymentResponse);
+  rpc ExecuteDeploymentStream(ExecuteDeploymentRequest) returns (stream DeploymentEvent);
+  rpc SubmitDeploymentJob(SubmitDeploymentJobRequest) returns (SubmitDeploymentJobResponse);
+  rpc GetDeploymentJob(GetDeploymentJobRequest) returns (GetDeploymentJobResponse);
+  rpc GetDeploymentJobResult(GetDeploymentJobResultRequest) returns (GetDeploymentJobResultResponse);
+  rpc CancelDeploymentJob(CancelDeploymentJobRequest) returns (CancelDeploymentJobResponse);
+  rpc RollbackDeployment(RollbackDeploymentRequest) returns (RollbackDeploymentResponse);
+  rpc GetDeploymentHealth(GetDeploymentHealthRequest) returns (GetDeploymentHealthResponse);
+  rpc StreamDeploymentHealth(StreamDeploymentHealthRequest) returns (stream DeploymentHealthEvent);
+}
+```
+
+#### Deployment Specs
+
+A `DeploymentSpec` captures the desired state of a running deployment: `deployment_id`, `spec_version`, a `package_ref` oneof (`AppPackage`, `MapPackage`, or `ArtifactRef` — which handles `SERVICE_DEFINITION` and other deployable artifact classes), a `DeploymentTarget` (logical target with `environment` and `region`; cloud backend specifics are intentionally out of scope), a `DeploymentStrategy` (`IMMEDIATE`, `BLUE_GREEN`, `CANARY`, `ROLLING`), one or more `HealthCheck` probes, and a `RollbackPolicy`.
+
+Every deployment request also carries a `DeploymentOperationMode` (`CREATE`, `UPDATE`, `REDEPLOY`) so the server can decide whether the spec represents a fresh deployment or an update.
+
+#### Deployment Validation and Dry-Run Semantics
+
+`ValidateDeployment` and `DryRunDeployment` are advisory. Servers re-validate the deployment spec on `ExecuteDeployment`, `ExecuteDeploymentStream`, `SubmitDeploymentJob`, and `RollbackDeployment`. `DryRunDeployment` returns the validation outcome alongside a `DryRunResult`.
+
+#### Deployment Results
+
+`DeploymentResult` contains: `result_id`, terminal `status`, human-readable `summary`, `assumptions`, `deployment_id`, a server-assigned `revision` tag, one or more `DeploymentEndpoint` entries, the committed `spec`, produced `artifacts` (service descriptors, manifests), per-stage `stage_results`, and a `ProvenanceRecord`.
+
+#### Rollback
+
+`RollbackDeployment` reverts a deployment to a prior revision. When `target_revision` is empty, the server selects the immediately prior successful revision. The response follows the same `outcome` oneof pattern as `ExecuteDeployment`: gRPC status is `OK` and the response carries either a `DeploymentResult` or an `ErrorDetail`.
+
+#### Health Telemetry
+
+- `GetDeploymentHealth` returns a point-in-time health snapshot: overall `DeploymentHealthStatus` (`HEALTHY`, `DEGRADED`, `UNHEALTHY`, `UNKNOWN`), `HealthCheckResult` entries, and an `observed_at` timestamp.
+- `StreamDeploymentHealth` streams `DeploymentHealthEvent` messages continuously. Servers MAY terminate the stream with `DEADLINE_EXCEEDED` after a documented idle window; clients reconnect to resume telemetry, matching the expectations for `ExecuteRenderStream` / `ExecutePlanStream`.
+
+#### Consumer Expectations
+
+- `honua-server-732` runs `DeploymentJob` workflows against this contract without redefining deployment or health shapes.
+- `honua-sdk-js-21` surfaces deployment state and health using `DeploymentResult`, `DeploymentEndpoint`, and `DeploymentHealthEvent` directly.
+- MCP extensions (`honua-server-728`, `honua-server-738`) and the operator orchestration host compose multi-service promotion flows — render → build → deploy — without redefining intermediate shapes.
+
 #### Shared Execution Infrastructure
 
-Both services share types defined in `execution_types.proto`:
+`ProcessService`, `PipelineService`, `RenderService`, `BuilderService`, and `DeploymentService` share types defined in `execution_types.proto`:
 
 - **Job lifecycle**: `JobState`, `StageState` enums and `JobProgress` messages
 - **Error model**: `ErrorDetail` with `ErrorCategory` and `Retryability` classifications
@@ -200,9 +369,13 @@ Both services share types defined in `execution_types.proto`:
 - **Provenance**: `ProvenanceRecord` with source datasets, assumptions, and timing
 - **Parameters**: `ParameterValue` (scalar/list/struct/typed geospatial) for step inputs and stage config
 
+#### Canonical Packaging Types
+
+`MapPackage`, `AppPackage`, and `DeploymentSpec` are shared across services and are defined in `packaging_types.proto`. They are shape contracts only — artifact materialization rules (where bytes live, retention, immutability guarantees) live in a separate workspace/artifact contract. Deployment health surface types (`DeploymentTarget`, `DeploymentStrategy`, `HealthCheck`, `HealthCheckResult`, `RollbackPolicy`, `DeploymentEndpoint`, `DeploymentHealthStatus`) also live in `packaging_types.proto` so they can be reused without importing service definitions.
+
 #### Execution Context
 
-Both `ExecutePlanRequest` and `ExecutePipelineRequest` accept an optional `ExecutionContext`:
+`ExecutePlanRequest`, `ExecutePipelineRequest`, `ExecuteRenderRequest`, `ExecuteBuildRequest`, and `ExecuteDeploymentRequest` each accept an optional `ExecutionContext`:
 
 - `workspace_id`: Scopes artifacts and job state to a workspace.
 - `timeout_seconds`: Server-enforced execution deadline. If the timeout is reached, the server reports it as an execution-phase error via `ErrorDetail` (see [Execution Errors](#execution-errors)).
@@ -210,7 +383,7 @@ Both `ExecutePlanRequest` and `ExecutePipelineRequest` accept an optional `Execu
 
 #### Node Identifier Convention
 
-Shared messages (`StageResult`, `PlanValidationIssue`, `ErrorDetail`) use a `node_id` field and `JobProgress` uses a `current_node_id` field to identify the plan node where an event, result, or issue originated. For `ProcessService`, the value correlates to `PlanStep.step_id`. For `PipelineService`, it correlates to `PipelineStage.stage_id`. Implementations must populate these fields with the identifier from the corresponding service-specific definition.
+Shared messages (`StageResult`, `PlanValidationIssue`, `ErrorDetail`) use a `node_id` field and `JobProgress` uses a `current_node_id` field to identify the plan node where an event, result, or issue originated. For `ProcessService`, the value correlates to `PlanStep.step_id`. For `PipelineService`, it correlates to `PipelineStage.stage_id`. For `RenderService`, `BuilderService`, and `DeploymentService`, the value correlates to an internal stage identifier chosen by the server (e.g., render stage, build phase, deployment step). Implementations must populate these fields with the identifier from the corresponding service-specific definition.
 
 ## Data Types
 
@@ -325,11 +498,11 @@ enum ValidationSeverity {
 
 ### Execution Errors
 
-Process and pipeline execution errors use a structured `ErrorDetail` model with machine-parseable codes, domain categories, and retryability classification. Execution-phase failures — errors that occur after the server begins executing a plan or pipeline — are always reported through `ErrorDetail` rather than gRPC status codes, so the structured error model is available to the client. The error surface is consistent across execution modes:
+Process, pipeline, render, build, and deployment execution errors use a structured `ErrorDetail` model with machine-parseable codes, domain categories, and retryability classification. Execution-phase failures — errors that occur after the server begins executing a plan, pipeline, render, build, or deployment — are always reported through `ErrorDetail` rather than gRPC status codes, so the structured error model is available to the client. The error surface is consistent across execution modes:
 
-- **Streaming** (`ExecutePlanStream` / `ExecutePipelineStream`): A terminal `error` event carries the `ErrorDetail`.
-- **Unary** (`ExecutePlan` / `ExecutePipeline`): The gRPC status is `OK` and the response `outcome` oneof carries either `result` or `error`. The `oneof` guarantees mutual exclusion (at most one branch is set on the wire); servers MUST populate exactly one.
-- **Async results** (`GetJobResult` / `GetPipelineJobResult`): The gRPC status is `OK` and the response `outcome` oneof carries `result` or `error` for completed/failed jobs.
+- **Streaming** (`ExecutePlanStream` / `ExecutePipelineStream` / `ExecuteRenderStream` / `ExecuteBuildStream` / `ExecuteDeploymentStream`): A terminal `error` event carries the `ErrorDetail`.
+- **Unary** (`ExecutePlan` / `ExecutePipeline` / `ExecuteRender` / `ExecuteBuild` / `ExecuteDeployment` / `RollbackDeployment`): The gRPC status is `OK` and the response `outcome` oneof carries either `result` or `error`. The `oneof` guarantees mutual exclusion (at most one branch is set on the wire); servers MUST populate exactly one.
+- **Async results** (`GetJobResult` / `GetPipelineJobResult` / `GetRenderJobResult` / `GetBuildJobResult` / `GetDeploymentJobResult`): The gRPC status is `OK` and the response `outcome` oneof carries `result` or `error` for completed/failed jobs.
 
 | Category | Description |
 |----------|-------------|
@@ -433,8 +606,9 @@ see [`VERSIONING.md`](../VERSIONING.md).
 - **Transaction Support**: Implement rollback for failed edits
 - **Connection Pooling**: Manage database connections efficiently
 - **Rate Limiting**: Protect against abuse
-- **Dry-Run Isolation**: `DryRunPlan` and `DryRunPipeline` must not modify persistent state or produce side effects
-- **Job Cancellation**: `CancelJob` / `CancelPipelineJob` is best-effort; the server should transition the job to `CANCELLED` as soon as practical but may complete the current stage first
+- **Dry-Run Isolation**: `DryRunPlan`, `DryRunPipeline`, `DryRunRender`, `DryRunBuild`, and `DryRunDeployment` must not modify persistent state or produce side effects
+- **Job Cancellation**: `CancelJob` / `CancelPipelineJob` / `CancelRenderJob` / `CancelBuildJob` / `CancelDeploymentJob` is best-effort; the server should transition the job to `CANCELLED` as soon as practical but may complete the current stage first
+- **Health Stream Lifetime**: `StreamDeploymentHealth` servers may terminate a long-lived health stream with `DEADLINE_EXCEEDED` after a documented idle window; clients are expected to reconnect
 - **Node ID Population**: Populate `node_id` in `StageResult`, `PlanValidationIssue`, and `ErrorDetail` — and `current_node_id` in `JobProgress` — with the step or stage identifier from the originating service
 
 ### Client Implementation
@@ -443,7 +617,7 @@ see [`VERSIONING.md`](../VERSIONING.md).
 - **Error Handling**: Implement retry logic with backoff; use the `retryability` field in `ErrorDetail` to decide whether to retry, revise, or abort
 - **Offline Support**: Cache data and queue operations
 - **Progress Reporting**: Show progress for long operations
-- **Streaming Consumption**: Consume `ExecutePlanStream` / `ExecutePipelineStream` events incrementally; expect interleaved `progress`, `stage_result`, and a terminal `result` or `error` event
+- **Streaming Consumption**: Consume `ExecutePlanStream` / `ExecutePipelineStream` / `ExecuteRenderStream` / `ExecuteBuildStream` / `ExecuteDeploymentStream` events incrementally; expect interleaved `progress`, `stage_result`, and a terminal `result` or `error` event. For `StreamDeploymentHealth`, expect continuous `DeploymentHealthEvent` messages and be prepared to reconnect after `DEADLINE_EXCEEDED`.
 
 ## Compliance and Standards
 

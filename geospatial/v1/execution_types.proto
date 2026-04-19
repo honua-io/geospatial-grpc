@@ -12,11 +12,12 @@ import "geospatial/v1/spatial_types.proto";
 
 // WorkflowFamily identifies the category of operator workflow.
 // Values are scoped to families with a defined owning service in this package.
-// Values 2-4 are earmarked for publish, build, and deploy families and will
-// be defined when those services are added.
 enum WorkflowFamily {
   WORKFLOW_FAMILY_UNSPECIFIED = 0;
   WORKFLOW_FAMILY_ANALYZE = 1;
+  WORKFLOW_FAMILY_PUBLISH = 2;
+  WORKFLOW_FAMILY_BUILD = 3;
+  WORKFLOW_FAMILY_DEPLOY = 4;
 }
 
 // JobState represents the lifecycle state of an execution job.

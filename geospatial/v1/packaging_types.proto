@@ -1,0 +1,140 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/common.proto";
+import "geospatial/v1/execution_types.proto";
+
+// Canonical packaging and deployment domain objects shared by RenderService,
+// BuilderService, and DeploymentService. These are shape contracts only:
+// artifact materialization (where bytes live, retention, immutability) is
+// owned by a later workspace/artifact contract.
+
+// MapPackage is a deterministic, MapLibre-compatible map composition that
+// downstream runtimes can hydrate without interpretation drift.
+message MapPackage {
+  // Stable identifier for the package across revisions.
+  string package_id = 1;
+  // MapPackage contract version (independent of the proto package version).
+  // Lets the shape co-evolve with consumer runtimes such as MapLibre SDKs.
+  string spec_version = 2;
+  // Primary packaged map bundle (sprites, glyphs, tile indexes).
+  ArtifactRef map_artifact = 3;
+  // MapLibre style JSON produced during render.
+  ArtifactRef style_artifact = 4;
+  // Optional raster or vector preview for console UIs.
+  ArtifactRef preview_artifact = 5;
+  // Canonical coordinate reference system for the map.
+  SpatialReference spatial_reference = 6;
+  // Map envelope.
+  Extent extent = 7;
+  // Upstream dataset references for provenance lookups.
+  repeated string source_refs = 8;
+  // Free-form display metadata (title, description, attribution).
+  map<string, string> metadata = 9;
+  // Workspace handle. Consistent with ArtifactRef.workspace_ref.
+  string workspace_ref = 10;
+}
+
+// AppPackage is a deterministic application bundle that can be deployed or
+// previewed.
+message AppPackage {
+  // Stable identifier for the package across revisions.
+  string package_id = 1;
+  // AppPackage contract version.
+  string spec_version = 2;
+  // Built static bundle.
+  ArtifactRef bundle_artifact = 3;
+  // Typed manifest (routes, entry points, capabilities).
+  ArtifactRef manifest_artifact = 4;
+  // References to MapPackage identifiers embedded in the app.
+  repeated string map_package_refs = 5;
+  // Typed runtime configuration (feature flags, env bindings).
+  ParameterMap runtime_config = 6;
+  // Free-form display metadata (title, description, icons).
+  map<string, string> metadata = 7;
+  // Workspace handle. Consistent with ArtifactRef.workspace_ref.
+  string workspace_ref = 8;
+}
+
+// DeploymentStrategy describes how an update rolls out to live targets.
+enum DeploymentStrategy {
+  DEPLOYMENT_STRATEGY_UNSPECIFIED = 0;
+  DEPLOYMENT_STRATEGY_IMMEDIATE = 1;
+  DEPLOYMENT_STRATEGY_BLUE_GREEN = 2;
+  DEPLOYMENT_STRATEGY_CANARY = 3;
+  DEPLOYMENT_STRATEGY_ROLLING = 4;
+}
+
+// DeploymentHealthStatus classifies the observed health of a deployment.
+enum DeploymentHealthStatus {
+  DEPLOYMENT_HEALTH_STATUS_UNSPECIFIED = 0;
+  DEPLOYMENT_HEALTH_STATUS_HEALTHY = 1;
+  DEPLOYMENT_HEALTH_STATUS_DEGRADED = 2;
+  DEPLOYMENT_HEALTH_STATUS_UNHEALTHY = 3;
+  DEPLOYMENT_HEALTH_STATUS_UNKNOWN = 4;
+}
+
+// DeploymentTarget identifies a logical deployment destination.
+// Cloud backend specifics are intentionally kept out of this contract.
+message DeploymentTarget {
+  string target_id = 1;
+  string environment = 2; // e.g., production, staging
+  string region = 3;
+  map<string, string> properties = 4;
+}
+
+// HealthCheck describes a probe evaluated after a deployment is promoted.
+message HealthCheck {
+  string name = 1;
+  string probe_type = 2; // e.g., http, grpc, tcp
+  string locator = 3; // URL or endpoint reference
+  int32 timeout_seconds = 4;
+  int32 success_threshold = 5;
+}
+
+// HealthCheckResult reports the observed outcome of a named probe.
+message HealthCheckResult {
+  string name = 1;
+  DeploymentHealthStatus status = 2;
+  string message = 3;
+  int64 observed_at = 4; // UTC milliseconds since epoch
+}
+
+// RollbackPolicy describes when a deployment should be rolled back automatically.
+message RollbackPolicy {
+  bool auto_rollback_on_failure = 1;
+  int32 failure_threshold = 2;
+}
+
+// DeploymentEndpoint describes a live endpoint exposed by a deployment.
+message DeploymentEndpoint {
+  string name = 1;
+  string url = 2;
+  string protocol = 3; // e.g., https, grpc
+  DeploymentHealthStatus health = 4;
+}
+
+// DeploymentSpec captures the desired state of a running deployment.
+message DeploymentSpec {
+  // Stable identifier for the deployment across revisions.
+  string deployment_id = 1;
+  // DeploymentSpec contract version.
+  string spec_version = 2;
+  // Package under deployment. ArtifactRef branch handles service definitions
+  // and other deployable artifact classes (e.g., SERVICE_DEFINITION).
+  oneof package_ref {
+    AppPackage app_package = 3;
+    MapPackage map_package = 4;
+    ArtifactRef artifact = 5;
+  }
+  DeploymentTarget target = 6;
+  DeploymentStrategy strategy = 7;
+  repeated HealthCheck health_checks = 8;
+  RollbackPolicy rollback_policy = 9;
+  // Workspace handle. Consistent with ArtifactRef.workspace_ref.
+  string workspace_ref = 10;
+}
