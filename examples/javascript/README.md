@@ -132,8 +132,8 @@ export function useFeatureQuery(serviceId: string, layerId: number, where: strin
 
 ## Next Steps
 
-- **Process Execution**: Use `ProcessService` to validate, dry-run, and execute analysis plans — see the [Getting Started guide](../../docs/getting-started.md#step-10-process-execution-and-pipelines)
-- **Data Publishing**: Use `PipelineService` to run data ingestion and publishing pipelines
+- **Execution Workflows**: Use `ProcessService`, `PipelineService`, `RenderService`, `BuilderService`, or `DeploymentService` — they share a `Validate*` / `DryRun*` / `Execute*` / `Execute*Stream` / `Submit*Job` / `Get*Job` / `Get*JobResult` / `Cancel*Job` RPC surface. See the [Getting Started guide](../../docs/getting-started.md#step-10-process-pipeline-render-build-and-deployment-workflows).
+- **Canonical Packaging**: Consume `MapPackage`, `AppPackage`, and `DeploymentSpec` from `packaging_types.proto` directly rather than wrapping them in bespoke shapes
 - **Web Application**: Build a full mapping web app with Leaflet/Mapbox
 - **React Native**: Adapt for mobile app development
 - **Streaming**: Implement server-sent events for real-time updates
