@@ -191,7 +191,7 @@ A `PipelineDefinition` describes a data publishing workflow with a source, trans
 
 ### RenderService
 
-The `RenderService` provides typed RPC access to map composition and packaging. It produces a `MapPackage` — a deterministic, MapLibre-compatible map composition — that downstream runtimes can hydrate without interpretation drift. It supports:
+The `RenderService` provides typed RPC access to map composition and packaging. A non-preview render produces a hydration-ready `MapPackage` — a deterministic, MapLibre-compatible map composition — that downstream runtimes can hydrate without interpretation drift. Preview-only renders return a preview-focused `MapPackage` intended for console/UI previews that is not hydration-ready (see [MapPackage Contract](#mappackage-contract)). It supports:
 
 - **Render Validation**: Check a render spec for structural and capability issues
 - **Dry-Run Estimation**: Estimate the cost and artifact footprint of a render without side effects
@@ -224,7 +224,7 @@ A `RenderSpec` describes a map composition: `style_spec` (MapLibre style hints a
 
 #### Render Results
 
-`RenderResult` contains: `result_id`, terminal `status`, human-readable `summary`, any `assumptions` recorded during execution, the produced `map_package` (a canonical `MapPackage`), produced `artifacts`, per-stage `stage_results`, and a `ProvenanceRecord`. `map_package` is always populated on successful execution. When `RenderSpec.preview_only` is true, only `MapPackage.preview_artifact` is guaranteed to be set; the packaged outputs (`map_artifact`, `style_artifact`) MAY be empty.
+`RenderResult` contains: `result_id`, terminal `status`, human-readable `summary`, any `assumptions` recorded during execution, the produced `map_package` (a canonical `MapPackage`), produced `artifacts`, per-stage `stage_results`, and a `ProvenanceRecord`. `map_package` is always populated on successful execution. For non-preview renders, the returned `MapPackage` is hydration-ready (`map_artifact` and `style_artifact` are set). When `RenderSpec.preview_only` is true, only `MapPackage.preview_artifact` is guaranteed to be set; the packaged outputs (`map_artifact`, `style_artifact`) MAY be empty and the returned `MapPackage` is not hydration-ready.
 
 #### MapPackage Contract
 
@@ -239,10 +239,12 @@ A `RenderSpec` describes a map composition: `style_spec` (MapLibre style hints a
 
 MapLibre style JSON is carried as opaque bytes inside `style_artifact`, not typed proto fields, so MapPackage evolution is decoupled from upstream MapLibre releases.
 
+A `MapPackage` is hydration-ready only when both `map_artifact` and `style_artifact` are set. Preview-focused results from `RenderService` with `RenderSpec.preview_only = true` are the single documented exception: only `preview_artifact` is guaranteed, and such a package must not be treated as hydration-ready. Hydrating consumers operate on non-preview `MapPackage` instances or gate on `map_artifact` and `style_artifact` being populated.
+
 #### Consumer Expectations
 
 - `honua-server-731` packages `MapPackage` outputs without redefining its shape.
-- `honua-sdk-js-21` hydrates a MapLibre runtime directly from a `MapPackage`, keying compatibility on `MapPackage.spec_version`.
+- `honua-sdk-js-21` hydrates a MapLibre runtime directly from a non-preview `MapPackage`, keying compatibility on `MapPackage.spec_version`.
 - MCP extensions and the operator orchestration host call `ExecuteRender` / `ExecuteRenderStream` without wrapping them in bespoke render shapes.
 
 ### BuilderService
@@ -331,7 +333,7 @@ service DeploymentService {
 
 #### Deployment Specs
 
-A `DeploymentSpec` captures the desired state of a running deployment: `deployment_id`, `spec_version`, a `package_ref` oneof (`AppPackage`, `MapPackage`, or `ArtifactRef` — which handles `SERVICE_DEFINITION` and other deployable artifact classes), a `DeploymentTarget` (logical target with `environment` and `region`; cloud backend specifics are intentionally out of scope), a `DeploymentStrategy` (`IMMEDIATE`, `BLUE_GREEN`, `CANARY`, `ROLLING`), one or more `HealthCheck` probes, and a `RollbackPolicy`.
+A `DeploymentSpec` captures the desired state of a running deployment: `deployment_id`, `spec_version`, a `package_ref` oneof (`AppPackage`, `MapPackage`, or `ArtifactRef` — which handles `SERVICE_DEFINITION` and other deployable artifact classes), a `DeploymentTarget` (logical target with `environment` and `region`; cloud backend specifics are intentionally out of scope), a `DeploymentStrategy` (`IMMEDIATE`, `BLUE_GREEN`, `CANARY`, `ROLLING`), one or more `HealthCheck` probes, a `RollbackPolicy`, and a `workspace_ref` consistent with `ArtifactRef.workspace_ref` (matching the convention on `MapPackage` and `AppPackage`).
 
 Every deployment request also carries a `DeploymentOperationMode` (`CREATE`, `UPDATE`, `REDEPLOY`) so the server can decide whether the spec represents a fresh deployment or an update.
 

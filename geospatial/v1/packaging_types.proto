@@ -15,6 +15,14 @@ import "geospatial/v1/execution_types.proto";
 
 // MapPackage is a deterministic, MapLibre-compatible map composition that
 // downstream runtimes can hydrate without interpretation drift.
+//
+// Hydration readiness is guaranteed only when both map_artifact and
+// style_artifact are set. The one documented exception is preview-focused
+// results returned by RenderService when RenderSpec.preview_only is true:
+// only preview_artifact is guaranteed, map_artifact and style_artifact MAY
+// be empty, and such a package is not hydration-ready. Consumers that
+// hydrate a MapLibre runtime must either operate on non-preview MapPackages
+// or check that map_artifact and style_artifact are populated before use.
 message MapPackage {
   // Stable identifier for the package across revisions.
   string package_id = 1;

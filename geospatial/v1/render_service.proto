@@ -13,9 +13,12 @@ import "geospatial/v1/packaging_types.proto";
 //
 // This service covers the execution lifecycle for rendering workflows:
 // render validation, dry-run estimation, synchronous and streaming execution,
-// and job management. Rendering produces a MapPackage — a deterministic,
-// MapLibre-compatible map composition — suitable for promotion into an
-// AppPackage or a direct Deployment.
+// and job management. A non-preview render produces a hydration-ready
+// MapPackage — a deterministic, MapLibre-compatible map composition —
+// suitable for promotion into an AppPackage or a direct Deployment. A
+// preview-only render (RenderSpec.preview_only = true) returns a
+// preview-focused MapPackage that carries only preview_artifact; such a
+// result is not hydration-ready and is intended for console/UI previews.
 //
 // Transport-neutral status mapping for server implementations:
 //
@@ -99,9 +102,11 @@ message RenderSpec {
   // MapLibre style hints and overrides (title, basemap, palette, theme).
   ParameterMap style_spec = 4;
   repeated LayerBinding layer_bindings = 5;
-  // If true, the server produces a preview-focused MapPackage: map_package is
-  // still populated on RenderResult, but only preview_artifact is guaranteed
-  // to be set; map_artifact and style_artifact MAY be omitted.
+  // If true, the server produces a preview-focused MapPackage intended for
+  // console/UI previews only. map_package is still populated on RenderResult,
+  // but only preview_artifact is guaranteed to be set; map_artifact and
+  // style_artifact MAY be omitted, and the returned MapPackage is not
+  // hydration-ready (see MapPackage comment in packaging_types.proto).
   bool preview_only = 6;
   // Canonical CRS for the output map.
   SpatialReference target_spatial_reference = 7;
@@ -167,9 +172,12 @@ message RenderResult {
   JobState status = 2;
   string summary = 3;
   repeated Assumption assumptions = 4;
-  // Produced MapPackage. Always populated on successful execution. When
-  // RenderSpec.preview_only is true, only preview_artifact is guaranteed to
-  // be set; the packaged outputs (map_artifact, style_artifact) MAY be empty.
+  // Produced MapPackage. Always populated on successful execution. For
+  // non-preview renders, the MapPackage is hydration-ready (map_artifact and
+  // style_artifact are set). When RenderSpec.preview_only is true, only
+  // preview_artifact is guaranteed to be set; the packaged outputs
+  // (map_artifact, style_artifact) MAY be empty and the MapPackage is not
+  // hydration-ready.
   MapPackage map_package = 5;
   repeated ArtifactRef artifacts = 6;
   repeated StageResult stage_results = 7;
