@@ -293,13 +293,14 @@ message ParameterMap {
 // Workspace identity precedence. When the enclosing request already carries
 // a WorkspaceRef elsewhere — for example `ArtifactRef.workspace`,
 // `ArtifactHeader.workspace`, `WorkspaceRef ref` on WorkspaceService
-// requests, or `DeploymentSpec.workspace` — that resource-scoped handle is
-// authoritative. If `ExecutionContext.workspace` is also set, it MUST
-// identify the same workspace (matching `workspace_id` at minimum; servers
-// SHOULD reject mismatched `scope_token` or `workspace_revision`) and the
-// server returns INVALID_ARGUMENT on mismatch. Callers that already carry
-// workspace identity on the resource handle MAY leave
-// `ExecutionContext.workspace` unset.
+// requests, `DeploymentSpec.workspace`, or a list-request workspace filter
+// such as `ListArtifactsRequest.workspace` when set — that resource-scoped
+// or filter handle is authoritative. If `ExecutionContext.workspace` is
+// also set, it MUST identify the same workspace (matching `workspace_id`
+// at minimum; servers SHOULD reject mismatched `scope_token` or
+// `workspace_revision`) and the server returns INVALID_ARGUMENT on
+// mismatch. Callers that already carry workspace identity on the resource
+// or filter handle MAY leave `ExecutionContext.workspace` unset.
 //
 // Field 1 (workspace_id) is the legacy string handle retained for wire and
 // JSON compatibility. It is deprecated in favor of the typed `workspace`

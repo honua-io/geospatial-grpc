@@ -239,9 +239,18 @@ message InspectArtifactResponse {
 }
 
 // ListArtifactsRequest requests a page of artifacts matching the filters.
+//
+// Workspace identity precedence. The `workspace` filter is the authoritative
+// workspace selector for this request. When both `workspace` and
+// `context.workspace` are populated, they MUST identify the same workspace
+// and servers return INVALID_ARGUMENT on mismatch. When `workspace` is unset,
+// servers list artifacts in any workspace the caller can access and any
+// `context.workspace` value is informational only (caller scope is evaluated
+// from request metadata).
 message ListArtifactsRequest {
   // Optional workspace filter. When unset, the server lists artifacts in
-  // any workspace the caller can access.
+  // any workspace the caller can access. When set, authoritative over
+  // `context.workspace` per the precedence rule above.
   WorkspaceRef workspace = 1;
   // Optional artifact class filter. UNSPECIFIED matches all classes.
   ArtifactClass class_filter = 2;
