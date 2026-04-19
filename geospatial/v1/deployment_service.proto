@@ -120,7 +120,12 @@ message DryRunDeploymentResponse {
   DryRunResult result = 3;
 }
 
-// ExecuteDeploymentRequest submits a deployment for synchronous or streaming execution.
+// ExecuteDeploymentRequest submits a deployment for synchronous or streaming
+// execution. `spec.workspace` is the authoritative workspace for this
+// request; when `context.workspace` is also set, it MUST identify the same
+// workspace and servers return INVALID_ARGUMENT on mismatch. The same rule
+// applies to ValidateDeploymentRequest, DryRunDeploymentRequest, and
+// SubmitDeploymentJobRequest.
 message ExecuteDeploymentRequest {
   DeploymentSpec spec = 1;
   DeploymentOperationMode operation_mode = 2;

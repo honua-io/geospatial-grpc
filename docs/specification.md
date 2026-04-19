@@ -235,7 +235,7 @@ A `RenderSpec` describes a map composition: `style_spec` (MapLibre style hints a
 - `spatial_reference`, `extent` — canonical CRS and envelope
 - `source_refs` — upstream dataset references for provenance lookups
 - `metadata` — free-form display metadata (title, description, attribution)
-- `workspace` — typed `WorkspaceRef` consistent with `ArtifactRef.workspace` (see [WorkspaceService](#workspaceservice))
+- `workspace` — typed `WorkspaceRef` (field 11) consistent with `ArtifactRef.workspace` (see [WorkspaceService](#workspaceservice)); field 10 (`workspace_ref`, `string`) is the deprecated legacy handle retained for wire and JSON compatibility
 
 MapLibre style JSON is carried as opaque bytes inside `style_artifact`, not typed proto fields, so MapPackage evolution is decoupled from upstream MapLibre releases.
 
@@ -293,7 +293,7 @@ A `BuildSpec` describes an application synthesis request: `template_ref` (app te
 - `map_package_refs` — identifiers of `MapPackage` instances embedded in the app
 - `runtime_config` — typed `ParameterMap` of runtime configuration (feature flags, env bindings)
 - `metadata` — free-form display metadata (title, description, icons)
-- `workspace` — typed `WorkspaceRef` consistent with `ArtifactRef.workspace` (see [WorkspaceService](#workspaceservice))
+- `workspace` — typed `WorkspaceRef` (field 9) consistent with `ArtifactRef.workspace` (see [WorkspaceService](#workspaceservice)); field 8 (`workspace_ref`, `string`) is the deprecated legacy handle retained for wire and JSON compatibility
 
 #### Consumer Expectations
 
@@ -333,7 +333,7 @@ service DeploymentService {
 
 #### Deployment Specs
 
-A `DeploymentSpec` captures the desired state of a running deployment: `deployment_id`, `spec_version`, a `package_ref` oneof (`AppPackage`, `MapPackage`, or `ArtifactRef` — which handles `SERVICE_DEFINITION` and other deployable artifact classes), a `DeploymentTarget` (logical target with `environment` and `region`; cloud backend specifics are intentionally out of scope), a `DeploymentStrategy` (`IMMEDIATE`, `BLUE_GREEN`, `CANARY`, `ROLLING`), one or more `HealthCheck` probes, a `RollbackPolicy`, and a typed `workspace` (`WorkspaceRef`) consistent with `ArtifactRef.workspace` (matching the convention on `MapPackage` and `AppPackage`).
+A `DeploymentSpec` captures the desired state of a running deployment: `deployment_id`, `spec_version`, a `package_ref` oneof (`AppPackage`, `MapPackage`, or `ArtifactRef` — which handles `SERVICE_DEFINITION` and other deployable artifact classes), a `DeploymentTarget` (logical target with `environment` and `region`; cloud backend specifics are intentionally out of scope), a `DeploymentStrategy` (`IMMEDIATE`, `BLUE_GREEN`, `CANARY`, `ROLLING`), one or more `HealthCheck` probes, a `RollbackPolicy`, and a typed `workspace` (field 11, `WorkspaceRef`) consistent with `ArtifactRef.workspace` (matching the convention on `MapPackage` and `AppPackage`). Field 10 (`workspace_ref`, `string`) is the deprecated legacy handle retained for wire and JSON compatibility.
 
 Every deployment request also carries a `DeploymentOperationMode` (`CREATE`, `UPDATE`, `REDEPLOY`) so the server can decide whether the spec represents a fresh deployment or an update.
 
@@ -399,7 +399,7 @@ A `Workspace` carries a typed `WorkspaceLifecycle` (`DRAFT`, `ACTIVE`, `PROMOTED
 - `workspace_revision` — monotonic tag for drift detection without fetching the full resource
 - `scope_token` — opaque tenancy/authorization token owned by `honua-server-733`. This contract does not interpret the value; servers evaluate scope against request metadata.
 
-`ArtifactRef.workspace`, `ExecutionContext.workspace`, `MapPackage.workspace`, `AppPackage.workspace`, and `DeploymentSpec.workspace` all carry the same `WorkspaceRef` type — consumers bind through one canonical handle across the entire operator surface.
+`ArtifactRef.workspace`, `ExecutionContext.workspace`, `MapPackage.workspace`, `AppPackage.workspace`, and `DeploymentSpec.workspace` all carry the same `WorkspaceRef` type — consumers bind through one canonical handle across the entire operator surface. Each of those messages also exposes a deprecated legacy string handle (`workspace_ref` on `ArtifactRef`, `MapPackage`, `AppPackage`, and `DeploymentSpec`; `workspace_id` on `ExecutionContext`) retained for wire and JSON compatibility with prior v1 releases. New producers SHOULD populate only the typed `WorkspaceRef` field; when both are present they MUST identify the same workspace and the typed field is authoritative. See [Workspace Identity Precedence](#workspace-identity-precedence) for the equality rule when a resource handle and `ExecutionContext.workspace` appear in the same request.
 
 #### Promotion, Retention, and Release Semantics
 
@@ -462,7 +462,7 @@ service ArtifactService {
 
 #### Materialization State
 
-`MaterializationState` is a typed enum with `UNSPECIFIED`, `PENDING`, `MATERIALIZING`, `MATERIALIZED`, `EXPIRED`, and `FAILED`. `InspectArtifact` returns both the `Artifact` resource and the most recent observed materialization snapshot (`materialization_state`, `observed_size_bytes`, `observed_content_hash`, `observed_at`) so consumers can poll for materialization progress without streaming bytes.
+`MaterializationState` is a typed enum with `UNSPECIFIED`, `PENDING`, `MATERIALIZING`, `MATERIALIZED`, `EXPIRED`, and `FAILED`. It is carried on `ArtifactRef.materialization` (field 10) and on `InspectArtifactResponse.materialization_state`. `InspectArtifact` returns both the `Artifact` resource and the most recent observed materialization snapshot (`materialization_state`, `observed_size_bytes`, `observed_content_hash`, `observed_at`) so consumers can poll for materialization progress without streaming bytes. The legacy `ArtifactRef.materialization_state` (field 7, `string`) is deprecated and kept for wire and JSON compatibility only.
 
 #### Consumer Expectations
 
@@ -477,7 +477,7 @@ service ArtifactService {
 
 - **Job lifecycle**: `JobState`, `StageState` enums and `JobProgress` messages (`execution_types.proto`)
 - **Error model**: `ErrorDetail` with `ErrorCategory` and `Retryability` classifications (`execution_types.proto`); `ERROR_CATEGORY_ARTIFACT` covers artifact-lifecycle failures, `ERROR_CATEGORY_AUTHORIZATION` and `ERROR_CATEGORY_POLICY` cover honua-server-733 scope rejections
-- **Artifacts**: `ArtifactRef` with typed `workspace` (`WorkspaceRef`), `retention` (`RetentionPolicyRef`), and `materialization_state` (`MaterializationState`) (`execution_types.proto`)
+- **Artifacts**: `ArtifactRef` with typed `workspace` (field 8, `WorkspaceRef`), `retention` (field 9, `RetentionPolicyRef`), and `materialization` (field 10, `MaterializationState`) (`execution_types.proto`). Fields 5–7 (`workspace_ref`, `retention_policy_ref`, `materialization_state` — all `string`) are deprecated legacy handles retained for wire and JSON compatibility with prior v1 releases; producers SHOULD populate only the typed fields on new writes, and when both the deprecated and typed variants are set they MUST identify the same underlying entity.
 - **Workspaces and retention**: `WorkspaceRef`, `RetentionPolicyRef`, `WorkspaceLifecycle`, `PromotionStage`, `MaterializationState`, `QuotaSpec`, `QuotaUsage`, `RetentionPolicy`, `Workspace` (`workspace_artifact_types.proto`)
 - **Dry-run**: `DryRunResult` with estimated artifacts, side effects, and cost (`execution_types.proto`)
 - **Provenance**: `ProvenanceRecord` with source datasets, assumptions, and timing (`execution_types.proto`)
@@ -491,9 +491,14 @@ service ArtifactService {
 
 `ExecutePlanRequest`, `ExecutePipelineRequest`, `ExecuteRenderRequest`, `ExecuteBuildRequest`, and `ExecuteDeploymentRequest` — and every mutating RPC on `WorkspaceService` and `ArtifactService` — accept an optional `ExecutionContext`:
 
-- `workspace`: Typed `WorkspaceRef` that scopes artifacts and job state to a workspace. Servers evaluate `honua-server-733` execution scope from this handle combined with caller request metadata; no parallel scope primitives appear in the proto surface.
+- `workspace`: Typed `WorkspaceRef` (field 4) that scopes artifacts and job state to a workspace. Servers evaluate `honua-server-733` execution scope from this handle combined with caller request metadata; no parallel scope primitives appear in the proto surface.
+- `workspace_id`: Deprecated legacy string (field 1) retained for wire and JSON compatibility with prior v1 releases. New producers SHOULD populate only the typed `workspace` handle; when both are set they MUST identify the same workspace and the typed field is authoritative. Removal target: v2.
 - `timeout_seconds`: Server-enforced execution deadline. If the timeout is reached, the server reports it as an execution-phase error via `ErrorDetail` (see [Execution Errors](#execution-errors)).
 - `metadata`: Arbitrary key-value pairs forwarded to the execution environment (e.g., correlation IDs, caller tags).
+
+##### Workspace Identity Precedence
+
+When a request already carries a workspace handle on a resource field — `ArtifactRef.workspace` (e.g., `GetArtifactRequest.ref`, `ReadArtifactRequest.ref`, `InspectArtifactRequest.ref`, `RetainArtifactRequest.ref`, `ReleaseArtifactRequest.ref`), `ArtifactHeader.workspace` on `PublishArtifact`, `WorkspaceRef ref` on `WorkspaceService` requests, or `DeploymentSpec.workspace` on deployment requests — that resource-scoped handle is authoritative. `ExecutionContext.workspace`, when also populated, MUST identify the same workspace (at minimum `workspace_id`; servers SHOULD also reject mismatched `scope_token` or `workspace_revision`). Servers return `INVALID_ARGUMENT` on mismatch. Callers that already carry workspace identity on the resource handle MAY leave `ExecutionContext.workspace` unset.
 
 #### Node Identifier Convention
 

@@ -132,7 +132,8 @@ export function useFeatureQuery(serviceId: string, layerId: number, where: strin
 
 ## Next Steps
 
-- **Execution Workflows**: Use `ProcessService`, `PipelineService`, `RenderService`, `BuilderService`, or `DeploymentService` — they share a `Validate*` / `DryRun*` / `Execute*` / `Execute*Stream` / `Submit*Job` / `Get*Job` / `Get*JobResult` / `Cancel*Job` RPC surface. See the [Getting Started guide](../../docs/getting-started.md#step-10-process-pipeline-render-build-and-deployment-workflows).
+- **Workspace & Artifact Lifecycle**: Use `WorkspaceService` and `ArtifactService` to create workspaces, publish/read artifacts (client- and server-streaming), and bind retention policies through the canonical `WorkspaceRef` / `ArtifactRef` / `RetentionPolicyRef` handles
+- **Execution Workflows**: Use `ProcessService`, `PipelineService`, `RenderService`, `BuilderService`, or `DeploymentService` — they share a `Validate*` / `DryRun*` / `Execute*` / `Execute*Stream` / `Submit*Job` / `Get*Job` / `Get*JobResult` / `Cancel*Job` RPC surface. See the [Getting Started guide](../../docs/getting-started.md#step-10-workspace-artifact-process-pipeline-render-build-and-deployment-workflows).
 - **Canonical Packaging**: Consume `MapPackage`, `AppPackage`, and `DeploymentSpec` from `packaging_types.proto` directly rather than wrapping them in bespoke shapes
 - **Web Application**: Build a full mapping web app with Leaflet/Mapbox
 - **React Native**: Adapt for mobile app development

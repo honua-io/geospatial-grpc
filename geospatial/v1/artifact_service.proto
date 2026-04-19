@@ -105,9 +105,9 @@ message Artifact {
   // Content-addressable hash of the artifact bytes, including algorithm
   // prefix (e.g., "sha256:...").
   string content_hash = 4;
-  int64 published_at = 5;     // UTC milliseconds since epoch
-  int64 materialized_at = 6;  // UTC milliseconds since epoch
-  int64 expires_at = 7;       // UTC milliseconds since epoch; 0 if none
+  int64 published_at = 5; // UTC milliseconds since epoch
+  int64 materialized_at = 6; // UTC milliseconds since epoch
+  int64 expires_at = 7; // UTC milliseconds since epoch; 0 if none
   // Full execution lineage that produced this artifact. Reuses the canonical
   // ProvenanceRecord type from execution_types.proto.
   ProvenanceRecord provenance = 8;
@@ -118,9 +118,12 @@ message Artifact {
 }
 
 // ArtifactHeader declares the publish intent and must be the first message
-// sent on a PublishArtifact stream.
+// sent on a PublishArtifact stream. ArtifactHeader.workspace is the
+// authoritative workspace handle for publish; when `context.workspace` is
+// also set, both MUST identify the same workspace (servers return
+// INVALID_ARGUMENT on mismatch per ExecutionContext precedence rules).
 message ArtifactHeader {
-  // Owning workspace.
+  // Owning workspace. Authoritative for this publish request.
   WorkspaceRef workspace = 1;
   // Artifact class used to route the artifact (e.g., MAP, FILE, REPORT).
   ArtifactClass artifact_class = 2;
@@ -180,6 +183,12 @@ message PublishArtifactResponse {
 // stream ReadArtifactEvent messages and terminate with either a chunk whose
 // last field is true or a terminal ErrorDetail event. offset_bytes supports
 // resumable transfer; max_bytes of 0 streams to end-of-artifact.
+//
+// Workspace identity precedence. The workspace on `ref` (ArtifactRef.workspace)
+// is the authoritative workspace for this request. When `context.workspace`
+// is also set, it MUST identify the same workspace and servers return
+// INVALID_ARGUMENT on mismatch. This rule applies equally to GetArtifact,
+// InspectArtifact, RetainArtifact, and ReleaseArtifact.
 message ReadArtifactRequest {
   ArtifactRef ref = 1;
   int64 offset_bytes = 2;
@@ -226,7 +235,7 @@ message InspectArtifactResponse {
   // fully materialized.
   int64 observed_size_bytes = 3;
   string observed_content_hash = 4;
-  int64 observed_at = 5;  // UTC milliseconds since epoch
+  int64 observed_at = 5; // UTC milliseconds since epoch
 }
 
 // ListArtifactsRequest requests a page of artifacts matching the filters.
@@ -260,7 +269,7 @@ message ListArtifactsResponse {
 message RetainArtifactRequest {
   ArtifactRef ref = 1;
   RetentionPolicyRef retention = 2;
-  int64 retain_until = 3;  // UTC milliseconds since epoch; 0 = policy default
+  int64 retain_until = 3; // UTC milliseconds since epoch; 0 = policy default
   ExecutionContext context = 4;
 }
 

@@ -93,8 +93,13 @@ python/
         ├── feature_service_pb2_grpc.py
         ├── form_service_pb2.py
         ├── form_service_pb2_grpc.py
+        ├── workspace_artifact_types_pb2.py
         ├── execution_types_pb2.py
         ├── packaging_types_pb2.py
+        ├── workspace_service_pb2.py
+        ├── workspace_service_pb2_grpc.py
+        ├── artifact_service_pb2.py
+        ├── artifact_service_pb2_grpc.py
         ├── process_service_pb2.py
         ├── process_service_pb2_grpc.py
         ├── pipeline_service_pb2.py
@@ -246,7 +251,8 @@ async def test_error_handling():
 
 ## Next Steps
 
-- **Execution Workflows**: Use `ProcessService`, `PipelineService`, `RenderService`, `BuilderService`, or `DeploymentService` — they share a `Validate*` / `DryRun*` / `Execute*` / `Execute*Stream` / `Submit*Job` / `Get*Job` / `Get*JobResult` / `Cancel*Job` RPC surface. See the [Getting Started guide](../../docs/getting-started.md#step-10-process-pipeline-render-build-and-deployment-workflows).
+- **Workspace & Artifact Lifecycle**: Use `WorkspaceService` and `ArtifactService` to create workspaces, publish/read artifacts (client- and server-streaming), and bind retention policies through the canonical `WorkspaceRef` / `ArtifactRef` / `RetentionPolicyRef` handles
+- **Execution Workflows**: Use `ProcessService`, `PipelineService`, `RenderService`, `BuilderService`, or `DeploymentService` — they share a `Validate*` / `DryRun*` / `Execute*` / `Execute*Stream` / `Submit*Job` / `Get*Job` / `Get*JobResult` / `Cancel*Job` RPC surface. See the [Getting Started guide](../../docs/getting-started.md#step-10-workspace-artifact-process-pipeline-render-build-and-deployment-workflows).
 - **Canonical Packaging**: Consume `MapPackage`, `AppPackage`, and `DeploymentSpec` from `packaging_types.proto` directly rather than wrapping them in bespoke shapes
 - **Web Framework**: Integrate with FastAPI, Django, or Flask
 - **Data Processing**: Use with pandas, geopandas for analysis

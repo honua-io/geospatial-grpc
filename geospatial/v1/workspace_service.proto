@@ -118,6 +118,12 @@ message CreateWorkspaceResponse {
 
 // OpenWorkspaceRequest acquires an authenticated handle for an existing
 // workspace. Servers re-evaluate scope and return the current revision.
+//
+// Workspace identity precedence. `ref` is the authoritative workspace handle
+// for this request. When `context.workspace` is also set, it MUST identify
+// the same workspace and servers return INVALID_ARGUMENT on mismatch. This
+// rule applies equally to GetWorkspace, UpdateWorkspace, PromoteWorkspace,
+// RetainWorkspace, ReleaseWorkspace, and GetQuotaUsage.
 message OpenWorkspaceRequest {
   WorkspaceRef ref = 1;
   ExecutionContext context = 2;
@@ -193,7 +199,7 @@ message PromoteWorkspaceRequest {
 message RetainWorkspaceRequest {
   WorkspaceRef ref = 1;
   RetentionPolicyRef retention = 2;
-  int64 retain_until = 3;  // UTC milliseconds since epoch; 0 = policy default
+  int64 retain_until = 3; // UTC milliseconds since epoch; 0 = policy default
   ExecutionContext context = 4;
 }
 
@@ -219,5 +225,5 @@ message GetQuotaUsageRequest {
 message GetQuotaUsageResponse {
   QuotaSpec quota = 1;
   QuotaUsage usage = 2;
-  int64 observed_at = 3;  // UTC milliseconds since epoch
+  int64 observed_at = 3; // UTC milliseconds since epoch
 }

@@ -133,6 +133,15 @@ message ErrorDetail {
 // handles for its owning workspace, bound retention policy, and
 // materialization state. The full Artifact resource is returned by
 // ArtifactService.GetArtifact.
+//
+// Field 5 (workspace_ref), field 6 (retention_policy_ref), and field 7
+// (materialization_state) are the legacy string handles. They remain wire-
+// and JSON-compatible with prior v1 releases and are deprecated in favor of
+// the typed handles on fields 8, 9, and 10. When both the legacy string
+// field and the typed replacement are populated, the typed replacement is
+// authoritative; the legacy field, if populated, MUST describe the same
+// underlying identity. Producers should populate only the typed fields on
+// new writes.
 message ArtifactRef {
   string artifact_id = 1;
   ArtifactClass artifact_class = 2;
@@ -140,13 +149,26 @@ message ArtifactRef {
   // Producer identifier — typically an ExecutionResult, PipelineResult,
   // RenderResult, BuildResult, or DeploymentResult job id.
   string producer_ref = 4;
+  // Deprecated since v1: use `workspace` (field 8) instead. Legacy workspace
+  // id retained for wire and JSON compatibility. Removal target: v2.
+  string workspace_ref = 5 [deprecated = true];
+  // Deprecated since v1: use `retention` (field 9) instead. Legacy retention
+  // policy id retained for wire and JSON compatibility. Removal target: v2.
+  string retention_policy_ref = 6 [deprecated = true];
+  // Deprecated since v1: use `materialization` (field 10) instead. Legacy
+  // string label retained for wire and JSON compatibility. Removal
+  // target: v2.
+  string materialization_state = 7 [deprecated = true];
   // Owning workspace. Carries scope and revision for drift detection.
-  WorkspaceRef workspace = 5;
+  // Authoritative over the deprecated `workspace_ref` string.
+  WorkspaceRef workspace = 8;
   // Bound retention policy. Populated when the server has resolved a
-  // retention binding for the artifact.
-  RetentionPolicyRef retention = 6;
+  // retention binding for the artifact. Authoritative over the deprecated
+  // `retention_policy_ref` string.
+  RetentionPolicyRef retention = 9;
   // Whether the artifact's bytes are materialized in the workspace backend.
-  MaterializationState materialization_state = 7;
+  // Authoritative over the deprecated `materialization_state` string.
+  MaterializationState materialization = 10;
 }
 
 // EstimatedArtifact describes an artifact expected from a dry run.
@@ -263,12 +285,34 @@ message ParameterMap {
 }
 
 // ExecutionContext provides optional execution preferences shared by every
-// mutating RPC in the operator surface. The workspace handle identifies the
-// canonical WorkspaceRef that scopes artifacts, job state, and authorization
-// for this request; servers evaluate the honua-server-733 execution scope
-// from this handle combined with caller metadata.
+// mutating RPC in the operator surface. The `workspace` handle identifies
+// the canonical WorkspaceRef that scopes artifacts, job state, and
+// authorization for this request; servers evaluate the honua-server-733
+// execution scope from this handle combined with caller metadata.
+//
+// Workspace identity precedence. When the enclosing request already carries
+// a WorkspaceRef elsewhere — for example `ArtifactRef.workspace`,
+// `ArtifactHeader.workspace`, `WorkspaceRef ref` on WorkspaceService
+// requests, or `DeploymentSpec.workspace` — that resource-scoped handle is
+// authoritative. If `ExecutionContext.workspace` is also set, it MUST
+// identify the same workspace (matching `workspace_id` at minimum; servers
+// SHOULD reject mismatched `scope_token` or `workspace_revision`) and the
+// server returns INVALID_ARGUMENT on mismatch. Callers that already carry
+// workspace identity on the resource handle MAY leave
+// `ExecutionContext.workspace` unset.
+//
+// Field 1 (workspace_id) is the legacy string handle retained for wire and
+// JSON compatibility. It is deprecated in favor of the typed `workspace`
+// handle on field 4; when both are populated they MUST identify the same
+// workspace and the typed field is authoritative. Producers should populate
+// only the typed field on new writes.
 message ExecutionContext {
-  WorkspaceRef workspace = 1;
+  // Deprecated since v1: use `workspace` (field 4) instead. Legacy workspace
+  // id retained for wire and JSON compatibility. Removal target: v2.
+  string workspace_id = 1 [deprecated = true];
   int64 timeout_seconds = 2;
   map<string, string> metadata = 3;
+  // Canonical typed workspace handle for this request. Authoritative over
+  // the deprecated `workspace_id` string.
+  WorkspaceRef workspace = 4;
 }

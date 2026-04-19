@@ -134,8 +134,8 @@ message Workspace {
   QuotaSpec quota = 4;
   QuotaUsage usage = 5;
   RetentionPolicyRef default_retention = 6;
-  int64 created_at = 7;  // UTC milliseconds since epoch
-  int64 updated_at = 8;  // UTC milliseconds since epoch
+  int64 created_at = 7; // UTC milliseconds since epoch
+  int64 updated_at = 8; // UTC milliseconds since epoch
   // 0 if the workspace has no scheduled expiry.
   int64 expires_at = 9;
   // User-facing tags (e.g., owning team, purpose).
