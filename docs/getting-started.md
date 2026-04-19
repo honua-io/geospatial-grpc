@@ -416,14 +416,17 @@ var channel = GrpcChannel.ForAddress("https://api.production.com", new GrpcChann
 });
 ```
 
-## Step 10: Process Execution and Pipelines
+## Step 10: Process, Pipeline, Render, Build, and Deployment Workflows
 
-The protocol includes two services for server-side execution workflows:
+The protocol includes five services for server-side execution workflows:
 
 - **`ProcessService`** — validate, dry-run, and execute geospatial analysis plans (synchronous, streaming, or async job)
 - **`PipelineService`** — validate, dry-run, and execute data publishing pipelines with stage-by-stage progress
+- **`RenderService`** — compose maps and produce a canonical `MapPackage` with streaming progress
+- **`BuilderService`** — synthesize an `AppPackage` from templates, intent, and data bindings
+- **`DeploymentService`** — promote `AppPackage`/`MapPackage`/`ArtifactRef` to live targets with rollback and health telemetry
 
-Both services share execution infrastructure defined in `execution_types.proto`: job lifecycle states, structured errors with retryability guidance, artifact references, and provenance records.
+All five services share execution infrastructure defined in `execution_types.proto` (job lifecycle states, structured errors with retryability guidance, artifact references, provenance records) and follow the same `Validate*` / `DryRun*` / `Execute*` / `Execute*Stream` / `Submit*Job` / `Get*Job` / `Get*JobResult` / `Cancel*Job` RPC surface. Canonical packaging shapes (`MapPackage`, `AppPackage`, `DeploymentSpec`) live in `packaging_types.proto`. The example below uses `ProcessService`; render, build, and deploy follow the same pattern with their own spec types (`RenderSpec`, `BuildSpec`, `DeploymentSpec`).
 
 ### Validate and Dry-Run a Plan
 
@@ -614,7 +617,7 @@ switch (response.OutcomeCase)
 }
 ```
 
-See the [Protocol Specification](specification.md) for the full RPC surface, streaming execution, async job management, and pipeline definitions.
+See the [Protocol Specification](specification.md) for the full RPC surface, streaming execution, async job management, pipeline definitions, and the render/build/deployment contracts (including `MapPackage`, `AppPackage`, `DeploymentSpec`, rollback, and deployment health telemetry).
 
 ## Next Steps
 

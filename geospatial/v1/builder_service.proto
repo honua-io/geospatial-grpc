@@ -1,0 +1,227 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/execution_types.proto";
+import "geospatial/v1/packaging_types.proto";
+
+// BuilderService provides typed RPC access to application bundle synthesis.
+//
+// This service covers the execution lifecycle for application build
+// workflows: build validation, dry-run estimation, synchronous and streaming
+// execution, and job management. Building produces an AppPackage — a
+// deterministic bundle — suitable for direct deployment or for embedding
+// MapPackage references.
+//
+// Transport-neutral status mapping for server implementations:
+//
+// Request-phase failures (returned as non-OK gRPC status, no response body):
+//   INVALID_ARGUMENT    — malformed requests or invalid build specs on
+//                         ExecuteBuild/ExecuteBuildStream/SubmitBuildJob
+//                         (re-validation at execution time)
+//   PERMISSION_DENIED   — authorization or policy failures
+//   NOT_FOUND           — unknown template, dataset, or job references
+//   RESOURCE_EXHAUSTED  — quota or rate-limit exceeded
+//   FAILED_PRECONDITION — job not in expected state for the requested operation
+//   INTERNAL            — unexpected server errors
+//
+// Note: ValidateBuild and DryRunBuild always return gRPC status OK with a
+// structured response containing valid=false and populated issues when
+// validation fails. They do not use INVALID_ARGUMENT for spec issues.
+//
+// Execution-phase failures (after execution begins) are returned with gRPC
+// status OK: unary RPCs populate the response error field; streaming RPCs
+// send a terminal error event. This ensures the structured ErrorDetail is
+// always available to the client. DEADLINE_EXCEEDED and CANCELLED may still
+// arrive as gRPC-level codes from client deadlines or transport cancellation.
+service BuilderService {
+  // ValidateBuild checks a build spec for structural and capability issues.
+  rpc ValidateBuild(ValidateBuildRequest) returns (ValidateBuildResponse);
+
+  // DryRunBuild estimates the cost and impact of executing a build without side effects.
+  rpc DryRunBuild(DryRunBuildRequest) returns (DryRunBuildResponse);
+
+  // ExecuteBuild runs a build synchronously and returns the result.
+  rpc ExecuteBuild(ExecuteBuildRequest) returns (ExecuteBuildResponse);
+
+  // ExecuteBuildStream runs a build and streams progress events and the final result.
+  rpc ExecuteBuildStream(ExecuteBuildRequest) returns (stream BuildEvent);
+
+  // SubmitBuildJob submits a build spec for asynchronous execution and returns a job handle.
+  rpc SubmitBuildJob(SubmitBuildJobRequest) returns (SubmitBuildJobResponse);
+
+  // GetBuildJob retrieves the current state and progress of a build job.
+  rpc GetBuildJob(GetBuildJobRequest) returns (GetBuildJobResponse);
+
+  // GetBuildJobResult retrieves the results of a completed build job.
+  rpc GetBuildJobResult(GetBuildJobResultRequest) returns (GetBuildJobResultResponse);
+
+  // CancelBuildJob requests cancellation of a running or pending build job.
+  rpc CancelBuildJob(CancelBuildJobRequest) returns (CancelBuildJobResponse);
+}
+
+// DataBindingKind enumerates the source types that may back a data binding.
+enum DataBindingKind {
+  reserved 2;
+  reserved "DATA_BINDING_KIND_MAP_PACKAGE";
+
+  DATA_BINDING_KIND_UNSPECIFIED = 0;
+  DATA_BINDING_KIND_FEATURE_SERVICE = 1;
+  DATA_BINDING_KIND_ARTIFACT = 3;
+  DATA_BINDING_KIND_DATASET = 4;
+}
+
+// DataBinding describes a dataset or artifact wired into the built
+// application. Embedded maps are supplied separately through
+// BuildSpec.map_package_refs.
+// Typed selection parameters use ParameterValue for type safety with the same
+// typed-branch convention as PlanStep inputs.
+message DataBinding {
+  string binding_id = 1;
+  DataBindingKind kind = 2;
+  // Dataset locator or ArtifactRef.artifact_id.
+  string source_ref = 3;
+  // Typed filter or selection parameters.
+  ParameterValue selection = 4;
+  // Role within the application (e.g., primary_layer, reference_layer).
+  string role = 5;
+}
+
+// BuildSpec describes an application synthesis request.
+message BuildSpec {
+  string build_id = 1;
+  // BuildSpec contract version.
+  string spec_version = 2;
+  // Workflow family. Building uses WORKFLOW_FAMILY_BUILD; other values are
+  // reserved for forward compatibility.
+  WorkflowFamily workflow_family = 3;
+  // App template registry reference.
+  string template_ref = 4;
+  // Typed intent parameters (title, summary, audience, capability flags).
+  ParameterMap intent = 5;
+  // Dataset and artifact bindings consumed by the built application.
+  repeated DataBinding data_bindings = 6;
+  // MapPackage identifiers to embed in the built application.
+  repeated string map_package_refs = 7;
+  // Target platforms (e.g., "web", "mobile").
+  repeated string target_platforms = 8;
+  // Free-form display metadata carried into the produced AppPackage.
+  map<string, string> metadata = 9;
+}
+
+// ValidateBuildRequest asks the server to check a build spec.
+message ValidateBuildRequest {
+  BuildSpec spec = 1;
+}
+
+// ValidateBuildResponse returns the validation outcome.
+message ValidateBuildResponse {
+  bool valid = 1;
+  repeated PlanValidationIssue issues = 2;
+}
+
+// DryRunBuildRequest asks the server to estimate build execution impact.
+message DryRunBuildRequest {
+  BuildSpec spec = 1;
+}
+
+// DryRunBuildResponse contains the validation outcome and dry-run estimation.
+message DryRunBuildResponse {
+  bool valid = 1;
+  repeated PlanValidationIssue issues = 2;
+  DryRunResult result = 3;
+}
+
+// ExecuteBuildRequest submits a build for synchronous or streaming execution.
+message ExecuteBuildRequest {
+  BuildSpec spec = 1;
+  ExecutionContext context = 2;
+}
+
+// ExecuteBuildResponse returns the complete result of synchronous execution.
+// The gRPC status is OK regardless of execution outcome. On success, only
+// result is populated; on terminal failure, only error is populated.
+message ExecuteBuildResponse {
+  string job_id = 1;
+  oneof outcome {
+    BuildResult result = 2;
+    ErrorDetail error = 3;
+  }
+}
+
+// BuildEvent is a streaming message carrying progress, stage, result, or error events.
+message BuildEvent {
+  oneof event {
+    JobProgress progress = 1;
+    StageResult stage_result = 2;
+    BuildResult result = 3;
+    ErrorDetail error = 4;
+  }
+}
+
+// BuildResult contains the output of a completed build execution.
+message BuildResult {
+  string result_id = 1;
+  JobState status = 2;
+  string summary = 3;
+  repeated Assumption assumptions = 4;
+  // Produced AppPackage.
+  AppPackage app_package = 5;
+  repeated ArtifactRef artifacts = 6;
+  repeated StageResult stage_results = 7;
+  ProvenanceRecord provenance = 8;
+}
+
+// SubmitBuildJobRequest submits a build spec for asynchronous execution.
+message SubmitBuildJobRequest {
+  BuildSpec spec = 1;
+  ExecutionContext context = 2;
+}
+
+// SubmitBuildJobResponse confirms build job submission.
+message SubmitBuildJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+}
+
+// GetBuildJobRequest retrieves the current state of a build job.
+message GetBuildJobRequest {
+  string job_id = 1;
+}
+
+// GetBuildJobResponse returns the build job state and progress.
+message GetBuildJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+  JobProgress progress = 3;
+}
+
+// GetBuildJobResultRequest retrieves the results of a completed build job.
+message GetBuildJobResultRequest {
+  string job_id = 1;
+}
+
+// GetBuildJobResultResponse returns the build job result.
+// The gRPC status is OK regardless of job outcome. For failed jobs, the
+// error field carries the structured ErrorDetail.
+message GetBuildJobResultResponse {
+  string job_id = 1;
+  oneof outcome {
+    BuildResult result = 2;
+    ErrorDetail error = 3;
+  }
+}
+
+// CancelBuildJobRequest requests cancellation of a build job.
+message CancelBuildJobRequest {
+  string job_id = 1;
+}
+
+// CancelBuildJobResponse confirms the build cancellation outcome.
+message CancelBuildJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+}

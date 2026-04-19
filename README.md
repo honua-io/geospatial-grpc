@@ -13,6 +13,9 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 - **Mobile data collection**: Modern alternative to OpenRosa XML forms
 - **Process execution**: Validate, dry-run, and execute geospatial analysis workflows
 - **Data publishing**: Ingest, transform, and publish geospatial datasets
+- **Map rendering**: Compose deterministic, MapLibre-compatible `MapPackage` bundles
+- **Application building**: Synthesize `AppPackage` bundles from templates and data bindings
+- **Deployment**: Promote packages to live targets with health telemetry and rollback
 - **Real-time collaboration**: Multi-user editing and synchronization
 - **Cross-platform compatibility**: Native mobile, web, and desktop apps
 
@@ -34,6 +37,9 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 | `FormService` | Mobile data collection | Dynamic forms, validation, collaboration |
 | `ProcessService` | Geospatial process execution | Plan validation, dry-run, sync/streaming/async execution |
 | `PipelineService` | Data publishing pipelines | Pipeline validation, dry-run, stage-by-stage execution |
+| `RenderService` | Map composition and packaging | Render validation, dry-run, streaming execution, produces `MapPackage` |
+| `BuilderService` | Application bundle synthesis | Build validation, dry-run, streaming execution, produces `AppPackage` |
+| `DeploymentService` | Deployment promotion and lifecycle | Validation, dry-run, streaming execution, rollback, health telemetry |
 
 ### Key Message Types
 
@@ -41,6 +47,7 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 - **Feature**: Attributes + geometry with flexible typing
 - **Form Controls**: Rich input types (location, media, validation)
 - **Execution Types**: Plans, steps, jobs, artifacts, provenance, and structured errors
+- **Packaging Types**: `MapPackage`, `AppPackage`, `DeploymentSpec` canonical domain objects shared across render, build, and deployment
 - **Mobile Optimizations**: Battery, network, and device-aware
 
 ## 🚀 Quick Start
@@ -50,13 +57,17 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 ```bash
 # View proto definitions
 ls geospatial/v1/
-# ├── common.proto            # Shared types
-# ├── spatial_types.proto     # Geometry definitions
-# ├── feature_service.proto   # Feature CRUD
-# ├── form_service.proto      # Mobile forms
-# ├── execution_types.proto   # Shared execution infrastructure
-# ├── process_service.proto   # Process execution
-# └── pipeline_service.proto  # Data publishing pipelines
+# ├── common.proto              # Shared types
+# ├── spatial_types.proto       # Geometry definitions
+# ├── feature_service.proto     # Feature CRUD
+# ├── form_service.proto        # Mobile forms
+# ├── execution_types.proto     # Shared execution infrastructure
+# ├── packaging_types.proto     # MapPackage, AppPackage, DeploymentSpec
+# ├── process_service.proto     # Process execution
+# ├── pipeline_service.proto    # Data publishing pipelines
+# ├── render_service.proto      # Map composition and packaging
+# ├── builder_service.proto     # Application bundle synthesis
+# └── deployment_service.proto  # Deployment promotion and lifecycle
 ```
 
 ### 2. Generate Client Libraries
@@ -156,14 +167,18 @@ for feature in response.features:
 
 ```
 geospatial-grpc/
-├── geospatial/v1/              # Protocol definitions
-│   ├── common.proto            # Shared types and enums
-│   ├── spatial_types.proto     # Geometry types
-│   ├── feature_service.proto   # Feature CRUD operations
-│   ├── form_service.proto      # Mobile data collection
-│   ├── execution_types.proto   # Shared execution infrastructure
-│   ├── process_service.proto   # Geospatial process execution
-│   └── pipeline_service.proto  # Data publishing pipelines
+├── geospatial/v1/                # Protocol definitions
+│   ├── common.proto              # Shared types and enums
+│   ├── spatial_types.proto       # Geometry types
+│   ├── feature_service.proto     # Feature CRUD operations
+│   ├── form_service.proto        # Mobile data collection
+│   ├── execution_types.proto     # Shared execution infrastructure
+│   ├── packaging_types.proto     # MapPackage, AppPackage, DeploymentSpec
+│   ├── process_service.proto     # Geospatial process execution
+│   ├── pipeline_service.proto    # Data publishing pipelines
+│   ├── render_service.proto      # Map composition and packaging
+│   ├── builder_service.proto     # Application bundle synthesis
+│   └── deployment_service.proto  # Deployment promotion and lifecycle
 ├── docs/                       # Protocol documentation
 ├── examples/                   # Language-specific examples
 ├── gen/                        # Generated client libraries

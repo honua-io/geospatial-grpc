@@ -1,0 +1,236 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/common.proto";
+import "geospatial/v1/execution_types.proto";
+import "geospatial/v1/packaging_types.proto";
+
+// RenderService provides typed RPC access to map composition and packaging.
+//
+// This service covers the execution lifecycle for rendering workflows:
+// render validation, dry-run estimation, synchronous and streaming execution,
+// and job management. A non-preview render produces a hydration-ready
+// MapPackage — a deterministic, MapLibre-compatible map composition —
+// suitable for promotion into an AppPackage or a direct Deployment. A
+// preview-only render (RenderSpec.preview_only = true) returns a
+// preview-focused MapPackage that carries only preview_artifact; such a
+// result is not hydration-ready and is intended for console/UI previews.
+//
+// Transport-neutral status mapping for server implementations:
+//
+// Request-phase failures (returned as non-OK gRPC status, no response body):
+//   INVALID_ARGUMENT    — malformed requests or invalid render specs on
+//                         ExecuteRender/ExecuteRenderStream/SubmitRenderJob
+//                         (re-validation at execution time)
+//   PERMISSION_DENIED   — authorization or policy failures
+//   NOT_FOUND           — unknown source, style, or job references
+//   RESOURCE_EXHAUSTED  — quota or rate-limit exceeded
+//   FAILED_PRECONDITION — job not in expected state for the requested operation
+//   INTERNAL            — unexpected server errors
+//
+// Note: ValidateRender and DryRunRender always return gRPC status OK with a
+// structured response containing valid=false and populated issues when
+// validation fails. They do not use INVALID_ARGUMENT for spec issues.
+//
+// Execution-phase failures (after execution begins) are returned with gRPC
+// status OK: unary RPCs populate the response error field; streaming RPCs
+// send a terminal error event. This ensures the structured ErrorDetail is
+// always available to the client. DEADLINE_EXCEEDED and CANCELLED may still
+// arrive as gRPC-level codes from client deadlines or transport cancellation.
+service RenderService {
+  // ValidateRender checks a render spec for structural and capability issues.
+  rpc ValidateRender(ValidateRenderRequest) returns (ValidateRenderResponse);
+
+  // DryRunRender estimates the cost and impact of executing a render without side effects.
+  rpc DryRunRender(DryRunRenderRequest) returns (DryRunRenderResponse);
+
+  // ExecuteRender runs a render synchronously and returns the result.
+  rpc ExecuteRender(ExecuteRenderRequest) returns (ExecuteRenderResponse);
+
+  // ExecuteRenderStream runs a render and streams progress events and the final result.
+  rpc ExecuteRenderStream(ExecuteRenderRequest) returns (stream RenderEvent);
+
+  // SubmitRenderJob submits a render spec for asynchronous execution and returns a job handle.
+  rpc SubmitRenderJob(SubmitRenderJobRequest) returns (SubmitRenderJobResponse);
+
+  // GetRenderJob retrieves the current state and progress of a render job.
+  rpc GetRenderJob(GetRenderJobRequest) returns (GetRenderJobResponse);
+
+  // GetRenderJobResult retrieves the results of a completed render job.
+  rpc GetRenderJobResult(GetRenderJobResultRequest) returns (GetRenderJobResultResponse);
+
+  // CancelRenderJob requests cancellation of a running or pending render job.
+  rpc CancelRenderJob(CancelRenderJobRequest) returns (CancelRenderJobResponse);
+}
+
+// LayerSourceKind enumerates the source types that may back a render layer.
+enum LayerSourceKind {
+  LAYER_SOURCE_KIND_UNSPECIFIED = 0;
+  LAYER_SOURCE_KIND_FEATURE_SERVICE = 1;
+  LAYER_SOURCE_KIND_MAP_SERVICE = 2;
+  LAYER_SOURCE_KIND_VECTOR_TILE = 3;
+  LAYER_SOURCE_KIND_RASTER_TILE = 4;
+  LAYER_SOURCE_KIND_ARTIFACT = 5;
+}
+
+// LayerBinding describes a layer to include in the rendered map.
+// Typed filters and style overrides use ParameterValue for type safety with
+// the same typed-branch convention as PlanStep inputs.
+message LayerBinding {
+  string layer_id = 1;
+  LayerSourceKind source_kind = 2;
+  // Dataset locator, feature service reference, or ArtifactRef.artifact_id.
+  string source_ref = 3;
+  // Typed filter (e.g., spatial_filter_value, ParameterMap for attribute filters).
+  ParameterValue filter = 4;
+  // Typed style overrides (MapLibre layer-level hints).
+  ParameterMap style_overrides = 5;
+}
+
+// RenderSpec describes a map composition request.
+message RenderSpec {
+  string render_id = 1;
+  // RenderSpec contract version.
+  string spec_version = 2;
+  // Workflow family. Rendering uses WORKFLOW_FAMILY_PUBLISH; other values are
+  // reserved for forward compatibility.
+  WorkflowFamily workflow_family = 3;
+  // MapLibre style hints and overrides (title, basemap, palette, theme).
+  ParameterMap style_spec = 4;
+  repeated LayerBinding layer_bindings = 5;
+  // If true, the server produces a preview-focused MapPackage intended for
+  // console/UI previews only. map_package is still populated on RenderResult,
+  // but only preview_artifact is guaranteed to be set; map_artifact and
+  // style_artifact MAY be omitted, and the returned MapPackage is not
+  // hydration-ready (see MapPackage comment in packaging_types.proto).
+  bool preview_only = 6;
+  // Canonical CRS for the output map.
+  SpatialReference target_spatial_reference = 7;
+  // Optional clipping envelope for the output map.
+  Extent target_extent = 8;
+  // Free-form display metadata carried into the produced MapPackage.
+  map<string, string> metadata = 9;
+}
+
+// ValidateRenderRequest asks the server to check a render spec.
+message ValidateRenderRequest {
+  RenderSpec spec = 1;
+}
+
+// ValidateRenderResponse returns the validation outcome.
+message ValidateRenderResponse {
+  bool valid = 1;
+  repeated PlanValidationIssue issues = 2;
+}
+
+// DryRunRenderRequest asks the server to estimate render execution impact.
+message DryRunRenderRequest {
+  RenderSpec spec = 1;
+}
+
+// DryRunRenderResponse contains the validation outcome and dry-run estimation.
+message DryRunRenderResponse {
+  bool valid = 1;
+  repeated PlanValidationIssue issues = 2;
+  DryRunResult result = 3;
+}
+
+// ExecuteRenderRequest submits a render for synchronous or streaming execution.
+message ExecuteRenderRequest {
+  RenderSpec spec = 1;
+  ExecutionContext context = 2;
+}
+
+// ExecuteRenderResponse returns the complete result of synchronous execution.
+// The gRPC status is OK regardless of execution outcome. On success, only
+// result is populated; on terminal failure, only error is populated.
+message ExecuteRenderResponse {
+  string job_id = 1;
+  oneof outcome {
+    RenderResult result = 2;
+    ErrorDetail error = 3;
+  }
+}
+
+// RenderEvent is a streaming message carrying progress, stage, result, or error events.
+message RenderEvent {
+  oneof event {
+    JobProgress progress = 1;
+    StageResult stage_result = 2;
+    RenderResult result = 3;
+    ErrorDetail error = 4;
+  }
+}
+
+// RenderResult contains the output of a completed render execution.
+message RenderResult {
+  string result_id = 1;
+  JobState status = 2;
+  string summary = 3;
+  repeated Assumption assumptions = 4;
+  // Produced MapPackage. Always populated on successful execution. For
+  // non-preview renders, the MapPackage is hydration-ready (map_artifact and
+  // style_artifact are set). When RenderSpec.preview_only is true, only
+  // preview_artifact is guaranteed to be set; the packaged outputs
+  // (map_artifact, style_artifact) MAY be empty and the MapPackage is not
+  // hydration-ready.
+  MapPackage map_package = 5;
+  repeated ArtifactRef artifacts = 6;
+  repeated StageResult stage_results = 7;
+  ProvenanceRecord provenance = 8;
+}
+
+// SubmitRenderJobRequest submits a render spec for asynchronous execution.
+message SubmitRenderJobRequest {
+  RenderSpec spec = 1;
+  ExecutionContext context = 2;
+}
+
+// SubmitRenderJobResponse confirms render job submission.
+message SubmitRenderJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+}
+
+// GetRenderJobRequest retrieves the current state of a render job.
+message GetRenderJobRequest {
+  string job_id = 1;
+}
+
+// GetRenderJobResponse returns the render job state and progress.
+message GetRenderJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+  JobProgress progress = 3;
+}
+
+// GetRenderJobResultRequest retrieves the results of a completed render job.
+message GetRenderJobResultRequest {
+  string job_id = 1;
+}
+
+// GetRenderJobResultResponse returns the render job result.
+// The gRPC status is OK regardless of job outcome. For failed jobs, the
+// error field carries the structured ErrorDetail.
+message GetRenderJobResultResponse {
+  string job_id = 1;
+  oneof outcome {
+    RenderResult result = 2;
+    ErrorDetail error = 3;
+  }
+}
+
+// CancelRenderJobRequest requests cancellation of a render job.
+message CancelRenderJobRequest {
+  string job_id = 1;
+}
+
+// CancelRenderJobResponse confirms the render cancellation outcome.
+message CancelRenderJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+}

@@ -94,10 +94,17 @@ python/
         ├── form_service_pb2.py
         ├── form_service_pb2_grpc.py
         ├── execution_types_pb2.py
+        ├── packaging_types_pb2.py
         ├── process_service_pb2.py
         ├── process_service_pb2_grpc.py
         ├── pipeline_service_pb2.py
-        └── pipeline_service_pb2_grpc.py
+        ├── pipeline_service_pb2_grpc.py
+        ├── render_service_pb2.py
+        ├── render_service_pb2_grpc.py
+        ├── builder_service_pb2.py
+        ├── builder_service_pb2_grpc.py
+        ├── deployment_service_pb2.py
+        └── deployment_service_pb2_grpc.py
 ```
 
 ## Dependencies
@@ -239,8 +246,8 @@ async def test_error_handling():
 
 ## Next Steps
 
-- **Process Execution**: Use `ProcessService` to validate, dry-run, and execute analysis plans — see the [Getting Started guide](../../docs/getting-started.md#step-10-process-execution-and-pipelines)
-- **Data Publishing**: Use `PipelineService` to run data ingestion and publishing pipelines
+- **Execution Workflows**: Use `ProcessService`, `PipelineService`, `RenderService`, `BuilderService`, or `DeploymentService` — they share a `Validate*` / `DryRun*` / `Execute*` / `Execute*Stream` / `Submit*Job` / `Get*Job` / `Get*JobResult` / `Cancel*Job` RPC surface. See the [Getting Started guide](../../docs/getting-started.md#step-10-process-pipeline-render-build-and-deployment-workflows).
+- **Canonical Packaging**: Consume `MapPackage`, `AppPackage`, and `DeploymentSpec` from `packaging_types.proto` directly rather than wrapping them in bespoke shapes
 - **Web Framework**: Integrate with FastAPI, Django, or Flask
 - **Data Processing**: Use with pandas, geopandas for analysis
 - **Machine Learning**: Feed geospatial data to ML models
