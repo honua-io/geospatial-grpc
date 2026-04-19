@@ -224,7 +224,7 @@ A `RenderSpec` describes a map composition: `style_spec` (MapLibre style hints a
 
 #### Render Results
 
-`RenderResult` contains: `result_id`, terminal `status`, human-readable `summary`, any `assumptions` recorded during execution, the produced `map_package` (a canonical `MapPackage`), produced `artifacts`, per-stage `stage_results`, and a `ProvenanceRecord`. When `RenderSpec.preview_only` is true, `map_package` may be unset and the preview artifact is carried on `MapPackage.preview_artifact` instead of the packaged outputs.
+`RenderResult` contains: `result_id`, terminal `status`, human-readable `summary`, any `assumptions` recorded during execution, the produced `map_package` (a canonical `MapPackage`), produced `artifacts`, per-stage `stage_results`, and a `ProvenanceRecord`. `map_package` is always populated on successful execution. When `RenderSpec.preview_only` is true, only `MapPackage.preview_artifact` is guaranteed to be set; the packaged outputs (`map_artifact`, `style_artifact`) MAY be empty.
 
 #### MapPackage Contract
 
@@ -337,7 +337,7 @@ Every deployment request also carries a `DeploymentOperationMode` (`CREATE`, `UP
 
 #### Deployment Validation and Dry-Run Semantics
 
-`ValidateDeployment` and `DryRunDeployment` are advisory. Servers re-validate the deployment spec on `ExecuteDeployment`, `ExecuteDeploymentStream`, `SubmitDeploymentJob`, and `RollbackDeployment`. `DryRunDeployment` returns the validation outcome alongside a `DryRunResult`.
+`ValidateDeployment` and `DryRunDeployment` are advisory. Servers re-validate the deployment spec on `ExecuteDeployment`, `ExecuteDeploymentStream`, and `SubmitDeploymentJob`. `DryRunDeployment` returns the validation outcome alongside a `DryRunResult`. `RollbackDeployment` does not re-validate a deployment spec (it does not carry one); instead, servers validate rollback-specific request fields — `INVALID_ARGUMENT` for malformed input (e.g., missing `deployment_id`), `NOT_FOUND` for an unknown `deployment_id` or `target_revision`, and `FAILED_PRECONDITION` if the deployment is not in a state that permits rollback.
 
 #### Deployment Results
 

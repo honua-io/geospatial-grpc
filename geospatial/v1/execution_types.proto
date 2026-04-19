@@ -8,7 +8,8 @@ package geospatial.v1;
 import "geospatial/v1/common.proto";
 import "geospatial/v1/spatial_types.proto";
 
-// Shared types for operator execution contracts across process and pipeline services.
+// Shared types for operator execution contracts across ProcessService,
+// PipelineService, RenderService, BuilderService, and DeploymentService.
 
 // WorkflowFamily identifies the category of operator workflow.
 // Values are scoped to families with a defined owning service in this package.
@@ -118,7 +119,9 @@ message ErrorDetail {
   string message = 3;
   // Descriptive label for the execution phase where the error occurred.
   string phase = 4;
-  // Correlates to PlanStep.step_id (ProcessService) or PipelineStage.stage_id (PipelineService).
+  // Correlates to the originating node: PlanStep.step_id (ProcessService),
+  // PipelineStage.stage_id (PipelineService), or a server-chosen stage
+  // identifier (RenderService, BuilderService, DeploymentService).
   string node_id = 5;
   Retryability retryability = 6;
   string suggested_action = 7;
@@ -169,7 +172,9 @@ message JobProgress {
   string job_id = 1;
   JobState state = 2;
   int32 progress_percent = 3;
-  // Correlates to PlanStep.step_id (ProcessService) or PipelineStage.stage_id (PipelineService).
+  // Correlates to the originating node: PlanStep.step_id (ProcessService),
+  // PipelineStage.stage_id (PipelineService), or a server-chosen stage
+  // identifier (RenderService, BuilderService, DeploymentService).
   string current_node_id = 4;
   int64 started_at = 5; // UTC milliseconds since epoch
   int64 updated_at = 6; // UTC milliseconds since epoch
@@ -178,7 +183,9 @@ message JobProgress {
 
 // StageResult reports the outcome of an individual execution stage.
 message StageResult {
-  // Correlates to PlanStep.step_id (ProcessService) or PipelineStage.stage_id (PipelineService).
+  // Correlates to the originating node: PlanStep.step_id (ProcessService),
+  // PipelineStage.stage_id (PipelineService), or a server-chosen stage
+  // identifier (RenderService, BuilderService, DeploymentService).
   string node_id = 1;
   StageState state = 2;
   ErrorDetail error = 3;
@@ -187,7 +194,9 @@ message StageResult {
 
 // PlanValidationIssue describes a problem found during plan or pipeline validation.
 message PlanValidationIssue {
-  // Correlates to PlanStep.step_id (ProcessService) or PipelineStage.stage_id (PipelineService).
+  // Correlates to the originating node: PlanStep.step_id (ProcessService),
+  // PipelineStage.stage_id (PipelineService), or a server-chosen stage
+  // identifier (RenderService, BuilderService, DeploymentService).
   string node_id = 1;
   string field = 2;
   string message = 3;

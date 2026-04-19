@@ -22,11 +22,16 @@ import "geospatial/v1/packaging_types.proto";
 // Request-phase failures (returned as non-OK gRPC status, no response body):
 //   INVALID_ARGUMENT    — malformed requests or invalid deployment specs on
 //                         ExecuteDeployment/ExecuteDeploymentStream/SubmitDeploymentJob
-//                         and RollbackDeployment (re-validation at execution time)
+//                         (re-validation at execution time); malformed
+//                         RollbackDeployment input (e.g., missing deployment_id)
 //   PERMISSION_DENIED   — authorization or policy failures
 //   NOT_FOUND           — unknown deployment, revision, target, or job references
+//                         (RollbackDeployment returns NOT_FOUND for unknown
+//                         deployment_id or target_revision)
 //   RESOURCE_EXHAUSTED  — quota or rate-limit exceeded
-//   FAILED_PRECONDITION — job not in expected state for the requested operation
+//   FAILED_PRECONDITION — job not in expected state for the requested operation;
+//                         for RollbackDeployment, deployment not in a state
+//                         that permits rollback
 //   INTERNAL            — unexpected server errors
 //
 // Note: ValidateDeployment and DryRunDeployment always return gRPC status OK

@@ -99,7 +99,9 @@ message RenderSpec {
   // MapLibre style hints and overrides (title, basemap, palette, theme).
   ParameterMap style_spec = 4;
   repeated LayerBinding layer_bindings = 5;
-  // If true, only a preview artifact is produced and MapPackage packaging is skipped.
+  // If true, the server produces a preview-focused MapPackage: map_package is
+  // still populated on RenderResult, but only preview_artifact is guaranteed
+  // to be set; map_artifact and style_artifact MAY be omitted.
   bool preview_only = 6;
   // Canonical CRS for the output map.
   SpatialReference target_spatial_reference = 7;
@@ -165,8 +167,9 @@ message RenderResult {
   JobState status = 2;
   string summary = 3;
   repeated Assumption assumptions = 4;
-  // Produced MapPackage. When RenderSpec.preview_only is true, map_package may
-  // be unset and preview_artifact is populated on the MapPackage instead.
+  // Produced MapPackage. Always populated on successful execution. When
+  // RenderSpec.preview_only is true, only preview_artifact is guaranteed to
+  // be set; the packaged outputs (map_artifact, style_artifact) MAY be empty.
   MapPackage map_package = 5;
   repeated ArtifactRef artifacts = 6;
   repeated StageResult stage_results = 7;
