@@ -1,0 +1,318 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/execution_types.proto";
+import "geospatial/v1/workspace_artifact_types.proto";
+
+// ArtifactService provides typed RPC access to the server-owned artifact
+// lifecycle: publish, read, inspect, list, retain, release, and retention
+// policy resolution. The canonical typed ArtifactRef and MaterializationState
+// returned by every RPC is the same surface that ProcessService,
+// PipelineService, RenderService, BuilderService, DeploymentService, and
+// WorkspaceService exchange — honua-server-725 implements the storage
+// lifecycle behind this surface, and package/deploy consumers
+// (honua-server-730/731/732) bind through the typed Refs without repo-local
+// substitutes.
+//
+// Transport-neutral status mapping for server implementations:
+//
+// Request-phase failures (returned as non-OK gRPC status, no response body):
+//   INVALID_ARGUMENT    — malformed requests (e.g., PublishArtifact stream
+//                         without an ArtifactHeader as the first message,
+//                         negative offset_bytes on ReadArtifact, missing
+//                         ArtifactRef)
+//   PERMISSION_DENIED   — honua-server-733 scope rejected the request
+//   NOT_FOUND           — unknown artifact_id, workspace_id, or
+//                         retention_policy_id
+//   RESOURCE_EXHAUSTED  — workspace quota exceeded on publish, or read
+//                         rate-limit exceeded
+//   FAILED_PRECONDITION — artifact not materialized for read, artifact bound
+//                         to an immutable_after_publish policy on release,
+//                         or legal_hold retention blocks release
+//   INTERNAL            — unexpected server errors
+//
+// Execution-phase failures (after a long-running operation begins) are
+// returned with gRPC status OK. PublishArtifact is a client-streaming RPC
+// that returns a single PublishArtifactResponse whose outcome oneof carries
+// either the resulting Artifact or a terminal ErrorDetail. ReadArtifact is
+// a server-streaming RPC that terminates with either a chunk with last=true
+// on success or a terminal ErrorDetail event on failure (see
+// ReadArtifactEvent). Unary RetainArtifact and ReleaseArtifact always
+// return gRPC status OK and populate the response outcome oneof with either
+// the updated Artifact or an ErrorDetail when execution-phase validation
+// fails after request-phase checks pass. DEADLINE_EXCEEDED and CANCELLED may
+// still arrive as gRPC-level codes from client deadlines or transport
+// cancellation.
+service ArtifactService {
+  // PublishArtifact streams artifact bytes into the service. The first
+  // request message on the stream MUST carry an ArtifactHeader; subsequent
+  // messages carry ArtifactChunk data. The server terminates with a single
+  // PublishArtifactResponse containing either the resulting Artifact or a
+  // terminal ErrorDetail.
+  rpc PublishArtifact(stream PublishArtifactRequest) returns (PublishArtifactResponse);
+
+  // ReadArtifact streams artifact bytes out to the client. Supports
+  // resumable byte-range reads via offset_bytes and max_bytes.
+  rpc ReadArtifact(ReadArtifactRequest) returns (stream ReadArtifactEvent);
+
+  // GetArtifact returns the full artifact resource for a ref.
+  rpc GetArtifact(GetArtifactRequest) returns (GetArtifactResponse);
+
+  // InspectArtifact returns the full artifact resource alongside the
+  // server-observed materialization state and content hash. Consumers that
+  // need the most recent materialization snapshot without streaming bytes
+  // should call InspectArtifact rather than ReadArtifact.
+  rpc InspectArtifact(InspectArtifactRequest) returns (InspectArtifactResponse);
+
+  // ListArtifacts returns artifacts matching the filter selectors, paginated
+  // by page_token. The workspace filter is required when the caller's scope
+  // covers more than one workspace.
+  rpc ListArtifacts(ListArtifactsRequest) returns (ListArtifactsResponse);
+
+  // RetainArtifact rebinds the retention policy for the artifact and
+  // optionally pins an explicit retention expiry.
+  rpc RetainArtifact(RetainArtifactRequest) returns (RetainArtifactResponse);
+
+  // ReleaseArtifact requests release of the artifact. Servers honor the
+  // bound retention policy floor (min_retention_seconds), immutability,
+  // and legal_hold bindings regardless of force.
+  rpc ReleaseArtifact(ReleaseArtifactRequest) returns (ReleaseArtifactResponse);
+
+  // GetRetentionPolicy returns the full RetentionPolicy resource.
+  rpc GetRetentionPolicy(GetRetentionPolicyRequest) returns (GetRetentionPolicyResponse);
+
+  // ListRetentionPolicies returns a page of RetentionPolicy resources visible
+  // to the caller.
+  rpc ListRetentionPolicies(ListRetentionPoliciesRequest) returns (ListRetentionPoliciesResponse);
+}
+
+// Artifact is the full artifact resource returned by
+// ArtifactService.GetArtifact / InspectArtifact / ListArtifacts. Cross-service
+// references should carry ArtifactRef (defined in execution_types.proto)
+// rather than the full resource. Artifact lives in this file rather than
+// workspace_artifact_types.proto because it carries the canonical
+// ProvenanceRecord from execution_types.proto, and moving ProvenanceRecord
+// into workspace_artifact_types.proto would widen the execution dependency.
+message Artifact {
+  ArtifactRef ref = 1;
+  int64 size_bytes = 2;
+  // MIME type of the artifact bytes (e.g., "application/vnd.mapbox-style+json").
+  string content_type = 3;
+  // Content-addressable hash of the artifact bytes, including algorithm
+  // prefix (e.g., "sha256:...").
+  string content_hash = 4;
+  int64 published_at = 5;     // UTC milliseconds since epoch
+  int64 materialized_at = 6;  // UTC milliseconds since epoch
+  int64 expires_at = 7;       // UTC milliseconds since epoch; 0 if none
+  // Full execution lineage that produced this artifact. Reuses the canonical
+  // ProvenanceRecord type from execution_types.proto.
+  ProvenanceRecord provenance = 8;
+  // Upstream artifacts that contributed to this artifact's production.
+  repeated ArtifactRef inputs = 9;
+  map<string, string> labels = 10;
+  map<string, string> metadata = 11;
+}
+
+// ArtifactHeader declares the publish intent and must be the first message
+// sent on a PublishArtifact stream.
+message ArtifactHeader {
+  // Owning workspace.
+  WorkspaceRef workspace = 1;
+  // Artifact class used to route the artifact (e.g., MAP, FILE, REPORT).
+  ArtifactClass artifact_class = 2;
+  // MIME type of the bytes being published.
+  string content_type = 3;
+  // Optional declared content hash (algorithm-prefixed). Servers SHOULD
+  // verify the final computed hash against this value when provided.
+  string content_hash = 4;
+  // Optional declared size in bytes; 0 when unknown.
+  int64 declared_size_bytes = 5;
+  // Desired retention binding. When empty, the server applies the
+  // workspace's default retention.
+  RetentionPolicyRef retention = 6;
+  // Producer identifier correlated to an ExecutionResult, PipelineResult,
+  // RenderResult, BuildResult, or DeploymentResult job id.
+  string producer_ref = 7;
+  // Upstream artifacts that contributed to this artifact's production.
+  repeated ArtifactRef inputs = 8;
+  map<string, string> labels = 9;
+  map<string, string> metadata = 10;
+  ExecutionContext context = 11;
+}
+
+// ArtifactChunk is a single unit of artifact bytes transferred on a publish
+// or read stream. Chunk size is server-chosen; implementations should stay
+// at or below 1 MiB to align with gRPC-Web and SDK defaults.
+message ArtifactChunk {
+  bytes data = 1;
+  // Absolute byte offset of this chunk within the artifact.
+  int64 offset = 2;
+  // True on the final chunk of a stream.
+  bool last = 3;
+}
+
+// PublishArtifactRequest is the client-stream message for PublishArtifact.
+// The first message on the stream MUST carry header; all subsequent
+// messages MUST carry chunk. Mixing the two is invalid and the server
+// returns INVALID_ARGUMENT.
+message PublishArtifactRequest {
+  oneof message {
+    ArtifactHeader header = 1;
+    ArtifactChunk chunk = 2;
+  }
+}
+
+// PublishArtifactResponse terminates a PublishArtifact stream with either
+// the resulting Artifact or a structured ErrorDetail. The gRPC status is
+// OK regardless of execution outcome.
+message PublishArtifactResponse {
+  oneof outcome {
+    Artifact result = 1;
+    ErrorDetail error = 2;
+  }
+}
+
+// ReadArtifactRequest opens a server stream of artifact bytes. Servers
+// stream ReadArtifactEvent messages and terminate with either a chunk whose
+// last field is true or a terminal ErrorDetail event. offset_bytes supports
+// resumable transfer; max_bytes of 0 streams to end-of-artifact.
+message ReadArtifactRequest {
+  ArtifactRef ref = 1;
+  int64 offset_bytes = 2;
+  // Maximum number of bytes to stream before closing. 0 means no ceiling.
+  int64 max_bytes = 3;
+  ExecutionContext context = 4;
+}
+
+// ReadArtifactEvent is a streaming message carrying either a data chunk or
+// a terminal ErrorDetail. Matches the event oneof pattern used across the
+// other operator contracts and keeps ArtifactChunk's shape uniform between
+// publish and read paths.
+message ReadArtifactEvent {
+  oneof event {
+    ArtifactChunk chunk = 1;
+    ErrorDetail error = 2;
+  }
+}
+
+// GetArtifactRequest retrieves the full artifact resource.
+message GetArtifactRequest {
+  ArtifactRef ref = 1;
+  ExecutionContext context = 2;
+}
+
+// GetArtifactResponse returns the full artifact resource.
+message GetArtifactResponse {
+  Artifact artifact = 1;
+}
+
+// InspectArtifactRequest retrieves the artifact resource alongside the most
+// recently observed materialization snapshot.
+message InspectArtifactRequest {
+  ArtifactRef ref = 1;
+  ExecutionContext context = 2;
+}
+
+// InspectArtifactResponse returns the artifact resource and the most recent
+// materialization observation.
+message InspectArtifactResponse {
+  Artifact artifact = 1;
+  MaterializationState materialization_state = 2;
+  // May differ from artifact.size_bytes for artifacts that are not yet
+  // fully materialized.
+  int64 observed_size_bytes = 3;
+  string observed_content_hash = 4;
+  int64 observed_at = 5;  // UTC milliseconds since epoch
+}
+
+// ListArtifactsRequest requests a page of artifacts matching the filters.
+message ListArtifactsRequest {
+  // Optional workspace filter. When unset, the server lists artifacts in
+  // any workspace the caller can access.
+  WorkspaceRef workspace = 1;
+  // Optional artifact class filter. UNSPECIFIED matches all classes.
+  ArtifactClass class_filter = 2;
+  // Optional materialization filter. UNSPECIFIED matches all states.
+  MaterializationState materialization_filter = 3;
+  // Optional producer filter — matches ArtifactRef.producer_ref exactly.
+  string producer_ref = 4;
+  // Optional label selector; all key/value pairs must match.
+  map<string, string> label_selector = 5;
+  int32 page_size = 6;
+  string page_token = 7;
+  ExecutionContext context = 8;
+}
+
+// ListArtifactsResponse returns a page of artifacts and an optional
+// continuation token.
+message ListArtifactsResponse {
+  repeated Artifact artifacts = 1;
+  string next_page_token = 2;
+}
+
+// RetainArtifactRequest rebinds the retention policy for the artifact and
+// optionally pins an explicit retention expiry. A retain_until of 0 asks
+// the server to evaluate retention from the policy.
+message RetainArtifactRequest {
+  ArtifactRef ref = 1;
+  RetentionPolicyRef retention = 2;
+  int64 retain_until = 3;  // UTC milliseconds since epoch; 0 = policy default
+  ExecutionContext context = 4;
+}
+
+// RetainArtifactResponse returns the updated artifact on success, or an
+// ErrorDetail on execution-phase failure.
+message RetainArtifactResponse {
+  oneof outcome {
+    Artifact artifact = 1;
+    ErrorDetail error = 2;
+  }
+}
+
+// ReleaseArtifactRequest requests release of the artifact. Servers honor
+// retention policy floors, immutability, and legal_hold regardless of force.
+message ReleaseArtifactRequest {
+  ArtifactRef ref = 1;
+  bool force = 2;
+  ExecutionContext context = 3;
+}
+
+// ReleaseArtifactResponse returns the final artifact state on success, or
+// an ErrorDetail on execution-phase failure.
+message ReleaseArtifactResponse {
+  oneof outcome {
+    Artifact artifact = 1;
+    ErrorDetail error = 2;
+  }
+}
+
+// GetRetentionPolicyRequest retrieves the full retention policy resource.
+message GetRetentionPolicyRequest {
+  RetentionPolicyRef ref = 1;
+  ExecutionContext context = 2;
+}
+
+// GetRetentionPolicyResponse returns the full retention policy resource.
+message GetRetentionPolicyResponse {
+  RetentionPolicy policy = 1;
+}
+
+// ListRetentionPoliciesRequest requests a page of retention policy resources.
+message ListRetentionPoliciesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  // Optional label selector; all key/value pairs must match.
+  map<string, string> label_selector = 3;
+  ExecutionContext context = 4;
+}
+
+// ListRetentionPoliciesResponse returns a page of retention policies and
+// an optional continuation token.
+message ListRetentionPoliciesResponse {
+  repeated RetentionPolicy policies = 1;
+  string next_page_token = 2;
+}

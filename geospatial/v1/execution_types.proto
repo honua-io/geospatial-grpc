@@ -7,6 +7,7 @@ package geospatial.v1;
 
 import "geospatial/v1/common.proto";
 import "geospatial/v1/spatial_types.proto";
+import "geospatial/v1/workspace_artifact_types.proto";
 
 // Shared types for operator execution contracts across ProcessService,
 // PipelineService, RenderService, BuilderService, and DeploymentService.
@@ -128,15 +129,24 @@ message ErrorDetail {
   map<string, string> details = 8;
 }
 
-// ArtifactRef identifies a produced artifact and its metadata.
+// ArtifactRef identifies a produced artifact and carries the canonical typed
+// handles for its owning workspace, bound retention policy, and
+// materialization state. The full Artifact resource is returned by
+// ArtifactService.GetArtifact.
 message ArtifactRef {
   string artifact_id = 1;
   ArtifactClass artifact_class = 2;
   int32 artifact_version = 3;
+  // Producer identifier — typically an ExecutionResult, PipelineResult,
+  // RenderResult, BuildResult, or DeploymentResult job id.
   string producer_ref = 4;
-  string workspace_ref = 5;
-  string retention_policy_ref = 6;
-  string materialization_state = 7;
+  // Owning workspace. Carries scope and revision for drift detection.
+  WorkspaceRef workspace = 5;
+  // Bound retention policy. Populated when the server has resolved a
+  // retention binding for the artifact.
+  RetentionPolicyRef retention = 6;
+  // Whether the artifact's bytes are materialized in the workspace backend.
+  MaterializationState materialization_state = 7;
 }
 
 // EstimatedArtifact describes an artifact expected from a dry run.
@@ -252,9 +262,13 @@ message ParameterMap {
   map<string, ParameterValue> fields = 1;
 }
 
-// ExecutionContext provides optional execution preferences.
+// ExecutionContext provides optional execution preferences shared by every
+// mutating RPC in the operator surface. The workspace handle identifies the
+// canonical WorkspaceRef that scopes artifacts, job state, and authorization
+// for this request; servers evaluate the honua-server-733 execution scope
+// from this handle combined with caller metadata.
 message ExecutionContext {
-  string workspace_id = 1;
+  WorkspaceRef workspace = 1;
   int64 timeout_seconds = 2;
   map<string, string> metadata = 3;
 }

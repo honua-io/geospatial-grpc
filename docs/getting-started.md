@@ -416,17 +416,19 @@ var channel = GrpcChannel.ForAddress("https://api.production.com", new GrpcChann
 });
 ```
 
-## Step 10: Process, Pipeline, Render, Build, and Deployment Workflows
+## Step 10: Workspace, Artifact, Process, Pipeline, Render, Build, and Deployment Workflows
 
-The protocol includes five services for server-side execution workflows:
+The protocol includes seven services for server-side workflows:
 
+- **`WorkspaceService`** — create, open, promote, retain, and release workspaces; inspect quota. Owns the canonical `WorkspaceRef` handle used by every operator service.
+- **`ArtifactService`** — publish (client-stream), read (server-stream), retain, and release artifacts; inspect retention policies. Owns the canonical `ArtifactRef` handle and the `Artifact` resource.
 - **`ProcessService`** — validate, dry-run, and execute geospatial analysis plans (synchronous, streaming, or async job)
 - **`PipelineService`** — validate, dry-run, and execute data publishing pipelines with stage-by-stage progress
 - **`RenderService`** — compose maps and produce a canonical `MapPackage` with streaming progress
 - **`BuilderService`** — synthesize an `AppPackage` from templates, intent, and data bindings
 - **`DeploymentService`** — promote `AppPackage`/`MapPackage`/`ArtifactRef` to live targets with rollback and health telemetry
 
-All five services share execution infrastructure defined in `execution_types.proto` (job lifecycle states, structured errors with retryability guidance, artifact references, provenance records) and follow the same `Validate*` / `DryRun*` / `Execute*` / `Execute*Stream` / `Submit*Job` / `Get*Job` / `Get*JobResult` / `Cancel*Job` RPC surface. Canonical packaging shapes (`MapPackage`, `AppPackage`, `DeploymentSpec`) live in `packaging_types.proto`. The example below uses `ProcessService`; render, build, and deploy follow the same pattern with their own spec types (`RenderSpec`, `BuildSpec`, `DeploymentSpec`).
+All operator services share execution infrastructure defined in `execution_types.proto` (job lifecycle states, structured errors with retryability guidance, artifact references, provenance records) and follow the same `Validate*` / `DryRun*` / `Execute*` / `Execute*Stream` / `Submit*Job` / `Get*Job` / `Get*JobResult` / `Cancel*Job` RPC surface. Workspace and artifact lifecycle contracts live in `workspace_artifact_types.proto`, `workspace_service.proto`, and `artifact_service.proto`. Canonical packaging shapes (`MapPackage`, `AppPackage`, `DeploymentSpec`) live in `packaging_types.proto`. The example below uses `ProcessService`; render, build, and deploy follow the same pattern with their own spec types (`RenderSpec`, `BuildSpec`, `DeploymentSpec`).
 
 ### Validate and Dry-Run a Plan
 
@@ -600,7 +602,10 @@ var response = await processClient.ExecutePlanAsync(
     new ExecutePlanRequest
     {
         Plan = plan,
-        Context = new ExecutionContext { WorkspaceId = "ws-1" }
+        Context = new ExecutionContext
+        {
+            Workspace = new WorkspaceRef { WorkspaceId = "ws-1" }
+        }
     });
 
 switch (response.OutcomeCase)

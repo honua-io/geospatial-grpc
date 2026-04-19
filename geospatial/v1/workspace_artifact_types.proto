@@ -1,0 +1,145 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+// Canonical workspace and retention-policy domain shared by WorkspaceService,
+// ArtifactService, and any producer/consumer service that references
+// workspaces, artifacts, or retention bindings. This file is intentionally
+// free of service definitions and has no cross-file dependencies so every
+// downstream contract — including execution_types.proto, packaging_types.proto,
+// and the service protos — can import it without pulling a service surface.
+//
+// The contract distinguishes cheap, routable "Ref" handles (WorkspaceRef,
+// RetentionPolicyRef) from the full resource messages returned by the
+// service-layer Get/Inspect RPCs (Workspace, RetentionPolicy). The
+// corresponding ArtifactRef / Artifact pair is defined in
+// execution_types.proto and artifact_service.proto respectively, because
+// Artifact carries a ProvenanceRecord (which lives in execution_types.proto)
+// and reusing that type would otherwise introduce a cyclic import.
+// Cross-service references should carry Refs; the full resources are fetched
+// from WorkspaceService / ArtifactService when semantic fields are needed.
+
+// WorkspaceLifecycle classifies the lifecycle state of a workspace.
+enum WorkspaceLifecycle {
+  WORKSPACE_LIFECYCLE_UNSPECIFIED = 0;
+  WORKSPACE_LIFECYCLE_DRAFT = 1;
+  WORKSPACE_LIFECYCLE_ACTIVE = 2;
+  WORKSPACE_LIFECYCLE_PROMOTED = 3;
+  WORKSPACE_LIFECYCLE_RETAINED = 4;
+  WORKSPACE_LIFECYCLE_RELEASED = 5;
+  WORKSPACE_LIFECYCLE_EXPIRED = 6;
+}
+
+// PromotionStage classifies the environment-tier stage a workspace is
+// promoted into. Stages are ordered from least to most durable.
+enum PromotionStage {
+  PROMOTION_STAGE_UNSPECIFIED = 0;
+  PROMOTION_STAGE_DRAFT = 1;
+  PROMOTION_STAGE_REVIEW = 2;
+  PROMOTION_STAGE_STAGING = 3;
+  PROMOTION_STAGE_PRODUCTION = 4;
+  PROMOTION_STAGE_ARCHIVED = 5;
+}
+
+// MaterializationState reports whether artifact bytes are actually resident
+// in the workspace's storage backend.
+enum MaterializationState {
+  MATERIALIZATION_STATE_UNSPECIFIED = 0;
+  MATERIALIZATION_STATE_PENDING = 1;
+  MATERIALIZATION_STATE_MATERIALIZING = 2;
+  MATERIALIZATION_STATE_MATERIALIZED = 3;
+  MATERIALIZATION_STATE_EXPIRED = 4;
+  MATERIALIZATION_STATE_FAILED = 5;
+}
+
+// WorkspaceRef is the canonical handle for a workspace. It carries just
+// enough state to route and detect drift; the full resource comes from
+// WorkspaceService.GetWorkspace.
+//
+// scope_token is an opaque tenancy/authorization token owned by the
+// honua-server-733 execution scope model. This contract does not interpret
+// the value; servers evaluate scope against request metadata.
+message WorkspaceRef {
+  string workspace_id = 1;
+  // Monotonic revision tag assigned by the server. Consumers comparing
+  // revisions can detect concurrent modification without fetching the full
+  // Workspace resource.
+  string workspace_revision = 2;
+  // Opaque tenant/org scope token. Treated as a routing identifier only.
+  string scope_token = 3;
+}
+
+// RetentionPolicyRef is the canonical handle for a retention policy. The
+// full RetentionPolicy resource is returned by
+// ArtifactService.GetRetentionPolicy when a consumer needs the resolved
+// retention semantics.
+message RetentionPolicyRef {
+  string retention_policy_id = 1;
+  // Monotonic revision tag assigned by the server.
+  string retention_policy_revision = 2;
+}
+
+// QuotaSpec describes a workspace's allotted capacity. Zero values indicate
+// "unbounded" or "inherited from policy".
+message QuotaSpec {
+  int64 max_bytes = 1;
+  int64 max_artifacts = 2;
+  int64 soft_ttl_seconds = 3;
+  int64 hard_ttl_seconds = 4;
+}
+
+// QuotaUsage reports observed consumption and remaining headroom for a
+// workspace at a point in time.
+message QuotaUsage {
+  int64 used_bytes = 1;
+  int64 used_artifacts = 2;
+  int64 bytes_available = 3;
+  int64 artifacts_available = 4;
+}
+
+// RetentionPolicy is the full retention-policy resource. Server
+// implementations may extend the policy via labels; core retention semantics
+// are captured in the typed fields below.
+message RetentionPolicy {
+  RetentionPolicyRef ref = 1;
+  string display_name = 2;
+  // Earliest release time relative to publish, in seconds. Servers MUST NOT
+  // release artifacts bound to this policy before this floor elapses.
+  int64 min_retention_seconds = 3;
+  // Latest release time relative to publish, in seconds. 0 means no ceiling.
+  int64 max_retention_seconds = 4;
+  // When true, artifacts bound to this policy are immutable after publish.
+  bool immutable_after_publish = 5;
+  // When true, artifacts bound to this policy cannot be released even past
+  // max_retention_seconds until the legal hold is cleared.
+  bool legal_hold = 6;
+  // Server-owned extension labels. honua-server-725 carries
+  // implementation-specific retention fields here without polluting the
+  // canonical shape.
+  map<string, string> labels = 7;
+}
+
+// Workspace is the full workspace resource returned by
+// WorkspaceService.GetWorkspace / OpenWorkspace. It is also accepted as the
+// desired-state input for CreateWorkspace / UpdateWorkspace; server-managed
+// fields (ref.workspace_revision, lifecycle, usage, created_at, updated_at)
+// are ignored on write and populated on read.
+message Workspace {
+  WorkspaceRef ref = 1;
+  WorkspaceLifecycle lifecycle = 2;
+  PromotionStage promotion_stage = 3;
+  QuotaSpec quota = 4;
+  QuotaUsage usage = 5;
+  RetentionPolicyRef default_retention = 6;
+  int64 created_at = 7;  // UTC milliseconds since epoch
+  int64 updated_at = 8;  // UTC milliseconds since epoch
+  // 0 if the workspace has no scheduled expiry.
+  int64 expires_at = 9;
+  // User-facing tags (e.g., owning team, purpose).
+  map<string, string> labels = 10;
+  // Server-internal metadata propagated through the resource.
+  map<string, string> metadata = 11;
+}
