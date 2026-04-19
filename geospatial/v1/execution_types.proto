@@ -7,6 +7,7 @@ package geospatial.v1;
 
 import "geospatial/v1/common.proto";
 import "geospatial/v1/spatial_types.proto";
+import "geospatial/v1/workspace_artifact_types.proto";
 
 // Shared types for operator execution contracts across ProcessService,
 // PipelineService, RenderService, BuilderService, and DeploymentService.
@@ -128,15 +129,46 @@ message ErrorDetail {
   map<string, string> details = 8;
 }
 
-// ArtifactRef identifies a produced artifact and its metadata.
+// ArtifactRef identifies a produced artifact and carries the canonical typed
+// handles for its owning workspace, bound retention policy, and
+// materialization state. The full Artifact resource is returned by
+// ArtifactService.GetArtifact.
+//
+// Field 5 (workspace_ref), field 6 (retention_policy_ref), and field 7
+// (materialization_state) are the legacy string handles. They remain wire-
+// and JSON-compatible with prior v1 releases and are deprecated in favor of
+// the typed handles on fields 8, 9, and 10. When both the legacy string
+// field and the typed replacement are populated, the typed replacement is
+// authoritative; the legacy field, if populated, MUST describe the same
+// underlying identity. Producers should populate only the typed fields on
+// new writes.
 message ArtifactRef {
   string artifact_id = 1;
   ArtifactClass artifact_class = 2;
   int32 artifact_version = 3;
+  // Producer identifier — typically an ExecutionResult, PipelineResult,
+  // RenderResult, BuildResult, or DeploymentResult job id.
   string producer_ref = 4;
-  string workspace_ref = 5;
-  string retention_policy_ref = 6;
-  string materialization_state = 7;
+  // Deprecated since v1: use `workspace` (field 8) instead. Legacy workspace
+  // id retained for wire and JSON compatibility. Removal target: v2.
+  string workspace_ref = 5 [deprecated = true];
+  // Deprecated since v1: use `retention` (field 9) instead. Legacy retention
+  // policy id retained for wire and JSON compatibility. Removal target: v2.
+  string retention_policy_ref = 6 [deprecated = true];
+  // Deprecated since v1: use `materialization` (field 10) instead. Legacy
+  // string label retained for wire and JSON compatibility. Removal
+  // target: v2.
+  string materialization_state = 7 [deprecated = true];
+  // Owning workspace. Carries scope and revision for drift detection.
+  // Authoritative over the deprecated `workspace_ref` string.
+  WorkspaceRef workspace = 8;
+  // Bound retention policy. Populated when the server has resolved a
+  // retention binding for the artifact. Authoritative over the deprecated
+  // `retention_policy_ref` string.
+  RetentionPolicyRef retention = 9;
+  // Whether the artifact's bytes are materialized in the workspace backend.
+  // Authoritative over the deprecated `materialization_state` string.
+  MaterializationState materialization = 10;
 }
 
 // EstimatedArtifact describes an artifact expected from a dry run.
@@ -252,9 +284,47 @@ message ParameterMap {
   map<string, ParameterValue> fields = 1;
 }
 
-// ExecutionContext provides optional execution preferences.
+// ExecutionContext is the shared cross-cutting request context for the
+// operator execution surface (Execute* RPCs on ProcessService,
+// PipelineService, RenderService, BuilderService, and DeploymentService)
+// and for the WorkspaceService and ArtifactService lifecycle surface,
+// including their non-mutating read and list RPCs (for example
+// OpenWorkspace, GetWorkspace, ListWorkspaces, GetQuotaUsage, GetArtifact,
+// InspectArtifact, ListArtifacts, GetRetentionPolicy, and
+// ListRetentionPolicies). The `workspace` handle carries the canonical
+// WorkspaceRef for requests that need workspace context. When the enclosing
+// request already provides a resource-scoped or filter-scoped WorkspaceRef,
+// that handle is authoritative for routing, artifact scope, job state, and
+// authorization. On list RPCs without an active workspace selector (for
+// example ListWorkspacesRequest, ListRetentionPoliciesRequest, or
+// ListArtifactsRequest when the workspace filter is unset),
+// `ExecutionContext.workspace` is informational only; it does not implicitly
+// narrow results, and servers evaluate caller scope from request metadata.
+//
+// Workspace identity precedence. When the enclosing request already carries
+// a WorkspaceRef elsewhere — for example `ArtifactRef.workspace`,
+// `ArtifactHeader.workspace`, `WorkspaceRef ref` on WorkspaceService
+// requests, `DeploymentSpec.workspace`, or a list-request workspace filter
+// such as `ListArtifactsRequest.workspace` when set — that resource-scoped
+// or filter handle is authoritative. If `ExecutionContext.workspace` is
+// also set, it MUST identify the same workspace (matching `workspace_id`
+// at minimum; servers SHOULD reject mismatched `scope_token` or
+// `workspace_revision`) and the server returns INVALID_ARGUMENT on
+// mismatch. Callers that already carry workspace identity on the resource
+// or filter handle MAY leave `ExecutionContext.workspace` unset.
+//
+// Field 1 (workspace_id) is the legacy string handle retained for wire and
+// JSON compatibility. It is deprecated in favor of the typed `workspace`
+// handle on field 4; when both are populated they MUST identify the same
+// workspace and the typed field is authoritative. Producers should populate
+// only the typed field on new writes.
 message ExecutionContext {
-  string workspace_id = 1;
+  // Deprecated since v1: use `workspace` (field 4) instead. Legacy workspace
+  // id retained for wire and JSON compatibility. Removal target: v2.
+  string workspace_id = 1 [deprecated = true];
   int64 timeout_seconds = 2;
   map<string, string> metadata = 3;
+  // Canonical typed workspace handle for this request. Authoritative over
+  // the deprecated `workspace_id` string.
+  WorkspaceRef workspace = 4;
 }

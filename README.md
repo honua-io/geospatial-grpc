@@ -35,6 +35,8 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 |---------|---------|--------------|
 | `FeatureService` | Geospatial CRUD operations | Query, stream, edit features |
 | `FormService` | Mobile data collection | Dynamic forms, validation, collaboration |
+| `WorkspaceService` | Workspace lifecycle management | Create/open/get/list/update, promote/retain/release, quota inspection |
+| `ArtifactService` | Artifact lifecycle management | Publish/read/get/inspect/list, retain/release, retention policies |
 | `ProcessService` | Geospatial process execution | Plan validation, dry-run, sync/streaming/async execution |
 | `PipelineService` | Data publishing pipelines | Pipeline validation, dry-run, stage-by-stage execution |
 | `RenderService` | Map composition and packaging | Render validation, dry-run, streaming execution, produces `MapPackage` |
@@ -47,8 +49,11 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 - **Feature**: Attributes + geometry with flexible typing
 - **Form Controls**: Rich input types (location, media, validation)
 - **Execution Types**: Plans, steps, jobs, artifacts, provenance, and structured errors
+- **Workspace & Artifact Types**: `WorkspaceRef`, `ArtifactRef`, `RetentionPolicyRef` typed handles; `Workspace`, `Artifact`, `RetentionPolicy` resources; typed `PromotionStage`, `WorkspaceLifecycle`, `MaterializationState` enums
 - **Packaging Types**: `MapPackage`, `AppPackage`, `DeploymentSpec` canonical domain objects shared across render, build, and deployment
 - **Mobile Optimizations**: Battery, network, and device-aware
+
+Lifecycle and packaging requests use the typed ref pattern end-to-end. New writes should prefer `WorkspaceRef`, `ArtifactRef.workspace`, `ArtifactRef.retention`, `ArtifactRef.materialization`, and `ExecutionContext.workspace`; the legacy string fields remain only for v1 wire/JSON compatibility.
 
 ## 🚀 Quick Start
 
@@ -57,17 +62,20 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 ```bash
 # View proto definitions
 ls geospatial/v1/
-# ├── common.proto              # Shared types
-# ├── spatial_types.proto       # Geometry definitions
-# ├── feature_service.proto     # Feature CRUD
-# ├── form_service.proto        # Mobile forms
-# ├── execution_types.proto     # Shared execution infrastructure
-# ├── packaging_types.proto     # MapPackage, AppPackage, DeploymentSpec
-# ├── process_service.proto     # Process execution
-# ├── pipeline_service.proto    # Data publishing pipelines
-# ├── render_service.proto      # Map composition and packaging
-# ├── builder_service.proto     # Application bundle synthesis
-# └── deployment_service.proto  # Deployment promotion and lifecycle
+# ├── common.proto                      # Shared types
+# ├── spatial_types.proto               # Geometry definitions
+# ├── feature_service.proto             # Feature CRUD
+# ├── form_service.proto                # Mobile forms
+# ├── workspace_artifact_types.proto    # Workspace/artifact handles and enums
+# ├── execution_types.proto             # Shared execution infrastructure
+# ├── packaging_types.proto             # MapPackage, AppPackage, DeploymentSpec
+# ├── workspace_service.proto           # Workspace lifecycle (create/promote/retain/release)
+# ├── artifact_service.proto            # Artifact lifecycle (publish/read/retain)
+# ├── process_service.proto             # Process execution
+# ├── pipeline_service.proto            # Data publishing pipelines
+# ├── render_service.proto              # Map composition and packaging
+# ├── builder_service.proto             # Application bundle synthesis
+# └── deployment_service.proto          # Deployment promotion and lifecycle
 ```
 
 ### 2. Generate Client Libraries
@@ -167,18 +175,21 @@ for feature in response.features:
 
 ```
 geospatial-grpc/
-├── geospatial/v1/                # Protocol definitions
-│   ├── common.proto              # Shared types and enums
-│   ├── spatial_types.proto       # Geometry types
-│   ├── feature_service.proto     # Feature CRUD operations
-│   ├── form_service.proto        # Mobile data collection
-│   ├── execution_types.proto     # Shared execution infrastructure
-│   ├── packaging_types.proto     # MapPackage, AppPackage, DeploymentSpec
-│   ├── process_service.proto     # Geospatial process execution
-│   ├── pipeline_service.proto    # Data publishing pipelines
-│   ├── render_service.proto      # Map composition and packaging
-│   ├── builder_service.proto     # Application bundle synthesis
-│   └── deployment_service.proto  # Deployment promotion and lifecycle
+├── geospatial/v1/                        # Protocol definitions
+│   ├── common.proto                      # Shared types and enums
+│   ├── spatial_types.proto               # Geometry types
+│   ├── feature_service.proto             # Feature CRUD operations
+│   ├── form_service.proto                # Mobile data collection
+│   ├── workspace_artifact_types.proto    # Workspace/artifact handles, enums, retention
+│   ├── execution_types.proto             # Shared execution infrastructure
+│   ├── packaging_types.proto             # MapPackage, AppPackage, DeploymentSpec
+│   ├── workspace_service.proto           # Workspace lifecycle
+│   ├── artifact_service.proto            # Artifact lifecycle
+│   ├── process_service.proto             # Geospatial process execution
+│   ├── pipeline_service.proto            # Data publishing pipelines
+│   ├── render_service.proto              # Map composition and packaging
+│   ├── builder_service.proto             # Application bundle synthesis
+│   └── deployment_service.proto          # Deployment promotion and lifecycle
 ├── docs/                       # Protocol documentation
 ├── examples/                   # Language-specific examples
 ├── gen/                        # Generated client libraries

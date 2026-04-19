@@ -235,7 +235,7 @@ A `RenderSpec` describes a map composition: `style_spec` (MapLibre style hints a
 - `spatial_reference`, `extent` — canonical CRS and envelope
 - `source_refs` — upstream dataset references for provenance lookups
 - `metadata` — free-form display metadata (title, description, attribution)
-- `workspace_ref` — workspace handle consistent with `ArtifactRef.workspace_ref`
+- `workspace` — typed `WorkspaceRef` (field 11) consistent with `ArtifactRef.workspace` (see [WorkspaceService](#workspaceservice)); field 10 (`workspace_ref`, `string`) is the deprecated legacy handle retained for wire and JSON compatibility
 
 MapLibre style JSON is carried as opaque bytes inside `style_artifact`, not typed proto fields, so MapPackage evolution is decoupled from upstream MapLibre releases.
 
@@ -293,7 +293,7 @@ A `BuildSpec` describes an application synthesis request: `template_ref` (app te
 - `map_package_refs` — identifiers of `MapPackage` instances embedded in the app
 - `runtime_config` — typed `ParameterMap` of runtime configuration (feature flags, env bindings)
 - `metadata` — free-form display metadata (title, description, icons)
-- `workspace_ref` — workspace handle consistent with `ArtifactRef.workspace_ref`
+- `workspace` — typed `WorkspaceRef` (field 9) consistent with `ArtifactRef.workspace` (see [WorkspaceService](#workspaceservice)); field 8 (`workspace_ref`, `string`) is the deprecated legacy handle retained for wire and JSON compatibility
 
 #### Consumer Expectations
 
@@ -333,7 +333,7 @@ service DeploymentService {
 
 #### Deployment Specs
 
-A `DeploymentSpec` captures the desired state of a running deployment: `deployment_id`, `spec_version`, a `package_ref` oneof (`AppPackage`, `MapPackage`, or `ArtifactRef` — which handles `SERVICE_DEFINITION` and other deployable artifact classes), a `DeploymentTarget` (logical target with `environment` and `region`; cloud backend specifics are intentionally out of scope), a `DeploymentStrategy` (`IMMEDIATE`, `BLUE_GREEN`, `CANARY`, `ROLLING`), one or more `HealthCheck` probes, a `RollbackPolicy`, and a `workspace_ref` consistent with `ArtifactRef.workspace_ref` (matching the convention on `MapPackage` and `AppPackage`).
+A `DeploymentSpec` captures the desired state of a running deployment: `deployment_id`, `spec_version`, a `package_ref` oneof (`AppPackage`, `MapPackage`, or `ArtifactRef` — which handles `SERVICE_DEFINITION` and other deployable artifact classes), a `DeploymentTarget` (logical target with `environment` and `region`; cloud backend specifics are intentionally out of scope), a `DeploymentStrategy` (`IMMEDIATE`, `BLUE_GREEN`, `CANARY`, `ROLLING`), one or more `HealthCheck` probes, a `RollbackPolicy`, and a typed `workspace` (field 11, `WorkspaceRef`) consistent with `ArtifactRef.workspace` (matching the convention on `MapPackage` and `AppPackage`). Field 10 (`workspace_ref`, `string`) is the deprecated legacy handle retained for wire and JSON compatibility.
 
 Every deployment request also carries a `DeploymentOperationMode` (`CREATE`, `UPDATE`, `REDEPLOY`) so the server can decide whether the spec represents a fresh deployment or an update.
 
@@ -360,28 +360,168 @@ Every deployment request also carries a `DeploymentOperationMode` (`CREATE`, `UP
 - `honua-sdk-js-21` surfaces deployment state and health using `DeploymentResult`, `DeploymentEndpoint`, and `DeploymentHealthEvent` directly.
 - MCP extensions (`honua-server-728`, `honua-server-738`) and the operator orchestration host compose multi-service promotion flows — render → build → deploy — without redefining intermediate shapes.
 
+### WorkspaceService
+
+The `WorkspaceService` provides typed RPC access to the server-owned workspace lifecycle. Every operator service — `ProcessService`, `PipelineService`, `RenderService`, `BuilderService`, `DeploymentService`, `ArtifactService` — exchanges the same canonical `WorkspaceRef` handle that this service creates and manages. `honua-server-725` implements the storage lifecycle behind this surface. It supports:
+
+- **Creation and Open**: Create a workspace or acquire an authenticated handle at a specific revision
+- **Discovery**: Get and list workspaces with lifecycle, promotion, and label filters
+- **Update**: Apply caller-mutable configuration (quota, labels, metadata) without rewriting lifecycle-owned retention/expiry state
+- **Promotion**: Long-running promotion between `PromotionStage` tiers with streaming events
+- **Retention and Release**: Rebind retention policy or release the workspace subject to policy floors
+- **Quota Inspection**: Point-in-time quota usage snapshots
+
+#### Key Methods
+
+```protobuf
+service WorkspaceService {
+  rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
+  rpc OpenWorkspace(OpenWorkspaceRequest) returns (OpenWorkspaceResponse);
+  rpc GetWorkspace(GetWorkspaceRequest) returns (GetWorkspaceResponse);
+  rpc ListWorkspaces(ListWorkspacesRequest) returns (ListWorkspacesResponse);
+  rpc UpdateWorkspace(UpdateWorkspaceRequest) returns (UpdateWorkspaceResponse);
+  rpc PromoteWorkspace(PromoteWorkspaceRequest) returns (stream WorkspaceEvent);
+  rpc RetainWorkspace(RetainWorkspaceRequest) returns (stream WorkspaceEvent);
+  rpc ReleaseWorkspace(ReleaseWorkspaceRequest) returns (stream WorkspaceEvent);
+  rpc GetQuotaUsage(GetQuotaUsageRequest) returns (GetQuotaUsageResponse);
+}
+```
+
+#### Workspace Lifecycle
+
+A `Workspace` carries a typed `WorkspaceLifecycle` (`DRAFT`, `ACTIVE`, `PROMOTED`, `RETAINED`, `RELEASED`, `EXPIRED`) and a `PromotionStage` (`DRAFT`, `REVIEW`, `STAGING`, `PRODUCTION`, `ARCHIVED`). Lifecycle reflects the workspace's state within the server's storage backend; promotion reflects the environment tier it has been published to. Lifecycle and promotion are server-managed — callers request transitions via `PromoteWorkspace` / `RetainWorkspace` / `ReleaseWorkspace` rather than writing them on `UpdateWorkspace`.
+
+`CreateWorkspace` may seed `quota`, `default_retention`, `labels`, and `metadata`. After creation, `UpdateWorkspace` is intentionally narrower: it updates `quota`, `labels`, and `metadata` only. Servers reject attempts to mutate lifecycle-managed fields such as `default_retention`, `usage`, or `expires_at` on `UpdateWorkspace`; `desired.ref.workspace_revision`, when provided, is used only as an optimistic-concurrency precondition. Retention binding (`default_retention`) and the observed `expires_at` value change through `PromoteWorkspace`, `RetainWorkspace`, and `ReleaseWorkspace` so per-artifact retention evaluation stays observable and expiry changes have one lifecycle owner.
+
+#### WorkspaceRef Contract
+
+`WorkspaceRef` is the canonical cross-service handle:
+
+- `workspace_id` — stable identifier
+- `workspace_revision` — monotonic tag for drift detection without fetching the full resource
+- `scope_token` — opaque tenancy/authorization token owned by `honua-server-733`. This contract does not interpret the value; servers evaluate scope against request metadata.
+
+`ArtifactRef.workspace`, `ExecutionContext.workspace`, `MapPackage.workspace`, `AppPackage.workspace`, and `DeploymentSpec.workspace` all carry the same `WorkspaceRef` type — consumers bind through one canonical handle across the entire operator surface. Each of those messages also exposes a deprecated legacy string handle (`workspace_ref` on `ArtifactRef`, `MapPackage`, `AppPackage`, and `DeploymentSpec`; `workspace_id` on `ExecutionContext`) retained for wire and JSON compatibility with prior v1 releases. New producers SHOULD populate only the typed `WorkspaceRef` field; when both are present they MUST identify the same workspace and the typed field is authoritative. See [Workspace Identity Precedence](#workspace-identity-precedence) for the equality rule when a resource handle and `ExecutionContext.workspace` appear in the same request.
+
+#### Promotion, Retention, and Release Semantics
+
+- `PromoteWorkspace` is long-running because the server may move bytes between lifecycle tiers. Events stream per-stage `JobProgress` updates and per-artifact `StageResult` entries (with `node_id` carrying a server-chosen stage identifier such as a per-artifact evaluation key), terminating in either a final `Workspace` result or a terminal `ErrorDetail`.
+- `RetainWorkspace` and `ReleaseWorkspace` use the same streaming shape so consumers can observe per-artifact retention evaluations as retention bindings are rebound or released.
+- `ReleaseWorkspace` honors the bound retention policy floor (`min_retention_seconds`), `immutable_after_publish`, and `legal_hold` bindings regardless of `force`. `force` waives non-retention preconditions only.
+
+#### Quota Inspection
+
+`GetQuotaUsage` returns the current `QuotaSpec` (max bytes, max artifacts, soft/hard TTL) and the most recent observed `QuotaUsage` (used vs. available bytes and artifacts). Snapshots are point-in-time — consumers that need continuous telemetry poll this RPC rather than subscribing to a stream.
+
+#### Consumer Expectations
+
+- `honua-server-725` implements `WorkspaceService` over its storage lifecycle without redefining workspace/lifecycle shapes.
+- `honua-server-730/731/732` call `OpenWorkspace` to capture a specific `workspace_revision` before binding artifacts for packaging, publishing, or deployment.
+- `honua-sdk-js-21`, MCP resource adapters, and the operator orchestration host reference workspaces through the typed `WorkspaceRef` exclusively.
+
+### ArtifactService
+
+The `ArtifactService` provides typed RPC access to the server-owned artifact lifecycle: publish, read, inspect, list, retain, release, and retention policy resolution. The canonical typed `ArtifactRef` and `MaterializationState` returned by every RPC are the same surface every operator service exchanges. It supports:
+
+- **Publish**: Client-streaming upload terminated by a single `PublishArtifactResponse`
+- **Read**: Server-streaming download with resumable byte-range reads
+- **Inspect**: Retrieve the artifact resource and the most recent materialization snapshot
+- **List**: Workspace-, class-, producer-, and label-filtered paginated listing
+- **Retention and Release**: Rebind retention or release subject to policy floors and legal hold
+- **Retention Policies**: Get and list `RetentionPolicy` resources
+
+#### Key Methods
+
+```protobuf
+service ArtifactService {
+  rpc PublishArtifact(stream PublishArtifactRequest) returns (PublishArtifactResponse);
+  rpc ReadArtifact(ReadArtifactRequest) returns (stream ReadArtifactEvent);
+  rpc GetArtifact(GetArtifactRequest) returns (GetArtifactResponse);
+  rpc InspectArtifact(InspectArtifactRequest) returns (InspectArtifactResponse);
+  rpc ListArtifacts(ListArtifactsRequest) returns (ListArtifactsResponse);
+  rpc RetainArtifact(RetainArtifactRequest) returns (RetainArtifactResponse);
+  rpc ReleaseArtifact(ReleaseArtifactRequest) returns (ReleaseArtifactResponse);
+  rpc GetRetentionPolicy(GetRetentionPolicyRequest) returns (GetRetentionPolicyResponse);
+  rpc ListRetentionPolicies(ListRetentionPoliciesRequest) returns (ListRetentionPoliciesResponse);
+}
+```
+
+#### Publish Streaming Semantics
+
+`PublishArtifact` is client-streaming. The first message on the stream MUST carry an `ArtifactHeader` declaring the owning `WorkspaceRef`, target `ArtifactClass`, desired `RetentionPolicyRef`, optional declared size/hash, `producer_ref`, and an `ExecutionContext`. Every subsequent message carries an `ArtifactChunk`. The server terminates with a single `PublishArtifactResponse` whose `outcome` oneof carries either the resulting `Artifact` or a terminal `ErrorDetail`. Chunk size is server-chosen; implementations should stay at or below 1 MiB to align with gRPC-Web and SDK defaults.
+
+#### Read Streaming Semantics
+
+`ReadArtifact` is server-streaming. Requests carry an `ArtifactRef`, an `offset_bytes` for resumable transfer, and a `max_bytes` ceiling (0 streams to end-of-artifact). Servers stream `ReadArtifactEvent` messages wrapping either an `ArtifactChunk` (with `last=true` on the final chunk on success) or a terminal `ErrorDetail`. This wrapper matches the event oneof pattern used by `ExecutionEvent`, `PipelineEvent`, `RenderEvent`, `BuildEvent`, and `DeploymentEvent`.
+
+#### Artifact Resource
+
+`Artifact` is the full resource returned by `GetArtifact` / `InspectArtifact` / `ListArtifacts`. It carries the typed `ArtifactRef`, `size_bytes`, `content_type`, a content-addressable `content_hash` (algorithm-prefixed, e.g., `"sha256:..."`), `published_at` / `materialized_at` / `expires_at` timestamps, a `ProvenanceRecord` (reusing the canonical type from `execution_types.proto`), and `inputs` — upstream `ArtifactRef` entries that contributed to production. Cross-service references should carry `ArtifactRef` rather than the full resource.
+
+#### ArtifactRef Contract
+
+`ArtifactRef` is the canonical cross-service handle for produced bytes:
+
+- `artifact_id`, `artifact_class`, `artifact_version`, `producer_ref` — stable identity, type, version, and producer lineage
+- `workspace` — typed `WorkspaceRef` (field 8), authoritative over deprecated `workspace_ref` (field 5)
+- `retention` — typed `RetentionPolicyRef` (field 9), authoritative over deprecated `retention_policy_ref` (field 6)
+- `materialization` — typed `MaterializationState` (field 10), authoritative over deprecated `materialization_state` (field 7)
+
+New producers SHOULD populate only the typed fields on new writes. Consumers that need semantic artifact state fetch the full `Artifact` resource via `GetArtifact` / `InspectArtifact`; cross-service messages continue to pass the lightweight `ArtifactRef`.
+
+#### Retention Semantics
+
+`RetentionPolicy` captures the canonical retention fields: `min_retention_seconds` (floor — servers MUST NOT release bound artifacts before this elapses), `max_retention_seconds` (ceiling — 0 means no ceiling), `immutable_after_publish`, `legal_hold`, and server-owned `labels` for implementation-specific extensions (`honua-server-725` populates implementation details there without polluting the canonical shape). `RetainArtifact` rebinds policy and optionally pins `retain_until`; `ReleaseArtifact` honors the policy floor, immutability, and legal hold regardless of `force`.
+
+#### RetentionPolicyRef Contract
+
+`RetentionPolicyRef` is the lightweight retention handle carried on `Workspace.default_retention`, `ArtifactHeader.retention`, `ArtifactRef.retention`, `PromoteWorkspaceRequest.target_retention`, `RetainWorkspaceRequest.retention`, and `RetainArtifactRequest.retention`. It contains `retention_policy_id` plus `retention_policy_revision` for drift detection; call `GetRetentionPolicy` when the resolved floor, ceiling, immutability, or legal-hold semantics are needed.
+
+#### Materialization State
+
+`MaterializationState` is a typed enum with `UNSPECIFIED`, `PENDING`, `MATERIALIZING`, `MATERIALIZED`, `EXPIRED`, and `FAILED`. It is carried on `ArtifactRef.materialization` (field 10) and on `InspectArtifactResponse.materialization_state`. `InspectArtifact` returns both the `Artifact` resource and the most recent observed materialization snapshot (`materialization_state`, `observed_size_bytes`, `observed_content_hash`, `observed_at`) so consumers can poll for materialization progress without streaming bytes. The legacy `ArtifactRef.materialization_state` (field 7, `string`) is deprecated and kept for wire and JSON compatibility only.
+
+#### Listing and Inspection Guidance
+
+Prefer `InspectArtifact` when callers need readiness, observed size, or content hash without paying to stream bytes; use `ReadArtifact` only when the artifact body is required. `ListArtifactsRequest.workspace` is optional: when unset, the server lists artifacts across every workspace visible to the caller; when set, that filter is the authoritative workspace selector over `ExecutionContext.workspace`.
+
+#### Consumer Expectations
+
+- `honua-server-725` implements `ArtifactService` over its storage backend.
+- `honua-server-730/731/732` call `PublishArtifact` and `RetainArtifact` to bind produced packaging/deployment outputs to retention policies.
+- `honua-sdk-js-21` and MCP resource adapters use `ReadArtifact` with `offset_bytes` for resumable downloads of multi-GB artifacts.
+- The operator orchestration host calls `InspectArtifact` to poll materialization without buffering bytes.
+
 #### Shared Execution Infrastructure
 
-`ProcessService`, `PipelineService`, `RenderService`, `BuilderService`, and `DeploymentService` share types defined in `execution_types.proto`:
+`ProcessService`, `PipelineService`, `RenderService`, `BuilderService`, `DeploymentService`, `WorkspaceService`, and `ArtifactService` share types defined in `execution_types.proto` and `workspace_artifact_types.proto`:
 
-- **Job lifecycle**: `JobState`, `StageState` enums and `JobProgress` messages
-- **Error model**: `ErrorDetail` with `ErrorCategory` and `Retryability` classifications
-- **Artifacts**: `ArtifactRef` with class, version, and workspace/producer references
-- **Dry-run**: `DryRunResult` with estimated artifacts, side effects, and cost
-- **Provenance**: `ProvenanceRecord` with source datasets, assumptions, and timing
-- **Parameters**: `ParameterValue` (scalar/list/struct/typed geospatial) for step inputs and stage config
+- **Job lifecycle**: `JobState`, `StageState` enums and `JobProgress` messages (`execution_types.proto`)
+- **Error model**: `ErrorDetail` with `ErrorCategory` and `Retryability` classifications (`execution_types.proto`); `ERROR_CATEGORY_ARTIFACT` covers artifact-lifecycle failures, `ERROR_CATEGORY_AUTHORIZATION` and `ERROR_CATEGORY_POLICY` cover honua-server-733 scope rejections
+- **Artifacts**: `ArtifactRef` with typed `workspace` (field 8, `WorkspaceRef`), `retention` (field 9, `RetentionPolicyRef`), and `materialization` (field 10, `MaterializationState`) (`execution_types.proto`). Fields 5–7 (`workspace_ref`, `retention_policy_ref`, `materialization_state` — all `string`) are deprecated legacy handles retained for wire and JSON compatibility with prior v1 releases; producers SHOULD populate only the typed fields on new writes, and when both the deprecated and typed variants are set they MUST identify the same underlying entity.
+- **Workspaces and retention**: `WorkspaceRef`, `RetentionPolicyRef`, `WorkspaceLifecycle`, `PromotionStage`, `MaterializationState`, `QuotaSpec`, `QuotaUsage`, `RetentionPolicy`, `Workspace` (`workspace_artifact_types.proto`)
+- **Dry-run**: `DryRunResult` with estimated artifacts, side effects, and cost (`execution_types.proto`)
+- **Provenance**: `ProvenanceRecord` with source datasets, assumptions, and timing (`execution_types.proto`)
+- **Parameters**: `ParameterValue` (scalar/list/struct/typed geospatial) for step inputs and stage config (`execution_types.proto`)
 
 #### Canonical Packaging Types
 
-`MapPackage`, `AppPackage`, and `DeploymentSpec` are shared across services and are defined in `packaging_types.proto`. They are shape contracts only — artifact materialization rules (where bytes live, retention, immutability guarantees) live in a separate workspace/artifact contract. Deployment health surface types (`DeploymentTarget`, `DeploymentStrategy`, `HealthCheck`, `HealthCheckResult`, `RollbackPolicy`, `DeploymentEndpoint`, `DeploymentHealthStatus`) also live in `packaging_types.proto` so they can be reused without importing service definitions.
+`MapPackage`, `AppPackage`, and `DeploymentSpec` are shared across services and are defined in `packaging_types.proto`. They are shape contracts only — artifact materialization rules (where bytes live, retention, immutability guarantees) are owned by [`WorkspaceService`](#workspaceservice) and [`ArtifactService`](#artifactservice) and bind through the typed `WorkspaceRef` / `ArtifactRef` handles carried on these shapes. Deployment health surface types (`DeploymentTarget`, `DeploymentStrategy`, `HealthCheck`, `HealthCheckResult`, `RollbackPolicy`, `DeploymentEndpoint`, `DeploymentHealthStatus`) also live in `packaging_types.proto` so they can be reused without importing service definitions.
 
 #### Execution Context
 
-`ExecutePlanRequest`, `ExecutePipelineRequest`, `ExecuteRenderRequest`, `ExecuteBuildRequest`, and `ExecuteDeploymentRequest` each accept an optional `ExecutionContext`:
+`ExecutePlanRequest`, `ExecutePipelineRequest`, `ExecuteRenderRequest`, `ExecuteBuildRequest`, and `ExecuteDeploymentRequest` — and the `WorkspaceService` and `ArtifactService` lifecycle RPCs, covering both mutating calls (e.g., `CreateWorkspace`, `PromoteWorkspace`, `RetainWorkspace`, `ReleaseWorkspace`, `PublishArtifact`, `RetainArtifact`, `ReleaseArtifact`) and non-mutating read/list calls (`OpenWorkspace`, `GetWorkspace`, `ListWorkspaces`, `GetQuotaUsage`, `GetArtifact`, `InspectArtifact`, `ListArtifacts`, `GetRetentionPolicy`, `ListRetentionPolicies`) — accept an optional `ExecutionContext`:
 
-- `workspace_id`: Scopes artifacts and job state to a workspace.
+- `workspace`: Typed `WorkspaceRef` (field 4) carried with requests that need workspace context. When the request already provides a resource-scoped or filter-scoped workspace handle, that handle is authoritative. On list RPCs without an active workspace selector (`ListWorkspacesRequest`, `ListRetentionPoliciesRequest`, or `ListArtifactsRequest` when `workspace` is unset), `context.workspace` is informational only and does not implicitly narrow results. Servers evaluate `honua-server-733` execution scope from the authoritative handle, when present, together with caller request metadata; no parallel scope primitives appear in the proto surface.
+- `workspace_id`: Deprecated legacy string (field 1) retained for wire and JSON compatibility with prior v1 releases. New producers SHOULD populate only the typed `workspace` handle; when both are set they MUST identify the same workspace and the typed field is authoritative. Removal target: v2.
 - `timeout_seconds`: Server-enforced execution deadline. If the timeout is reached, the server reports it as an execution-phase error via `ErrorDetail` (see [Execution Errors](#execution-errors)).
 - `metadata`: Arbitrary key-value pairs forwarded to the execution environment (e.g., correlation IDs, caller tags).
+
+##### Workspace Identity Precedence
+
+When a request already carries a workspace handle on a resource field — `ArtifactRef.workspace` (e.g., `GetArtifactRequest.ref`, `ReadArtifactRequest.ref`, `InspectArtifactRequest.ref`, `RetainArtifactRequest.ref`, `ReleaseArtifactRequest.ref`), `ArtifactHeader.workspace` on `PublishArtifact`, `WorkspaceRef ref` on `WorkspaceService` requests, `DeploymentSpec.workspace` on deployment requests (`ExecuteDeploymentRequest`, `SubmitDeploymentJobRequest`), or the `ListArtifactsRequest.workspace` filter when set — that resource-scoped or filter handle is authoritative. `ExecutionContext.workspace`, when also populated, MUST identify the same workspace (at minimum `workspace_id`; servers SHOULD also reject mismatched `scope_token` or `workspace_revision`). Servers return `INVALID_ARGUMENT` on mismatch. Callers that already carry workspace identity on the resource or filter handle MAY leave `ExecutionContext.workspace` unset.
+
+`ValidateDeploymentRequest` and `DryRunDeploymentRequest` carry no `ExecutionContext`; they resolve workspace solely from `spec.workspace`. `ListArtifactsRequest`, `ListWorkspacesRequest`, and `ListRetentionPoliciesRequest` also accept `ExecutionContext` for scope, quota, and metadata propagation; when their own filter surface does not carry an active workspace handle (`ListWorkspacesRequest`, `ListRetentionPoliciesRequest`, or `ListArtifactsRequest` when `workspace` is unset), `context.workspace` is informational only and servers evaluate caller scope from request metadata.
 
 #### Node Identifier Convention
 

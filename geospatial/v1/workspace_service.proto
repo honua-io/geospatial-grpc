@@ -1,0 +1,238 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/execution_types.proto";
+import "geospatial/v1/workspace_artifact_types.proto";
+
+// WorkspaceService provides typed RPC access to the server-owned workspace
+// lifecycle: creation, authenticated open, promotion between stages,
+// retention, release, quota inspection, and listing. The canonical typed
+// WorkspaceRef returned by every RPC is the same handle carried across
+// ProcessService, PipelineService, RenderService, BuilderService,
+// DeploymentService, and ArtifactService — honua-server-725 implements the
+// storage lifecycle behind this surface, and package/deploy consumers
+// (honua-server-730/731/732) bind through the typed Refs without repo-local
+// substitutes.
+//
+// Transport-neutral status mapping for server implementations:
+//
+// Request-phase failures (returned as non-OK gRPC status, no response body):
+//   INVALID_ARGUMENT    — malformed requests (e.g., missing WorkspaceRef,
+//                         invalid QuotaSpec, unsupported PromotionStage
+//                         transition declared inline)
+//   PERMISSION_DENIED   — honua-server-733 scope rejected the request
+//   NOT_FOUND           — unknown workspace_id or retention_policy_id
+//   RESOURCE_EXHAUSTED  — quota exceeded on create/promote/retain
+//   FAILED_PRECONDITION — workspace not in a state that permits the requested
+//                         transition (e.g., Promote on an EXPIRED workspace,
+//                         Release while a legal_hold retention policy binds
+//                         an active artifact, workspace_revision drift)
+//   INTERNAL            — unexpected server errors
+//
+// Execution-phase failures (after a long-running operation begins) are
+// returned with gRPC status OK. Unary RPCs that may produce execution-phase
+// failures (none today on WorkspaceService) would populate an in-band
+// ErrorDetail; streaming RPCs (PromoteWorkspace, RetainWorkspace,
+// ReleaseWorkspace) emit a terminal ErrorDetail event on WorkspaceEvent.
+// This ensures the structured ErrorDetail is always available to the
+// client. DEADLINE_EXCEEDED and CANCELLED may still arrive as gRPC-level
+// codes from client deadlines or transport cancellation.
+service WorkspaceService {
+  // CreateWorkspace creates a new workspace with the requested quota,
+  // initial default retention binding, and metadata. The server assigns
+  // WorkspaceRef.workspace_id, workspace_revision, lifecycle,
+  // promotion_stage, usage, and timestamps.
+  rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
+
+  // OpenWorkspace acquires an authenticated handle for an existing workspace.
+  // Package/deploy consumers call OpenWorkspace to capture a specific
+  // workspace_revision before binding artifacts.
+  rpc OpenWorkspace(OpenWorkspaceRequest) returns (OpenWorkspaceResponse);
+
+  // GetWorkspace returns the full workspace resource for a ref.
+  rpc GetWorkspace(GetWorkspaceRequest) returns (GetWorkspaceResponse);
+
+  // ListWorkspaces returns workspaces matching the filter selectors,
+  // paginated by page_token.
+  rpc ListWorkspaces(ListWorkspacesRequest) returns (ListWorkspacesResponse);
+
+  // UpdateWorkspace applies caller-mutable configuration updates
+  // (quota, labels, metadata). Retention and expiry transitions stay on
+  // PromoteWorkspace / RetainWorkspace / ReleaseWorkspace so lifecycle-owned
+  // state has one authoritative mutation path. Attempts to mutate server-
+  // managed fields (lifecycle, promotion_stage, default_retention, usage,
+  // timestamps, expires_at) are rejected with INVALID_ARGUMENT.
+  // desired.ref.workspace_revision, when non-empty, is treated only as the
+  // optimistic-concurrency precondition; the response carries the current
+  // server-assigned revision.
+  rpc UpdateWorkspace(UpdateWorkspaceRequest) returns (UpdateWorkspaceResponse);
+
+  // PromoteWorkspace promotes a workspace to a target PromotionStage,
+  // optionally rebinding the default retention policy. Promotion is a
+  // long-running operation because the server may move bytes between
+  // lifecycle tiers; events stream per-stage progress and per-artifact
+  // retention evaluations as StageResult entries.
+  rpc PromoteWorkspace(PromoteWorkspaceRequest) returns (stream WorkspaceEvent);
+
+  // RetainWorkspace re-binds retention for the workspace. Servers stream
+  // per-artifact retention evaluations as StageResult entries and emit a
+  // terminal Workspace result on success.
+  rpc RetainWorkspace(RetainWorkspaceRequest) returns (stream WorkspaceEvent);
+
+  // ReleaseWorkspace releases the workspace subject to the retention policy
+  // floor (min_retention_seconds) and any legal_hold bindings. Servers
+  // stream per-artifact evaluations as StageResult entries.
+  rpc ReleaseWorkspace(ReleaseWorkspaceRequest) returns (stream WorkspaceEvent);
+
+  // GetQuotaUsage returns the current QuotaSpec and observed QuotaUsage for
+  // a workspace. Snapshots are pointwise — consumers that need continuous
+  // quota telemetry should poll this RPC.
+  rpc GetQuotaUsage(GetQuotaUsageRequest) returns (GetQuotaUsageResponse);
+}
+
+// WorkspaceEvent is a streaming message carrying progress, stage, result,
+// or terminal error events for PromoteWorkspace, RetainWorkspace, and
+// ReleaseWorkspace. Matches the event oneof pattern used by
+// ExecutionEvent, PipelineEvent, RenderEvent, BuildEvent, and
+// DeploymentEvent. StageResult.node_id is a server-chosen stage identifier
+// (for example, a per-artifact evaluation key).
+message WorkspaceEvent {
+  oneof event {
+    JobProgress progress = 1;
+    StageResult stage_result = 2;
+    Workspace result = 3;
+    ErrorDetail error = 4;
+  }
+}
+
+// CreateWorkspaceRequest requests creation of a new workspace. The server
+// assigns WorkspaceRef.workspace_id and workspace_revision on the returned
+// workspace; server-managed lifecycle fields on desired are ignored. Callers
+// may seed quota, default_retention, labels, and metadata at create time.
+message CreateWorkspaceRequest {
+  Workspace desired = 1;
+  ExecutionContext context = 2;
+}
+
+// CreateWorkspaceResponse returns the fully materialized workspace.
+message CreateWorkspaceResponse {
+  Workspace workspace = 1;
+}
+
+// OpenWorkspaceRequest acquires an authenticated handle for an existing
+// workspace. Servers re-evaluate scope and return the current revision.
+//
+// Workspace identity precedence. `ref` is the authoritative workspace handle
+// for this request. When `context.workspace` is also set, it MUST identify
+// the same workspace and servers return INVALID_ARGUMENT on mismatch. This
+// rule applies equally to GetWorkspace, UpdateWorkspace, PromoteWorkspace,
+// RetainWorkspace, ReleaseWorkspace, and GetQuotaUsage.
+message OpenWorkspaceRequest {
+  WorkspaceRef ref = 1;
+  ExecutionContext context = 2;
+}
+
+// OpenWorkspaceResponse returns the full workspace resource at the current
+// revision.
+message OpenWorkspaceResponse {
+  Workspace workspace = 1;
+}
+
+// GetWorkspaceRequest retrieves the full workspace resource.
+message GetWorkspaceRequest {
+  WorkspaceRef ref = 1;
+  ExecutionContext context = 2;
+}
+
+// GetWorkspaceResponse returns the full workspace resource.
+message GetWorkspaceResponse {
+  Workspace workspace = 1;
+}
+
+// ListWorkspacesRequest requests a page of workspaces matching the optional
+// filters. When all filter fields are empty, the server returns workspaces
+// in scope for the caller.
+message ListWorkspacesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  // Optional lifecycle filter. UNSPECIFIED matches all lifecycles.
+  WorkspaceLifecycle lifecycle_filter = 3;
+  // Optional promotion-stage filter. UNSPECIFIED matches all stages.
+  PromotionStage promotion_stage_filter = 4;
+  // Optional label selector; all key/value pairs must match.
+  map<string, string> label_selector = 5;
+  ExecutionContext context = 6;
+}
+
+// ListWorkspacesResponse returns a page of workspaces and an optional
+// continuation token.
+message ListWorkspacesResponse {
+  repeated Workspace workspaces = 1;
+  string next_page_token = 2;
+}
+
+// UpdateWorkspaceRequest updates caller-mutable workspace configuration.
+// The server honors quota, labels, and metadata only; attempts to rewrite
+// lifecycle, promotion_stage, default_retention, expires_at, usage, or
+// timestamps are rejected with INVALID_ARGUMENT.
+// desired.ref.workspace_revision, when non-empty, is the optimistic-concurrency
+// precondition rather than a writable field; the server returns
+// FAILED_PRECONDITION if it does not match the stored revision.
+message UpdateWorkspaceRequest {
+  Workspace desired = 1;
+  ExecutionContext context = 2;
+}
+
+// UpdateWorkspaceResponse returns the updated workspace.
+message UpdateWorkspaceResponse {
+  Workspace workspace = 1;
+}
+
+// PromoteWorkspaceRequest requests promotion to a target PromotionStage.
+// target_retention is optional; when set, the server rebinds the workspace's
+// default retention policy as part of the promotion.
+message PromoteWorkspaceRequest {
+  WorkspaceRef ref = 1;
+  PromotionStage target_stage = 2;
+  RetentionPolicyRef target_retention = 3;
+  ExecutionContext context = 4;
+}
+
+// RetainWorkspaceRequest rebinds the retention policy for the workspace and
+// optionally pins an explicit retention expiry. A retain_until of 0 asks the
+// server to evaluate retention from the policy.
+message RetainWorkspaceRequest {
+  WorkspaceRef ref = 1;
+  RetentionPolicyRef retention = 2;
+  int64 retain_until = 3; // UTC milliseconds since epoch; 0 = policy default
+  ExecutionContext context = 4;
+}
+
+// ReleaseWorkspaceRequest requests release of the workspace. Servers honor
+// retention policy floors and legal_hold bindings regardless of force;
+// setting force waives non-retention preconditions (e.g., lingering clients)
+// but never retention floors.
+message ReleaseWorkspaceRequest {
+  WorkspaceRef ref = 1;
+  bool force = 2;
+  ExecutionContext context = 3;
+}
+
+// GetQuotaUsageRequest retrieves the current quota spec and observed usage
+// for a workspace.
+message GetQuotaUsageRequest {
+  WorkspaceRef ref = 1;
+  ExecutionContext context = 2;
+}
+
+// GetQuotaUsageResponse returns the workspace's quota spec and most recent
+// observed usage.
+message GetQuotaUsageResponse {
+  QuotaSpec quota = 1;
+  QuotaUsage usage = 2;
+  int64 observed_at = 3; // UTC milliseconds since epoch
+}

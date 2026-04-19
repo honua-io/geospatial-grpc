@@ -7,11 +7,14 @@ package geospatial.v1;
 
 import "geospatial/v1/common.proto";
 import "geospatial/v1/execution_types.proto";
+import "geospatial/v1/workspace_artifact_types.proto";
 
 // Canonical packaging and deployment domain objects shared by RenderService,
 // BuilderService, and DeploymentService. These are shape contracts only:
 // artifact materialization (where bytes live, retention, immutability) is
-// owned by a later workspace/artifact contract.
+// owned by the workspace and artifact lifecycle contracts defined in
+// workspace_artifact_types.proto, workspace_service.proto, and
+// artifact_service.proto.
 
 // MapPackage is a deterministic, MapLibre-compatible map composition that
 // downstream runtimes can hydrate without interpretation drift.
@@ -43,8 +46,13 @@ message MapPackage {
   repeated string source_refs = 8;
   // Free-form display metadata (title, description, attribution).
   map<string, string> metadata = 9;
-  // Workspace handle. Consistent with ArtifactRef.workspace_ref.
-  string workspace_ref = 10;
+  // Deprecated since v1: use `workspace` (field 11) instead. Legacy
+  // workspace id retained for wire and JSON compatibility. Removal
+  // target: v2.
+  string workspace_ref = 10 [deprecated = true];
+  // Owning workspace. Consistent with ArtifactRef.workspace. Authoritative
+  // over the deprecated `workspace_ref` string.
+  WorkspaceRef workspace = 11;
 }
 
 // AppPackage is a deterministic application bundle that can be deployed or
@@ -64,8 +72,12 @@ message AppPackage {
   ParameterMap runtime_config = 6;
   // Free-form display metadata (title, description, icons).
   map<string, string> metadata = 7;
-  // Workspace handle. Consistent with ArtifactRef.workspace_ref.
-  string workspace_ref = 8;
+  // Deprecated since v1: use `workspace` (field 9) instead. Legacy workspace
+  // id retained for wire and JSON compatibility. Removal target: v2.
+  string workspace_ref = 8 [deprecated = true];
+  // Owning workspace. Consistent with ArtifactRef.workspace. Authoritative
+  // over the deprecated `workspace_ref` string.
+  WorkspaceRef workspace = 9;
 }
 
 // DeploymentStrategy describes how an update rolls out to live targets.
@@ -143,6 +155,11 @@ message DeploymentSpec {
   DeploymentStrategy strategy = 7;
   repeated HealthCheck health_checks = 8;
   RollbackPolicy rollback_policy = 9;
-  // Workspace handle. Consistent with ArtifactRef.workspace_ref.
-  string workspace_ref = 10;
+  // Deprecated since v1: use `workspace` (field 11) instead. Legacy
+  // workspace id retained for wire and JSON compatibility. Removal
+  // target: v2.
+  string workspace_ref = 10 [deprecated = true];
+  // Owning workspace. Consistent with ArtifactRef.workspace. Authoritative
+  // over the deprecated `workspace_ref` string.
+  WorkspaceRef workspace = 11;
 }
