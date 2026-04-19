@@ -366,7 +366,7 @@ The `WorkspaceService` provides typed RPC access to the server-owned workspace l
 
 - **Creation and Open**: Create a workspace or acquire an authenticated handle at a specific revision
 - **Discovery**: Get and list workspaces with lifecycle, promotion, and label filters
-- **Update**: Apply caller-mutable changes (quota, default retention, expires_at, labels, metadata)
+- **Update**: Apply caller-mutable configuration (quota, labels, metadata) without rewriting lifecycle-owned retention/expiry state
 - **Promotion**: Long-running promotion between `PromotionStage` tiers with streaming events
 - **Retention and Release**: Rebind retention policy or release the workspace subject to policy floors
 - **Quota Inspection**: Point-in-time quota usage snapshots
@@ -390,6 +390,8 @@ service WorkspaceService {
 #### Workspace Lifecycle
 
 A `Workspace` carries a typed `WorkspaceLifecycle` (`DRAFT`, `ACTIVE`, `PROMOTED`, `RETAINED`, `RELEASED`, `EXPIRED`) and a `PromotionStage` (`DRAFT`, `REVIEW`, `STAGING`, `PRODUCTION`, `ARCHIVED`). Lifecycle reflects the workspace's state within the server's storage backend; promotion reflects the environment tier it has been published to. Lifecycle and promotion are server-managed — callers request transitions via `PromoteWorkspace` / `RetainWorkspace` / `ReleaseWorkspace` rather than writing them on `UpdateWorkspace`.
+
+`CreateWorkspace` may seed `quota`, `default_retention`, `labels`, and `metadata`. After creation, `UpdateWorkspace` is intentionally narrower: it updates `quota`, `labels`, and `metadata` only. Retention binding (`default_retention`) and the observed `expires_at` value change through `PromoteWorkspace`, `RetainWorkspace`, and `ReleaseWorkspace` so per-artifact retention evaluation stays observable and expiry changes have one lifecycle owner.
 
 #### WorkspaceRef Contract
 
