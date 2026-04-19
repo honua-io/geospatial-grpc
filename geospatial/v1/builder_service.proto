@@ -65,20 +65,24 @@ service BuilderService {
 
 // DataBindingKind enumerates the source types that may back a data binding.
 enum DataBindingKind {
+  reserved 2;
+  reserved "DATA_BINDING_KIND_MAP_PACKAGE";
+
   DATA_BINDING_KIND_UNSPECIFIED = 0;
   DATA_BINDING_KIND_FEATURE_SERVICE = 1;
-  DATA_BINDING_KIND_MAP_PACKAGE = 2;
   DATA_BINDING_KIND_ARTIFACT = 3;
   DATA_BINDING_KIND_DATASET = 4;
 }
 
-// DataBinding describes a dataset or artifact wired into the built application.
+// DataBinding describes a dataset or artifact wired into the built
+// application. Embedded maps are supplied separately through
+// BuildSpec.map_package_refs.
 // Typed selection parameters use ParameterValue for type safety with the same
 // typed-branch convention as PlanStep inputs.
 message DataBinding {
   string binding_id = 1;
   DataBindingKind kind = 2;
-  // Dataset locator, ArtifactRef.artifact_id, or MapPackage.package_id.
+  // Dataset locator or ArtifactRef.artifact_id.
   string source_ref = 3;
   // Typed filter or selection parameters.
   ParameterValue selection = 4;
@@ -98,6 +102,7 @@ message BuildSpec {
   string template_ref = 4;
   // Typed intent parameters (title, summary, audience, capability flags).
   ParameterMap intent = 5;
+  // Dataset and artifact bindings consumed by the built application.
   repeated DataBinding data_bindings = 6;
   // MapPackage identifiers to embed in the built application.
   repeated string map_package_refs = 7;

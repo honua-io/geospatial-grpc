@@ -274,7 +274,7 @@ service BuilderService {
 
 #### Build Specs
 
-A `BuildSpec` describes an application synthesis request: `template_ref` (app template registry reference), `intent` (typed `ParameterMap` — title, summary, audience, capability flags), one or more `DataBinding` entries (typed source kind, `source_ref`, typed `selection`, role), `map_package_refs` for embedded maps, and `target_platforms` (e.g., `"web"`, `"mobile"`).
+A `BuildSpec` describes an application synthesis request: `template_ref` (app template registry reference), `intent` (typed `ParameterMap` — title, summary, audience, capability flags), one or more `DataBinding` entries for datasets or artifacts (typed source kind, `source_ref`, typed `selection`, role), `map_package_refs` for embedded maps, and `target_platforms` (e.g., `"web"`, `"mobile"`).
 
 #### Build Validation and Dry-Run Semantics
 
