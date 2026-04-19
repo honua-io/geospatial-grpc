@@ -420,15 +420,114 @@ var channel = GrpcChannel.ForAddress("https://api.production.com", new GrpcChann
 
 The protocol includes seven services for server-side workflows:
 
-- **`WorkspaceService`** — create, open, promote, retain, and release workspaces; inspect quota. Owns the canonical `WorkspaceRef` handle used by every operator service.
-- **`ArtifactService`** — publish (client-stream), read (server-stream), retain, and release artifacts; inspect retention policies. Owns the canonical `ArtifactRef` handle and the `Artifact` resource.
+- **`WorkspaceService`** — create, open, get, list, update, promote, retain, and release workspaces; inspect quota. Owns the canonical `WorkspaceRef` handle used by every operator service.
+- **`ArtifactService`** — publish (client-stream), read (server-stream), get, inspect, list, retain, and release artifacts; resolve retention policies. Owns the canonical `ArtifactRef` handle and the `Artifact` resource.
 - **`ProcessService`** — validate, dry-run, and execute geospatial analysis plans (synchronous, streaming, or async job)
 - **`PipelineService`** — validate, dry-run, and execute data publishing pipelines with stage-by-stage progress
 - **`RenderService`** — compose maps and produce a canonical `MapPackage` with streaming progress
 - **`BuilderService`** — synthesize an `AppPackage` from templates, intent, and data bindings
 - **`DeploymentService`** — promote `AppPackage`/`MapPackage`/`ArtifactRef` to live targets with rollback and health telemetry
 
-The operator execution services (`ProcessService`, `PipelineService`, `RenderService`, `BuilderService`, and `DeploymentService`) share execution infrastructure defined in `execution_types.proto` (job lifecycle states, structured errors with retryability guidance, artifact references, provenance records) and follow the same `Validate*` / `DryRun*` / `Execute*` / `Execute*Stream` / `Submit*Job` / `Get*Job` / `Get*JobResult` / `Cancel*Job` RPC surface. `WorkspaceService` and `ArtifactService` are lifecycle services with their own RPC shape — `WorkspaceService` exposes create/open/get/list/update/promote/retain/release/quota RPCs and `ArtifactService` exposes publish/read/get/inspect/list/retain/release plus retention-policy reads. Workspace and artifact lifecycle contracts live in `workspace_artifact_types.proto`, `workspace_service.proto`, and `artifact_service.proto`. Canonical packaging shapes (`MapPackage`, `AppPackage`, `DeploymentSpec`) live in `packaging_types.proto`. The example below uses `ProcessService`; render, build, and deploy follow the same execution pattern with their own spec types (`RenderSpec`, `BuildSpec`, `DeploymentSpec`), while workspace and artifact flows are covered in their own sections.
+The operator execution services (`ProcessService`, `PipelineService`, `RenderService`, `BuilderService`, and `DeploymentService`) share execution infrastructure defined in `execution_types.proto` (job lifecycle states, structured errors with retryability guidance, artifact references, provenance records) and follow the same `Validate*` / `DryRun*` / `Execute*` / `Execute*Stream` / `Submit*Job` / `Get*Job` / `Get*JobResult` / `Cancel*Job` RPC surface. `WorkspaceService` and `ArtifactService` are lifecycle services with their own RPC shape — `WorkspaceService` exposes create/open/get/list/update/promote/retain/release/quota RPCs and `ArtifactService` exposes publish/read/get/inspect/list/retain/release plus retention-policy reads. Workspace and artifact lifecycle contracts live in `workspace_artifact_types.proto`, `workspace_service.proto`, and `artifact_service.proto`. Canonical packaging shapes (`MapPackage`, `AppPackage`, `DeploymentSpec`) live in `packaging_types.proto`. The sections below start with workspace and artifact lifecycle flows, then use `ProcessService` to illustrate the shared execution pattern; render, build, and deploy follow the same execution shape with their own spec types (`RenderSpec`, `BuildSpec`, `DeploymentSpec`).
+
+### Create and Open a Workspace
+
+```csharp
+var workspaceClient = new WorkspaceService.WorkspaceServiceClient(channel);
+
+var created = await workspaceClient.CreateWorkspaceAsync(
+    new CreateWorkspaceRequest
+    {
+        Desired = new Workspace
+        {
+            Quota = new QuotaSpec
+            {
+                MaxBytes = 10L * 1024 * 1024 * 1024,
+                MaxArtifacts = 5000
+            },
+            DefaultRetention = new RetentionPolicyRef { RetentionPolicyId = "retain-30d" },
+            Labels = { ["team"] = "analytics" },
+            Metadata = { ["purpose"] = "render-build-deploy" }
+        },
+        Context = new ExecutionContext
+        {
+            Metadata = { ["caller"] = "getting-started" }
+        }
+    });
+
+var workspaceRef = created.Workspace.Ref;
+
+var opened = await workspaceClient.OpenWorkspaceAsync(
+    new OpenWorkspaceRequest
+    {
+        Ref = workspaceRef,
+        Context = new ExecutionContext
+        {
+            Metadata = { ["caller"] = "getting-started" }
+        }
+    });
+
+Console.WriteLine(
+    $"Workspace {opened.Workspace.Ref.WorkspaceId} @ {opened.Workspace.Ref.WorkspaceRevision}");
+```
+
+`WorkspaceRef` is the canonical handle. When a request already carries `Ref`, that handle is authoritative; populate `ExecutionContext.Workspace` only when you need it elsewhere and keep it identical. `CreateWorkspace` may seed `quota`, `default_retention`, `labels`, and `metadata`; `UpdateWorkspace` rewrites `quota`, `labels`, and `metadata` only. Promotion, retention, release, and observed expiry stay on the lifecycle RPCs.
+
+### Publish, Inspect, and List Artifacts
+
+```csharp
+using Google.Protobuf;
+
+var artifactClient = new ArtifactService.ArtifactServiceClient(channel);
+using var publish = artifactClient.PublishArtifact();
+
+await publish.RequestStream.WriteAsync(new PublishArtifactRequest
+{
+    Header = new ArtifactHeader
+    {
+        Workspace = workspaceRef,
+        ArtifactClass = ArtifactClass.File,
+        ContentType = "application/json",
+        Retention = new RetentionPolicyRef { RetentionPolicyId = "retain-30d" },
+        ProducerRef = "render-job-42"
+    }
+});
+
+var payload = ByteString.CopyFromUtf8("{\"status\":\"ready\"}");
+await publish.RequestStream.WriteAsync(new PublishArtifactRequest
+{
+    Chunk = new ArtifactChunk
+    {
+        Data = payload,
+        Offset = 0,
+        Last = true
+    }
+});
+await publish.RequestStream.CompleteAsync();
+
+var published = await publish.ResponseAsync;
+if (published.OutcomeCase != PublishArtifactResponse.OutcomeOneofCase.Result)
+{
+    Console.WriteLine($"Publish failed: {published.Error.Message}");
+    return;
+}
+
+var artifact = published.Result;
+var inspection = await artifactClient.InspectArtifactAsync(
+    new InspectArtifactRequest { Ref = artifact.Ref });
+
+var page = await artifactClient.ListArtifactsAsync(
+    new ListArtifactsRequest
+    {
+        Workspace = artifact.Ref.Workspace,
+        ClassFilter = artifact.Ref.ArtifactClass
+    });
+
+Console.WriteLine(
+    $"{inspection.MaterializationState}: {page.Artifacts.Count} matching artifact(s)");
+```
+
+`PublishArtifact` requires an `ArtifactHeader` as the first stream message; every later message is an `ArtifactChunk`. `ArtifactHeader.Workspace` is the authoritative workspace selector for upload. Prefer `InspectArtifact` when you need materialization state, observed size, or hash without paying to stream bytes, and use `ReadArtifact` with `offset_bytes` / `max_bytes` only when you need the body. `ListArtifactsRequest.Workspace` is optional: unset lists artifacts across every workspace visible to the caller; when set it is authoritative over `ExecutionContext.Workspace`. `RetainArtifact` and `ReleaseArtifact` stay unary but return the same in-band `Artifact | ErrorDetail` outcome shape used by `PublishArtifact`.
 
 ### Validate and Dry-Run a Plan
 

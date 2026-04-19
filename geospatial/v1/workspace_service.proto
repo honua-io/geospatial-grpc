@@ -63,10 +63,12 @@ service WorkspaceService {
   // UpdateWorkspace applies caller-mutable configuration updates
   // (quota, labels, metadata). Retention and expiry transitions stay on
   // PromoteWorkspace / RetainWorkspace / ReleaseWorkspace so lifecycle-owned
-  // state has one authoritative mutation path. Server-managed fields
-  // (lifecycle, promotion_stage, default_retention, usage, timestamps,
-  // expires_at, workspace_revision) are ignored on input and populated on
-  // output.
+  // state has one authoritative mutation path. Attempts to mutate server-
+  // managed fields (lifecycle, promotion_stage, default_retention, usage,
+  // timestamps, expires_at) are rejected with INVALID_ARGUMENT.
+  // desired.ref.workspace_revision, when non-empty, is treated only as the
+  // optimistic-concurrency precondition; the response carries the current
+  // server-assigned revision.
   rpc UpdateWorkspace(UpdateWorkspaceRequest) returns (UpdateWorkspaceResponse);
 
   // PromoteWorkspace promotes a workspace to a target PromotionStage,
@@ -175,11 +177,11 @@ message ListWorkspacesResponse {
 
 // UpdateWorkspaceRequest updates caller-mutable workspace configuration.
 // The server honors quota, labels, and metadata only; attempts to rewrite
-// lifecycle, promotion_stage, default_retention, expires_at, usage,
-// timestamps, or workspace_revision are rejected with INVALID_ARGUMENT.
-// Optimistic concurrency uses desired.ref.workspace_revision: when non-empty,
-// it must match the server-side revision or the server returns
-// FAILED_PRECONDITION.
+// lifecycle, promotion_stage, default_retention, expires_at, usage, or
+// timestamps are rejected with INVALID_ARGUMENT.
+// desired.ref.workspace_revision, when non-empty, is the optimistic-concurrency
+// precondition rather than a writable field; the server returns
+// FAILED_PRECONDITION if it does not match the stored revision.
 message UpdateWorkspaceRequest {
   Workspace desired = 1;
   ExecutionContext context = 2;

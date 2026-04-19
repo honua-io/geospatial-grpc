@@ -291,10 +291,15 @@ message ParameterMap {
 // including their non-mutating read and list RPCs (for example
 // OpenWorkspace, GetWorkspace, ListWorkspaces, GetQuotaUsage, GetArtifact,
 // InspectArtifact, ListArtifacts, GetRetentionPolicy, and
-// ListRetentionPolicies). The `workspace` handle identifies the canonical
-// WorkspaceRef that scopes artifacts, job state, and authorization for
-// this request; servers evaluate the honua-server-733 execution scope from
-// this handle combined with caller metadata.
+// ListRetentionPolicies). The `workspace` handle carries the canonical
+// WorkspaceRef for requests that need workspace context. When the enclosing
+// request already provides a resource-scoped or filter-scoped WorkspaceRef,
+// that handle is authoritative for routing, artifact scope, job state, and
+// authorization. On list RPCs without an active workspace selector (for
+// example ListWorkspacesRequest, ListRetentionPoliciesRequest, or
+// ListArtifactsRequest when the workspace filter is unset),
+// `ExecutionContext.workspace` is informational only; it does not implicitly
+// narrow results, and servers evaluate caller scope from request metadata.
 //
 // Workspace identity precedence. When the enclosing request already carries
 // a WorkspaceRef elsewhere — for example `ArtifactRef.workspace`,

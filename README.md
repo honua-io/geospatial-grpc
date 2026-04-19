@@ -35,8 +35,8 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 |---------|---------|--------------|
 | `FeatureService` | Geospatial CRUD operations | Query, stream, edit features |
 | `FormService` | Mobile data collection | Dynamic forms, validation, collaboration |
-| `WorkspaceService` | Workspace lifecycle management | Create, open, promote, retain, release, quota inspection |
-| `ArtifactService` | Artifact lifecycle management | Publish (client-stream), read (server-stream), retain, release, retention policies |
+| `WorkspaceService` | Workspace lifecycle management | Create/open/get/list/update, promote/retain/release, quota inspection |
+| `ArtifactService` | Artifact lifecycle management | Publish/read/get/inspect/list, retain/release, retention policies |
 | `ProcessService` | Geospatial process execution | Plan validation, dry-run, sync/streaming/async execution |
 | `PipelineService` | Data publishing pipelines | Pipeline validation, dry-run, stage-by-stage execution |
 | `RenderService` | Map composition and packaging | Render validation, dry-run, streaming execution, produces `MapPackage` |
@@ -52,6 +52,8 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 - **Workspace & Artifact Types**: `WorkspaceRef`, `ArtifactRef`, `RetentionPolicyRef` typed handles; `Workspace`, `Artifact`, `RetentionPolicy` resources; typed `PromotionStage`, `WorkspaceLifecycle`, `MaterializationState` enums
 - **Packaging Types**: `MapPackage`, `AppPackage`, `DeploymentSpec` canonical domain objects shared across render, build, and deployment
 - **Mobile Optimizations**: Battery, network, and device-aware
+
+Lifecycle and packaging requests use the typed ref pattern end-to-end. New writes should prefer `WorkspaceRef`, `ArtifactRef.workspace`, `ArtifactRef.retention`, `ArtifactRef.materialization`, and `ExecutionContext.workspace`; the legacy string fields remain only for v1 wire/JSON compatibility.
 
 ## 🚀 Quick Start
 

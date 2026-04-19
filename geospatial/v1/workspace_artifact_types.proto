@@ -125,12 +125,14 @@ message RetentionPolicy {
 // Workspace is the full workspace resource returned by
 // WorkspaceService.GetWorkspace / OpenWorkspace. CreateWorkspace accepts this
 // message as desired-state input for caller-owned configuration
-// (quota, default_retention, labels, metadata). UpdateWorkspace is narrower:
-// it honors only quota, labels, and metadata so retention/expiry changes
-// remain on PromoteWorkspace / RetainWorkspace / ReleaseWorkspace. Server-
-// managed fields (ref.workspace_revision, lifecycle, promotion_stage, usage,
-// created_at, updated_at, expires_at) are ignored on write and populated on
-// read.
+// (quota, default_retention, labels, metadata) and ignores server-managed
+// lifecycle fields on create. UpdateWorkspace is narrower: it honors only
+// quota, labels, and metadata so retention/expiry changes remain on
+// PromoteWorkspace / RetainWorkspace / ReleaseWorkspace. Attempts to rewrite
+// other server-managed fields (lifecycle, promotion_stage, default_retention,
+// usage, created_at, updated_at, expires_at) are rejected on update; read
+// responses populate them. desired.ref.workspace_revision may be supplied
+// only as the update precondition, not as a writable field.
 message Workspace {
   WorkspaceRef ref = 1;
   WorkspaceLifecycle lifecycle = 2;
