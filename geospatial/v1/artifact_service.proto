@@ -69,8 +69,10 @@ service ArtifactService {
   rpc InspectArtifact(InspectArtifactRequest) returns (InspectArtifactResponse);
 
   // ListArtifacts returns artifacts matching the filter selectors, paginated
-  // by page_token. The workspace filter is required when the caller's scope
-  // covers more than one workspace.
+  // by page_token. The `workspace` filter is optional: when unset, the
+  // server lists artifacts across every workspace the caller can access;
+  // when set, it is authoritative over `context.workspace` per the
+  // precedence rule on ListArtifactsRequest.
   rpc ListArtifacts(ListArtifactsRequest) returns (ListArtifactsResponse);
 
   // RetainArtifact rebinds the retention policy for the artifact and

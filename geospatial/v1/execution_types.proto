@@ -284,11 +284,17 @@ message ParameterMap {
   map<string, ParameterValue> fields = 1;
 }
 
-// ExecutionContext provides optional execution preferences shared by every
-// mutating RPC in the operator surface. The `workspace` handle identifies
-// the canonical WorkspaceRef that scopes artifacts, job state, and
-// authorization for this request; servers evaluate the honua-server-733
-// execution scope from this handle combined with caller metadata.
+// ExecutionContext is the shared cross-cutting request context for the
+// operator execution surface (Execute* RPCs on ProcessService,
+// PipelineService, RenderService, BuilderService, and DeploymentService)
+// and for the WorkspaceService and ArtifactService lifecycle surface,
+// including their non-mutating read and list RPCs (for example
+// OpenWorkspace, GetWorkspace, ListWorkspaces, GetQuotaUsage, GetArtifact,
+// InspectArtifact, ListArtifacts, GetRetentionPolicy, and
+// ListRetentionPolicies). The `workspace` handle identifies the canonical
+// WorkspaceRef that scopes artifacts, job state, and authorization for
+// this request; servers evaluate the honua-server-733 execution scope from
+// this handle combined with caller metadata.
 //
 // Workspace identity precedence. When the enclosing request already carries
 // a WorkspaceRef elsewhere — for example `ArtifactRef.workspace`,

@@ -491,7 +491,7 @@ service ArtifactService {
 
 #### Execution Context
 
-`ExecutePlanRequest`, `ExecutePipelineRequest`, `ExecuteRenderRequest`, `ExecuteBuildRequest`, and `ExecuteDeploymentRequest` — and every mutating RPC on `WorkspaceService` and `ArtifactService` — accept an optional `ExecutionContext`:
+`ExecutePlanRequest`, `ExecutePipelineRequest`, `ExecuteRenderRequest`, `ExecuteBuildRequest`, and `ExecuteDeploymentRequest` — and the `WorkspaceService` and `ArtifactService` lifecycle RPCs, covering both mutating calls (e.g., `CreateWorkspace`, `PromoteWorkspace`, `RetainWorkspace`, `ReleaseWorkspace`, `PublishArtifact`, `RetainArtifact`, `ReleaseArtifact`) and non-mutating read/list calls (`OpenWorkspace`, `GetWorkspace`, `ListWorkspaces`, `GetQuotaUsage`, `GetArtifact`, `InspectArtifact`, `ListArtifacts`, `GetRetentionPolicy`, `ListRetentionPolicies`) — accept an optional `ExecutionContext`:
 
 - `workspace`: Typed `WorkspaceRef` (field 4) that scopes artifacts and job state to a workspace. Servers evaluate `honua-server-733` execution scope from this handle combined with caller request metadata; no parallel scope primitives appear in the proto surface.
 - `workspace_id`: Deprecated legacy string (field 1) retained for wire and JSON compatibility with prior v1 releases. New producers SHOULD populate only the typed `workspace` handle; when both are set they MUST identify the same workspace and the typed field is authoritative. Removal target: v2.
