@@ -4,6 +4,9 @@
 
 This specification defines standardized gRPC protocols for geospatial data access, mobile field data collection, process execution, data publishing pipelines, map rendering, application building, and deployment. The protocols provide type-safe, high-performance service contracts for spatial feature CRUD, mobile forms, analysis workflow execution, dataset publishing, packaged map composition, application bundle synthesis, and deployment promotion.
 
+Protocol ownership, compatibility, and downstream sync rules are maintained in
+[Protocol Ownership and Downstream Sync](proto-ownership.md).
+
 ## Design Principles
 
 ### 1. Type Safety
@@ -67,6 +70,7 @@ The `FormService` provides mobile data collection capabilities as a modern alter
 - **Rich Controls**: Location, media, validation, conditional logic
 - **Mobile Optimization**: Device-aware form rendering
 - **Real-time Collaboration**: Multi-user form editing
+- **Workflow and Access Control**: Lifecycle actions plus role/location rules
 
 #### Key Methods
 
@@ -151,6 +155,25 @@ Execution errors are returned as `ErrorDetail` messages with:
 - `retryability`: How to recover (fix plan, fix data, retry transient error, permanent failure)
 - `suggested_action`: Human-readable recovery guidance
 - `details`: Optional key-value map for additional machine-readable context
+
+### SpecService
+
+The `SpecService` provides Terraform-style plan/apply semantics for canonical
+geospatial spec documents:
+
+- **Plan**: Validate a spec and return the DAG, content hashes, and cost estimates without side effects
+- **Apply**: Execute the spec as a server-streaming workflow with per-node progress events
+- **Cancel**: Cooperatively cancel an in-flight apply run by apply token
+
+#### Key Methods
+
+```protobuf
+service SpecService {
+  rpc PlanSpec(PlanSpecRequest) returns (PlanSpecResponse);
+  rpc ApplySpec(ApplySpecRequest) returns (stream ApplySpecEvent);
+  rpc CancelApply(CancelApplyRequest) returns (CancelApplyResponse);
+}
+```
 
 ### PipelineService
 

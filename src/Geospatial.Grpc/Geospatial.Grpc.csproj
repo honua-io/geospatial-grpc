@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <PackageId>Geospatial.Grpc</PackageId>
+    <Version>0.1.0-alpha.1</Version>
+    <Description>Generated .NET bindings for the Geospatial gRPC protocol standard.</Description>
+    <Authors>Geospatial gRPC Standard Contributors</Authors>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/honua-io/geospatial-grpc</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/honua-io/geospatial-grpc</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>geospatial;grpc;protobuf;gis;features;forms;geoprocessing</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.34.1" />
+    <PackageReference Include="Grpc.Core.Api" Version="2.76.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.80.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="..\..\geospatial\v1\*.proto"
+              GrpcServices="Both"
+              ProtoRoot="..\.." />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\geospatial\v1\*.proto"
+          Pack="true"
+          PackagePath="proto/geospatial/v1/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

@@ -9,6 +9,7 @@ on:
 
 env:
   BUF_VERSION: "1.66.0"
+  DOTNET_VERSION: "10.0.x"
 
 jobs:
   lint-and-validate:
@@ -91,6 +92,9 @@ jobs:
     needs: [lint-and-validate, generate]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
+    permissions:
+      contents: write
+      packages: write
 
     steps:
       - name: Checkout Code
@@ -166,15 +170,44 @@ jobs:
           path: descriptors/
           retention-days: 90
 
+  dotnet-package:
+    name: Pack .NET Protocol Package
+    runs-on: ubuntu-latest
+    needs: lint-and-validate
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Pack Geospatial.Grpc
+        run: |
+          dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj \
+            --configuration Release \
+            -o nupkgs \
+            /p:TreatWarningsAsErrors=true
+
+      - name: Upload .NET package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: geospatial-grpc-dotnet-package
+          path: nupkgs/
+          retention-days: 30
+
   notify:
     name: Notify Success
     runs-on: ubuntu-latest
-    needs: [lint-and-validate, generate, validate-schemas, publish]
+    needs: [lint-and-validate, generate, validate-schemas, dotnet-package, publish]
     if: |
       always() &&
       needs.lint-and-validate.result == 'success' &&
       needs.generate.result == 'success' &&
       needs.validate-schemas.result == 'success' &&
+      needs.dotnet-package.result == 'success' &&
       (needs.publish.result == 'success' || needs.publish.result == 'skipped')
 
     steps:
@@ -184,6 +217,7 @@ jobs:
           echo "  - Protobuf files validated and formatted"
           echo "  - Multi-language code generation verified"
           echo "  - Schema descriptors exported"
+          echo "  - .NET protocol package packed"
           if [[ "${{ needs.publish.result }}" == "success" ]]; then
             echo "  - Published to Buf Registry"
           elif [[ "${{ needs.publish.result }}" == "skipped" ]]; then

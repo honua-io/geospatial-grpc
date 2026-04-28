@@ -80,11 +80,12 @@ cd GeospatialGrpcExample
 2. **Add gRPC packages**:
 ```bash
 dotnet add package Grpc.Net.Client
-dotnet add package Google.Protobuf
-dotnet add package Grpc.Tools
+dotnet add package Geospatial.Grpc --prerelease
 ```
 
-3. **Copy generated files**:
+If a published `Geospatial.Grpc` package is not available yet, generate the
+bindings locally and copy them into the example project:
+
 ```bash
 cp -r ../gen/csharp/* .
 ```
