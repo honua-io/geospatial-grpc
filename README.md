@@ -42,6 +42,7 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 | `RenderService` | Map composition and packaging | Render validation, dry-run, streaming execution, produces `MapPackage` |
 | `BuilderService` | Application bundle synthesis | Build validation, dry-run, streaming execution, produces `AppPackage` |
 | `DeploymentService` | Deployment promotion and lifecycle | Validation, dry-run, streaming execution, rollback, health telemetry |
+| `SpecService` | Spec plan/apply workflows | Plan canonical specs, stream apply progress, cancel apply |
 
 ### Key Message Types
 
@@ -75,7 +76,8 @@ ls geospatial/v1/
 # ├── pipeline_service.proto            # Data publishing pipelines
 # ├── render_service.proto              # Map composition and packaging
 # ├── builder_service.proto             # Application bundle synthesis
-# └── deployment_service.proto          # Deployment promotion and lifecycle
+# ├── deployment_service.proto          # Deployment promotion and lifecycle
+# └── spec_service.proto                # Spec plan/apply workflows
 ```
 
 ### 2. Generate Client Libraries
@@ -96,6 +98,19 @@ ls gen/
 # ├── typescript/ # TypeScript/JavaScript
 # └── ...
 ```
+
+### .NET Protocol Package
+
+The repository also includes a generated .NET protocol package project:
+
+```bash
+dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj --configuration Release -o ./nupkgs
+```
+
+Downstream .NET clients should reference a published `Geospatial.Grpc` package
+instead of copying `.proto` files into application or SDK repositories.
+The `Publish .NET Protocol Package` workflow publishes `Geospatial.Grpc` to
+GitHub Packages from `geospatial-grpc-v*` tags or manual non-dry-run dispatches.
 
 ### 3. Use in Your Project
 
@@ -167,6 +182,7 @@ for feature in response.features:
 ## 📚 Documentation
 
 - **[Protocol Specification](docs/specification.md)** - Detailed protocol documentation
+- **[Protocol Ownership](docs/proto-ownership.md)** - Canonical proto ownership and downstream sync rules
 - **[Getting Started Guide](docs/getting-started.md)** - Developer quick start
 - **[Versioning Policy](VERSIONING.md)** - Compatibility guarantees and change governance
 - **[Examples](examples/)** - Code samples for multiple languages
@@ -189,7 +205,9 @@ geospatial-grpc/
 │   ├── pipeline_service.proto            # Data publishing pipelines
 │   ├── render_service.proto              # Map composition and packaging
 │   ├── builder_service.proto             # Application bundle synthesis
-│   └── deployment_service.proto          # Deployment promotion and lifecycle
+│   ├── deployment_service.proto          # Deployment promotion and lifecycle
+│   └── spec_service.proto                # Spec plan/apply workflows
+├── src/Geospatial.Grpc/        # .NET protocol package project
 ├── docs/                       # Protocol documentation
 ├── examples/                   # Language-specific examples
 ├── gen/                        # Generated client libraries

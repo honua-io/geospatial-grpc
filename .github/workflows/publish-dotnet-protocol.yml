@@ -1,0 +1,161 @@
+name: Publish .NET Protocol Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run validation only (skip publish)"
+        required: false
+        default: true
+        type: boolean
+  push:
+    tags:
+      - "geospatial-grpc-v*"
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_NOLOGO: true
+
+jobs:
+  package-smoke:
+    name: Package Smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Validate package version
+        shell: bash
+        run: |
+          package_version="$(dotnet msbuild src/Geospatial.Grpc/Geospatial.Grpc.csproj -nologo -getProperty:PackageVersion)"
+          if [[ -z "${package_version}" ]]; then
+            package_version="$(dotnet msbuild src/Geospatial.Grpc/Geospatial.Grpc.csproj -nologo -getProperty:Version)"
+          fi
+
+          if [[ -z "${package_version}" ]]; then
+            echo "Could not resolve Geospatial.Grpc package version."
+            exit 1
+          fi
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            tag_version="${GITHUB_REF_NAME#geospatial-grpc-v}"
+            if [[ "${tag_version}" != "${package_version}" ]]; then
+              echo "Tag version (${tag_version}) does not match package version (${package_version})."
+              exit 1
+            fi
+          fi
+
+          echo "PACKAGE_VERSION=${package_version}" >> "${GITHUB_ENV}"
+
+      - name: Pack Geospatial.Grpc
+        run: |
+          mkdir -p nupkgs
+          dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj \
+            --configuration Release \
+            -o nupkgs \
+            /p:TreatWarningsAsErrors=true
+
+      - name: Package install smoke
+        shell: bash
+        run: |
+          smoke_dir="$(mktemp -d)"
+          trap 'rm -rf "${smoke_dir}"' EXIT
+
+          dotnet new console --framework net10.0 --output "${smoke_dir}"
+
+          pushd "${smoke_dir}" >/dev/null
+
+          cat > NuGet.config <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="local-geospatial" value="${GITHUB_WORKSPACE}/nupkgs" />
+              <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
+            </packageSources>
+            <packageSourceMapping>
+              <packageSource key="local-geospatial">
+                <package pattern="Geospatial.Grpc" />
+              </packageSource>
+              <packageSource key="nuget.org">
+                <package pattern="*" />
+              </packageSource>
+            </packageSourceMapping>
+          </configuration>
+          EOF
+
+          dotnet add package Grpc.Net.Client --version 2.76.0
+          dotnet add package Geospatial.Grpc --version "${PACKAGE_VERSION}"
+
+          cat > Program.cs <<'EOF'
+          using Geospatial.V1;
+          using Grpc.Net.Client;
+
+          using var channel = GrpcChannel.ForAddress("https://example.invalid");
+
+          _ = new FeatureService.FeatureServiceClient(channel);
+          _ = new FormService.FormServiceClient(channel);
+          _ = new ProcessService.ProcessServiceClient(channel);
+          _ = new SpecService.SpecServiceClient(channel);
+          _ = new QueryFeaturesRequest
+          {
+              ServiceId = "parks",
+              LayerId = 0,
+              ReturnGeometry = true,
+              OutSr = new SpatialReference { Wkid = 4326 }
+          };
+          EOF
+
+          dotnet build --configuration Release /p:TreatWarningsAsErrors=true
+
+          popd >/dev/null
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: geospatial-grpc-dotnet-${{ github.run_id }}-packages
+          path: nupkgs/*.nupkg
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Dry-run summary
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
+        shell: bash
+        run: |
+          echo "Dry run complete. Built packages:" >> "${GITHUB_STEP_SUMMARY}"
+          ls -1 nupkgs/*.nupkg >> "${GITHUB_STEP_SUMMARY}"
+
+  publish:
+    name: Publish to GitHub Packages
+    needs: package-smoke
+    if: ${{ !(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: geospatial-grpc-dotnet-${{ github.run_id }}-packages
+          path: nupkgs
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Publish to GitHub Packages
+        run: |
+          dotnet nuget push nupkgs/*.nupkg \
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            --api-key "${{ secrets.GITHUB_TOKEN }}" \
+            --skip-duplicate
