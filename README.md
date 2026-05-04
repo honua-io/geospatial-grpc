@@ -5,6 +5,8 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Buf Registry](https://img.shields.io/badge/buf-registry-blue)](https://buf.build/geospatial/standard)
 
+Current protocol capabilities are summarized in [docs/features/README.md](docs/features/README.md).
+
 ## 🌍 Vision
 
 The **Geospatial gRPC Standard** aims to democratize geospatial development by providing open, standardized gRPC protocols for:
