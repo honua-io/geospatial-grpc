@@ -1,0 +1,60 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/scene_types.proto";
+
+// TileService delivers 3D Tiles and point-cloud tile payloads for a scene.
+//
+// GetTile fetches a single tile by node identifier. StreamTiles delivers tiles
+// progressively for a scene by level of detail and spatial extent, following
+// the server-streaming idiom used by FeatureService.QueryFeaturesStream and
+// RenderService.ExecuteRenderStream: tiles are emitted as they become ready
+// and the stream completes when the requested set is exhausted.
+service TileService {
+  // GetTile returns a single tile payload for a scene node.
+  rpc GetTile(GetTileRequest) returns (GetTileResponse);
+
+  // StreamTiles streams tile payloads for a scene by LOD and spatial extent.
+  rpc StreamTiles(StreamTilesRequest) returns (stream Tile);
+}
+
+// Tile carries a single 3D tile payload and its node metadata.
+message Tile {
+  // Node metadata: bounding volume, geometric error, and LOD.
+  TileNode node = 1;
+  // Payload encoding.
+  TileContentType content_type = 2;
+  // Raw tile bytes in the encoding indicated by content_type.
+  bytes content = 3;
+}
+
+// GetTileRequest fetches a single tile by scene and node id.
+message GetTileRequest {
+  string scene_id = 1;
+  // Node identifier within the scene's tileset.
+  string node_id = 2;
+}
+
+// GetTileResponse returns the requested tile.
+message GetTileResponse {
+  Tile tile = 1;
+}
+
+// StreamTilesRequest requests progressive tile delivery for a scene.
+message StreamTilesRequest {
+  // Scene identifier.
+  string scene_id = 1;
+  // Spatial extent to cover; empty requests the full scene.
+  Extent3D extent = 2;
+  // Maximum level of detail to deliver; zero means all available LODs.
+  int32 max_lod = 3;
+  // Minimum level of detail to deliver.
+  int32 min_lod = 4;
+  // Maximum geometric error (meters) to honor for LOD selection; zero means
+  // server default.
+  double max_geometric_error = 5;
+}

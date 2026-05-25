@@ -1,0 +1,77 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/scene_types.proto";
+
+// SceneService provides typed RPC access to 3D scene catalogs and metadata.
+//
+// A scene is a publishable 3D view backed by a 3D Tiles tileset and an optional
+// terrain provider. This service exposes discovery (ListScenes) and metadata
+// retrieval (GetScene); tile payloads are delivered by TileService and terrain
+// sampling by ElevationService.
+service SceneService {
+  // ListScenes returns the catalog of available 3D scenes.
+  rpc ListScenes(ListScenesRequest) returns (ListScenesResponse);
+
+  // GetScene returns the metadata for a single 3D scene.
+  rpc GetScene(GetSceneRequest) returns (GetSceneResponse);
+}
+
+// SceneMetadata describes a single publishable 3D scene.
+message SceneMetadata {
+  // Stable scene identifier.
+  string scene_id = 1;
+  // Human-readable scene title.
+  string title = 2;
+  // Optional longer description.
+  string description = 3;
+  // URL of the root 3D Tiles tileset (tileset.json).
+  string tileset_url = 4;
+  // URL of the terrain provider backing the scene, when present.
+  string terrain_url = 5;
+  // Full 3D extent of the scene (horizontal envelope + min/max height).
+  Extent3D extent = 6;
+  // Suggested initial camera for first view.
+  Camera initial_camera = 7;
+  // Named viewpoints/bookmarks for the scene.
+  repeated Viewpoint viewpoints = 8;
+  // Scene-wide 3D styling, when published with the scene.
+  SceneStyle3D style = 9;
+  // Edition required to access the scene (for example "community", "pro",
+  // "enterprise"). Empty when unrestricted.
+  string edition = 10;
+  // Capability flags advertised for the scene (for example "terrain",
+  // "point-cloud", "i3dm", "styling").
+  repeated string capabilities = 11;
+}
+
+// ListScenesRequest specifies optional filtering and pagination for the catalog.
+message ListScenesRequest {
+  // Optional spatial constraint: only scenes intersecting this 3D extent.
+  Extent3D extent = 1;
+  // Pagination offset.
+  int32 result_offset = 2;
+  // Pagination limit; zero means server default.
+  int32 result_record_count = 3;
+}
+
+// ListScenesResponse contains the matching scene catalog entries.
+message ListScenesResponse {
+  repeated SceneMetadata scenes = 1;
+  // True when more entries are available beyond this page.
+  bool exceeded_transfer_limit = 2;
+}
+
+// GetSceneRequest identifies a single scene by id.
+message GetSceneRequest {
+  string scene_id = 1;
+}
+
+// GetSceneResponse returns the requested scene metadata.
+message GetSceneResponse {
+  SceneMetadata scene = 1;
+}

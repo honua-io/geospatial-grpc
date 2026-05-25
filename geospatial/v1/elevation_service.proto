@@ -1,0 +1,118 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/common.proto";
+import "geospatial/v1/spatial_types.proto";
+
+// ElevationService provides typed RPC access to terrain elevation sampling.
+//
+// GetElevation samples a single point value; GetElevationProfile samples
+// ordered distance/elevation pairs along a polyline. The semantics mirror the
+// server HTTP elevation API: queries run against a registered raster dataset
+// and layer, honor a mosaic rule for overlapping coverage, and report no-data
+// and out-of-bounds conditions explicitly. Profiles are sampled geodesically
+// and report cumulative distance in meters.
+service ElevationService {
+  // GetElevation returns the elevation value at a single point.
+  rpc GetElevation(GetElevationRequest) returns (GetElevationResponse);
+
+  // GetElevationProfile returns ordered distance/elevation samples along a polyline.
+  rpc GetElevationProfile(GetElevationProfileRequest) returns (GetElevationProfileResponse);
+}
+
+// GetElevationRequest samples elevation at a single point.
+message GetElevationRequest {
+  // Dataset identifier.
+  string dataset_id = 1;
+  // Layer identifier within the dataset.
+  int32 layer_id = 2;
+  // Query point. The optional z is ignored; x/y are interpreted in the
+  // request spatial reference (WGS 84 when unset).
+  PointGeometry point = 3;
+  // Spatial reference of the query point; WGS 84 when unset.
+  SpatialReference spatial_reference = 4;
+  // Mosaic rule selecting source rasters for overlapping coverage. Empty uses
+  // the dataset default.
+  string mosaic_rule = 5;
+}
+
+// GetElevationResponse returns the sampled elevation value.
+message GetElevationResponse {
+  // Sampled elevation in the source vertical unit (meters unless declared
+  // otherwise). Unset when no_data or out_of_bounds is true.
+  optional double elevation = 1;
+  // True when the query landed on a no-data pixel.
+  bool no_data = 2;
+  // True when the query point lies outside dataset coverage.
+  bool out_of_bounds = 3;
+  // Echoed query coordinates.
+  double x = 4;
+  double y = 5;
+  // Mosaic rule applied to the query.
+  string mosaic_rule = 6;
+  // Source coverage metadata.
+  ElevationSource source = 7;
+}
+
+// GetElevationProfileRequest samples elevation along a polyline.
+message GetElevationProfileRequest {
+  // Dataset identifier.
+  string dataset_id = 1;
+  // Layer identifier within the dataset.
+  int32 layer_id = 2;
+  // Polyline to sample along. Reuses the canonical PolylineGeometry; the
+  // optional z on coordinates is ignored.
+  PolylineGeometry line = 3;
+  // Spatial reference of the line; WGS 84 when unset.
+  SpatialReference spatial_reference = 4;
+  // Number of evenly spaced samples to return; must be at least 2. Zero uses
+  // the server default.
+  int32 sample_count = 5;
+  // Mosaic rule selecting source rasters for overlapping coverage. Empty uses
+  // the dataset default.
+  string mosaic_rule = 6;
+}
+
+// GetElevationProfileResponse returns ordered profile samples.
+message GetElevationProfileResponse {
+  // Ordered samples from the start to the end of the line.
+  repeated ElevationProfileSample samples = 1;
+  // Total geodesic length of the sampled line in meters.
+  double line_length_meters = 2;
+  // Mosaic rule applied to the query.
+  string mosaic_rule = 3;
+  // True when every sample landed on no-data.
+  bool is_all_no_data = 4;
+  // Source coverage metadata.
+  ElevationSource source = 5;
+}
+
+// ElevationProfileSample is a single distance/elevation pair along a profile.
+message ElevationProfileSample {
+  // Cumulative geodesic distance from the line start in meters.
+  double distance_meters = 1;
+  // Sampled elevation. Unset when no_data is true.
+  optional double elevation = 2;
+  // True when this sample landed on a no-data pixel.
+  bool no_data = 3;
+}
+
+// ElevationSource describes the raster coverage backing an elevation result.
+message ElevationSource {
+  // Source raster identifiers contributing to the result.
+  repeated int64 raster_ids = 1;
+  // Source spatial reference, when known.
+  SpatialReference source_spatial_reference = 2;
+  // Pixel type label (for example "float32").
+  string pixel_type = 3;
+  // No-data sentinel value, when declared.
+  optional double no_data_value = 4;
+  // Vertical unit (for example "meters"), when declared.
+  string vertical_unit = 5;
+  // Vertical datum, when declared.
+  string vertical_datum = 6;
+}
