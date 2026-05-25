@@ -1,0 +1,152 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/common.proto";
+import "geospatial/v1/execution_types.proto";
+
+// Shared 3D scene types for the geospatial gRPC protocol standard.
+//
+// This file defines the camera, viewpoint, 3D extent, and styling/material
+// messages reused across SceneService, TileService, and ElevationService.
+// It is additive to the existing surface: 2D geometry and bounding boxes
+// continue to be expressed with PointGeometry/Coordinate (with optional z)
+// and Extent from spatial_types.proto / common.proto, which this file reuses
+// rather than redefining.
+
+// Extent3D represents a 3D bounding volume.
+//
+// The horizontal envelope reuses the canonical 2D Extent (xmin/ymin/xmax/ymax
+// plus spatial_reference). The vertical range is expressed as a min/max height
+// in meters above the scene's reference ellipsoid/geoid, matching the optional
+// z convention on PointGeometry and Coordinate.
+message Extent3D {
+  // Horizontal bounding box (reuses the canonical 2D envelope).
+  Extent extent = 1;
+  // Minimum height in meters.
+  double min_height = 2;
+  // Maximum height in meters.
+  double max_height = 3;
+}
+
+// Camera describes a 3D camera position and orientation.
+//
+// Position is geographic (lon/lat/height); orientation uses the standard
+// heading/pitch/roll triple in degrees. fov is optional so consumers can fall
+// back to a viewer default when it is not supplied.
+message Camera {
+  double longitude = 1; // Degrees
+  double latitude = 2; // Degrees
+  double height = 3; // Meters above the reference surface
+  double heading = 4; // Degrees, clockwise from north
+  double pitch = 5; // Degrees, negative looks down
+  double roll = 6; // Degrees
+  optional double fov = 7; // Vertical field of view in degrees
+}
+
+// Viewpoint is a named camera position suitable for bookmarks and initial views.
+message Viewpoint {
+  string id = 1; // Stable viewpoint identifier
+  string title = 2; // Human-readable label
+  Camera camera = 3; // Camera for this viewpoint
+}
+
+// MaterialOverride carries a glTF material override applied to 3D content.
+//
+// Scalar PBR factors are expressed with optional fields so an unset factor
+// leaves the source material value untouched. Free-form or vendor-specific
+// material extensions are carried in extensions using the canonical
+// ParameterMap convention shared with style overrides.
+message MaterialOverride {
+  // Base color as RGBA, each channel in [0, 1]. Empty leaves the source unchanged.
+  repeated double base_color_factor = 1;
+  optional double metallic_factor = 2; // [0, 1]
+  optional double roughness_factor = 3; // [0, 1]
+  // Emissive color as RGB, each channel in [0, 1].
+  repeated double emissive_factor = 4;
+  // Vendor-specific or extended material properties.
+  ParameterMap extensions = 5;
+}
+
+// FeatureStyle3D describes per-feature 3D appearance overrides.
+message FeatureStyle3D {
+  // Feature identifier the override applies to.
+  int64 feature_id = 1;
+  // Color as RGBA, each channel in [0, 1]. Empty leaves the source unchanged.
+  repeated double color = 2;
+  optional double opacity = 3; // [0, 1]
+  optional bool visible = 4; // Hide/show the feature
+  // Optional glTF material override for this feature.
+  MaterialOverride material = 5;
+}
+
+// SceneStyle3D describes scene-wide 3D styling.
+//
+// The expression field carries a 3D Tiles styling expression
+// (https://github.com/CesiumGS/3d-tiles/tree/main/specification/Styling) as an
+// opaque string; servers and viewers that understand the dialect evaluate it.
+// Per-feature overrides and free-form viewer hints use the same ParameterMap
+// convention as RenderSpec.style_spec and LayerBinding.style_overrides.
+message SceneStyle3D {
+  // 3D Tiles styling expression. Opaque to the protocol.
+  string expression = 1;
+  // Per-feature overrides.
+  repeated FeatureStyle3D feature_styles = 2;
+  // Free-form viewer styling hints (theme, lighting, palette).
+  ParameterMap style_hints = 3;
+}
+
+// TileContentType enumerates the supported 3D tile payload encodings.
+enum TileContentType {
+  TILE_CONTENT_TYPE_UNSPECIFIED = 0;
+  TILE_CONTENT_TYPE_B3DM = 1; // Batched 3D Model
+  TILE_CONTENT_TYPE_I3DM = 2; // Instanced 3D Model
+  TILE_CONTENT_TYPE_PNTS = 3; // Point cloud
+  TILE_CONTENT_TYPE_GLB = 4; // Binary glTF
+}
+
+// BoundingVolume describes the spatial bounds of a 3D tile node.
+//
+// A node carries exactly one representation, mirroring the 3D Tiles
+// boundingVolume oneof (region / box / sphere).
+message BoundingVolume {
+  oneof volume {
+    // Geographic region as a 3D extent (west/south/east/north + height range).
+    Extent3D region = 1;
+    // Oriented bounding box: 12 doubles (center xyz, then three half-axis vectors).
+    BoxVolume box = 2;
+    // Bounding sphere: center xyz plus radius.
+    SphereVolume sphere = 3;
+  }
+}
+
+// BoxVolume is an oriented bounding box expressed as 12 components.
+message BoxVolume {
+  // Center xyz followed by three half-axis vectors (12 values total).
+  repeated double components = 1;
+}
+
+// SphereVolume is a bounding sphere.
+message SphereVolume {
+  double center_x = 1;
+  double center_y = 2;
+  double center_z = 3;
+  double radius = 4;
+}
+
+// TileNode carries the metadata describing a single tile in the tileset tree.
+message TileNode {
+  // Stable node identifier within the scene's tileset.
+  string node_id = 1;
+  // Bounding volume of the node.
+  BoundingVolume bounding_volume = 2;
+  // Geometric error in meters used for LOD selection.
+  double geometric_error = 3;
+  // Level of detail this node belongs to.
+  int32 lod = 4;
+  // Child node identifiers, when present.
+  repeated string child_node_ids = 5;
+}
