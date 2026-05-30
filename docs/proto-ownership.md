@@ -31,6 +31,9 @@ update generated clients or compatibility adapters.
 Breaking changes require a new package/version path, such as `geospatial/v2`,
 unless every affected consumer has an explicit migration plan.
 
+For the full owner workflow — release, tag, publish, and per-SDK regeneration
+coordination — follow [docs/release-checklist.md](release-checklist.md).
+
 ## Compatibility Rules
 
 - Prefer additive fields, messages, methods, and enum values.
