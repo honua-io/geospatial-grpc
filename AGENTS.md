@@ -80,8 +80,15 @@ cd examples/python && pip install -r requirements.txt && python main.py
 cd examples/dotnet && dotnet run
 ```
 
-There is no dedicated unit-test suite; validation is `buf lint` /
-`buf breaking` / `buf format` plus the .NET pack/build smoke test in CI.
+Schema validation is `buf lint` / `buf breaking` / `buf format` plus the .NET
+pack/build smoke test in CI. The `conformance/` directory adds a language-
+agnostic regression harness — canonical workflow fixtures that are round-tripped
+against the live schema with `buf convert` to catch contract drift:
+
+```bash
+conformance/run.sh            # verify fixtures against committed goldens
+conformance/run.sh --update   # regenerate goldens after a reviewed schema change
+```
 
 ## Architecture
 
@@ -116,6 +123,7 @@ geospatial/v1/          # Protocol definitions (source of truth)
   *_types.proto, common.proto, spatial_types.proto  # shared messages/enums
 src/Geospatial.Grpc/    # .NET NuGet protocol package project
 examples/dotnet|python|javascript/   # language usage samples
+conformance/            # canonical workflow fixtures + buf-based regression harness
 docs/                   # specification, getting-started, proto-ownership, features
 .github/workflows/      # ci.yml, publish-dotnet-protocol.yml
 buf.yaml                # Buf module config (lint/breaking rules)

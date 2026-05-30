@@ -1,0 +1,53 @@
+{
+  "form": {
+    "formId": "park-inspection",
+    "title": "Park Inspection",
+    "description": "Routine condition inspection for managed parks.",
+    "version": "1.2.0",
+    "targetServiceId": "sf-parks",
+    "targetLayerId": 0,
+    "controls": [
+      {
+        "controlId": "inspector_name",
+        "label": "Inspector Name",
+        "required": true,
+        "displayOrder": 1,
+        "textInput": {
+          "inputType": "TEXT_INPUT_TYPE_TEXT",
+          "maxLength": 120,
+          "placeholder": "Full name"
+        }
+      },
+      {
+        "controlId": "condition",
+        "label": "Overall Condition",
+        "required": true,
+        "displayOrder": 2,
+        "selectControl": {
+          "styleHint": "SELECT_STYLE_RADIO_GROUP",
+          "options": [
+            { "value": "good", "label": "Good" },
+            { "value": "fair", "label": "Fair" },
+            { "value": "poor", "label": "Poor" }
+          ]
+        }
+      },
+      {
+        "controlId": "needs_followup",
+        "label": "Needs Follow-up",
+        "displayOrder": 3,
+        "booleanControl": {}
+      }
+    ]
+  },
+  "metadata": {
+    "formId": "park-inspection",
+    "title": "Park Inspection",
+    "version": "1.2.0",
+    "author": "parks-ops",
+    "status": "FORM_STATUS_PUBLISHED",
+    "tags": ["inspection", "parks"],
+    "targetServiceId": "sf-parks",
+    "targetLayerId": 0
+  }
+}

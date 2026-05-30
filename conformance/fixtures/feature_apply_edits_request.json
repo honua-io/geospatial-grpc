@@ -1,0 +1,28 @@
+{
+  "serviceId": "sf-parks",
+  "layerId": 0,
+  "adds": [
+    {
+      "attributes": {
+        "NAME": { "stringValue": "Dolores Park" },
+        "AREA": { "doubleValue": 660000.0 }
+      },
+      "geometry": {
+        "point": {
+          "x": -122.4271,
+          "y": 37.7596
+        }
+      }
+    }
+  ],
+  "updates": [
+    {
+      "id": "42",
+      "attributes": {
+        "AREA": { "doubleValue": 44350000.0 }
+      }
+    }
+  ],
+  "deletes": ["7", "8"],
+  "rollbackOnFailure": true
+}

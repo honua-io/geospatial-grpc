@@ -1,0 +1,31 @@
+# Conformance fixture manifest.
+#
+# Each line maps a canonical fixture to the fully-qualified protobuf message
+# type it represents:
+#
+#   <fixture-file>    <fully.qualified.MessageType>
+#
+# The regression harness (conformance/run.sh) round-trips every fixture
+# JSON -> binary -> JSON against the live schema and compares the result to
+# the committed golden in conformance/golden/. Lines beginning with '#' and
+# blank lines are ignored. Keep entries grouped by service and workflow.
+
+# FeatureService — query and edit workflows.
+feature_query_request.json          geospatial.v1.QueryFeaturesRequest
+feature_query_response.json         geospatial.v1.QueryFeaturesResponse
+feature_apply_edits_request.json    geospatial.v1.ApplyEditsRequest
+feature_apply_edits_response.json   geospatial.v1.ApplyEditsResponse
+
+# FormService — mobile data collection workflow.
+form_get_definition_request.json    geospatial.v1.GetFormDefinitionRequest
+form_get_definition_response.json   geospatial.v1.GetFormDefinitionResponse
+form_submit_request.json            geospatial.v1.SubmitFormDataRequest
+form_submit_response.json           geospatial.v1.SubmitFormDataResponse
+
+# ProcessService — synchronous plan execution workflow.
+process_execute_plan_request.json   geospatial.v1.ExecutePlanRequest
+process_execute_plan_response.json  geospatial.v1.ExecutePlanResponse
+
+# WorkspaceService — workspace lifecycle (create) workflow.
+workspace_create_request.json       geospatial.v1.CreateWorkspaceRequest
+workspace_create_response.json      geospatial.v1.CreateWorkspaceResponse
