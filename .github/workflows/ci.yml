@@ -29,12 +29,30 @@ jobs:
       - name: Lint Protobuf Files
         run: buf lint
 
-      - name: Check Breaking Changes
+      # Breaking-change gate (WIRE_JSON ruleset from buf.yaml). Runs on PRs
+      # against the target branch AND on direct push to trunk against the most
+      # recent release tag, so a wire/JSON-breaking proto edit fails CI on
+      # either path. This is a required status check (see VERSIONING.md).
+      - name: Check Breaking Changes (PR vs base branch)
         if: github.event_name == 'pull_request'
         run: |
           # Get the base branch
           git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
           buf breaking --against '.git#branch=${{ github.base_ref }}'
+
+      - name: Check Breaking Changes (push vs previous release tag)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/trunk'
+        run: |
+          # Compare the pushed trunk state against the most recent release tag.
+          # If no release tag exists yet, there is no baseline to break against.
+          git fetch --tags --quiet
+          prev_tag="$(git tag --list 'v*' --sort=-creatordate | head -n1)"
+          if [[ -z "${prev_tag}" ]]; then
+            echo "No prior release tag found; skipping push-time breaking check (nothing to break against yet)."
+            exit 0
+          fi
+          echo "Checking breaking changes against previous release tag: ${prev_tag}"
+          buf breaking --against ".git#tag=${prev_tag}"
 
       - name: Format Check
         run: buf format --diff --exit-code
@@ -142,6 +160,60 @@ jobs:
         if: steps.buf-auth.outputs.enabled != 'true'
         run: echo "BUF_TOKEN is not configured; skipping Buf registry publish."
 
+      # --- Versioned conformance fixtures release ---------------------------
+      # Package conformance/{fixtures,golden,manifest,run.sh} into a versioned,
+      # downloadable tarball and attach it to a GitHub Release tagged
+      # v<conformance/VERSION>. This is the source-of-truth artifact downstream
+      # SDK CI jobs pin and pull via conformance/fetch-fixtures.sh. The release
+      # version equals the .NET package <Version> (enforced by
+      # conformance/check-version.sh), so a fixture set maps 1:1 to a schema
+      # release. Idempotent: skips if the release tag already exists.
+      - name: Verify fixture version consistency
+        run: ./conformance/check-version.sh
+
+      - name: Resolve fixture release version
+        id: fixver
+        run: |
+          version="$(tr -d '[:space:]' < conformance/VERSION)"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether fixture release already exists
+        id: relcheck
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.fixver.outputs.tag }}"
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release ${tag} already exists; will not re-publish fixtures."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package conformance fixtures
+        if: steps.relcheck.outputs.exists != 'true'
+        run: ./conformance/package.sh --output dist
+
+      - name: Create fixture release and upload artifact
+        if: steps.relcheck.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${{ steps.fixver.outputs.version }}"
+          tag="${{ steps.fixver.outputs.tag }}"
+          gh release create "${tag}" \
+            --target "${GITHUB_SHA}" \
+            --title "geospatial-grpc ${tag}" \
+            --notes "Conformance fixtures for geospatial.v1 schema release ${tag}.
+
+          Download the pinned fixture set with conformance/fetch-fixtures.sh --version ${version}
+          or directly from the \`conformance-fixtures-${version}.tar.gz\` asset below.
+          Verify with the accompanying \`.sha256\`." \
+            "dist/conformance-fixtures-${version}.tar.gz" \
+            "dist/conformance-fixtures-${version}.tar.gz.sha256"
+          echo "Published fixture release ${tag}."
+
   validate-schemas:
     name: Validate Protocol Schemas
     runs-on: ubuntu-latest
@@ -185,8 +257,33 @@ jobs:
           chmod +x "${RUNNER_TEMP}/buf"
           echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
 
+      - name: Check Fixture Version Consistency
+        run: ./conformance/check-version.sh
+
       - name: Run Conformance Harness
         run: ./conformance/run.sh
+
+      - name: Package Fixtures (smoke)
+        run: ./conformance/package.sh --output dist
+
+      - name: Verify Packaged Fixtures Round-trip
+        run: |
+          # The published artifact must contain exactly the fixtures the harness
+          # validates: extract the just-built tarball and run the bundled harness
+          # against the live schema descriptor.
+          version="$(tr -d '[:space:]' < conformance/VERSION)"
+          buf build -o "${RUNNER_TEMP}/image.binpb"
+          mkdir -p "${RUNNER_TEMP}/bundle"
+          tar -C "${RUNNER_TEMP}/bundle" -xzf "dist/conformance-fixtures-${version}.tar.gz"
+          CONFORMANCE_IMAGE="${RUNNER_TEMP}/image.binpb" \
+            "${RUNNER_TEMP}/bundle/conformance-fixtures-${version}/run.sh"
+
+      - name: Upload Conformance Fixtures Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: conformance-fixtures
+          path: dist/conformance-fixtures-*
+          retention-days: 90
 
   dotnet-package:
     name: Pack .NET Protocol Package
