@@ -88,12 +88,41 @@ Breaking changes follow a structured process:
 
 ## CI Enforcement
 
-The following automated checks run on every PR and are not optional:
+The following automated checks run on every PR and are not optional (they are
+required status checks on the `trunk` branch protection):
 
 | Check | Purpose |
 |-------|---------|
 | `buf lint` | Style and API design rules (DEFAULT category, minus documented exceptions) |
-| `buf breaking --against '.git#branch=<base>'` | Wire + JSON compatibility against the target branch |
+| `buf breaking --against '.git#branch=<base>'` | Wire + JSON compatibility against the target branch (PR) |
+| `buf breaking --against '.git#tag=<prev-release>'` | Wire + JSON compatibility against the previous release tag (push to `trunk`) |
 | `buf format --diff --exit-code` | Consistent formatting |
+| `conformance/check-version.sh` | `conformance/VERSION` matches the .NET package `<Version>` |
+| `conformance/run.sh` | Canonical workflow payloads still round-trip against the live schema |
+
+### Breaking-change gate coverage
+
+The `buf breaking` gate (`WIRE_JSON` ruleset in `buf.yaml`) runs on **two paths**
+so a wire/JSON-breaking proto edit (removed/renamed field, changed type or
+number, dropped enum value, reused reserved number) cannot land:
+
+- **Pull requests** — `buf breaking --against '.git#branch=<base>'` compares the
+  PR head to its target branch. This is the primary required check.
+- **Direct push to `trunk`** — `buf breaking --against '.git#tag=<prev-release>'`
+  compares the pushed state to the most recent `v*` release tag, so a breaking
+  change cannot slip in via a non-PR push. (If no release tag exists yet, there
+  is no baseline and the push-time check is a no-op.)
 
 CI catches accidental breakage. This policy adds the human governance layer for **intentional** breakage, deprecation tracking, field reservation, and consumer-facing compatibility promises.
+
+## Conformance fixtures as a released artifact
+
+The conformance fixtures (`conformance/`) ride the **same release version** as
+the proto surface and the .NET package. `conformance/VERSION` equals the
+`Geospatial.Grpc` `<Version>` (CI-enforced by `conformance/check-version.sh`),
+so one fixture set maps 1:1 to one `geospatial.v1` schema release. On push to
+`trunk`, the `publish` job packages the fixtures and attaches
+`conformance-fixtures-<version>.tar.gz` (+ `.sha256`) to a GitHub Release tagged
+`v<version>`. Downstream consumers pull a pinned version with
+`conformance/fetch-fixtures.sh --version <version>`. See
+`conformance/README.md` for the full consumer contract.

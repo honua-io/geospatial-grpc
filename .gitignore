@@ -1,0 +1,10 @@
+# Build / generation outputs (produced by CI and local tooling, never committed)
+/dist/
+/gen/
+/generated/
+/descriptors/
+/nupkgs/
+
+# .NET build artifacts
+**/bin/
+**/obj/

@@ -25,9 +25,29 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FIXTURE_DIR="${REPO_ROOT}/conformance/fixtures"
-GOLDEN_DIR="${REPO_ROOT}/conformance/golden"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# This harness runs in two layouts:
+#   - In-repo:  conformance/run.sh, with the .proto source tree one level up,
+#               so the schema descriptor is built from source with `buf build`.
+#   - Bundled:  the packaged conformance-fixtures-<version> tarball, where
+#               run.sh sits beside fixtures/ and golden/ but there is no proto
+#               tree. In that case a prebuilt descriptor image must be supplied
+#               via CONFORMANCE_IMAGE=/path/to/image.binpb (export it from a
+#               pinned schema, e.g. `buf build -o image.binpb` against the
+#               matching geospatial-grpc release, or the published descriptor).
+PARENT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+if [[ -f "${PARENT_DIR}/buf.yaml" || -d "${PARENT_DIR}/geospatial" ]]; then
+  # In-repo: conformance/run.sh with the proto source tree one level up.
+  REPO_ROOT="${PARENT_DIR}"
+  FIXTURE_DIR="${REPO_ROOT}/conformance/fixtures"
+  GOLDEN_DIR="${REPO_ROOT}/conformance/golden"
+else
+  # Bundled: run.sh sits beside fixtures/ and golden/ in the extracted tarball.
+  REPO_ROOT="${SCRIPT_DIR}"
+  FIXTURE_DIR="${SCRIPT_DIR}/fixtures"
+  GOLDEN_DIR="${SCRIPT_DIR}/golden"
+fi
 MANIFEST="${FIXTURE_DIR}/manifest.txt"
 
 UPDATE=0
@@ -45,11 +65,29 @@ fi
 
 mkdir -p "${GOLDEN_DIR}"
 
-# Build the schema descriptor once and reuse it for every conversion. The
+# Obtain the schema descriptor once and reuse it for every conversion. The
 # .binpb suffix tells buf to treat the image as a binary descriptor set.
-IMAGE="$(mktemp).binpb"
-trap 'rm -f "${IMAGE}"' EXIT
-(cd "${REPO_ROOT}" && buf build -o "${IMAGE}")
+CLEANUP_IMAGE=""
+if [[ -n "${CONFORMANCE_IMAGE:-}" ]]; then
+  # Use a caller-supplied descriptor (required in the bundled layout).
+  if [[ ! -f "${CONFORMANCE_IMAGE}" ]]; then
+    echo "error: CONFORMANCE_IMAGE=${CONFORMANCE_IMAGE} not found" >&2
+    exit 1
+  fi
+  IMAGE="${CONFORMANCE_IMAGE}"
+elif [[ -f "${REPO_ROOT}/buf.yaml" || -d "${REPO_ROOT}/geospatial" ]]; then
+  # In-repo: build the descriptor from the proto source of truth.
+  IMAGE="$(mktemp).binpb"
+  CLEANUP_IMAGE="${IMAGE}"
+  (cd "${REPO_ROOT}" && buf build -o "${IMAGE}")
+else
+  echo "error: no proto source tree found and CONFORMANCE_IMAGE is not set." >&2
+  echo "       In a packaged fixture bundle, export CONFORMANCE_IMAGE to a" >&2
+  echo "       descriptor built from the matching geospatial-grpc release," >&2
+  echo "       e.g.: buf build -o image.binpb  (run in a geospatial-grpc checkout)" >&2
+  exit 1
+fi
+trap '[[ -n "${CLEANUP_IMAGE}" ]] && rm -f "${CLEANUP_IMAGE}"' EXIT
 
 pass=0
 fail=0
