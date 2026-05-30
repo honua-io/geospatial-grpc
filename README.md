@@ -187,6 +187,7 @@ for feature in response.features:
 - **[Protocol Ownership](docs/proto-ownership.md)** - Canonical proto ownership and downstream sync rules
 - **[Getting Started Guide](docs/getting-started.md)** - Developer quick start
 - **[Versioning Policy](VERSIONING.md)** - Compatibility guarantees and change governance
+- **[Release Checklist](docs/release-checklist.md)** - Release coordination and generated-client regeneration workflow
 - **[Examples](examples/)** - Code samples for multiple languages
 
 ## 🏗️ Repository Structure
