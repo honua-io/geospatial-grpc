@@ -1,0 +1,34 @@
+{
+  "jobId": "job-9f3a",
+  "result": {
+    "resultId": "res-9f3a",
+    "status": "JOB_STATE_COMPLETED",
+    "summary": "Aggregated total area over 12 parks.",
+    "assumptions": [
+      {
+        "assumptionId": "crs-default",
+        "description": "Defaulted output CRS to EPSG:4326.",
+        "rationale": "Request did not specify an output spatial reference.",
+        "userConfirmed": false
+      }
+    ],
+    "artifacts": [
+      {
+        "artifactId": "art-total-area",
+        "artifactClass": "ARTIFACT_CLASS_SCALAR",
+        "artifactVersion": 1,
+        "producerRef": "res-9f3a",
+        "workspace": {
+          "workspaceId": "ws-analytics-01",
+          "workspaceRevision": "rev-7"
+        },
+        "materialization": "MATERIALIZATION_STATE_MATERIALIZED"
+      }
+    ],
+    "provenance": {
+      "sourceDatasetRefs": ["sf-parks/0"],
+      "executedAt": "1748520600000",
+      "durationSeconds": "3"
+    }
+  }
+}

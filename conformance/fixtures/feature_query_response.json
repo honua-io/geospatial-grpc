@@ -1,0 +1,45 @@
+{
+  "objectIdFieldName": "OBJECTID",
+  "geometryType": "GEOMETRY_TYPE_POINT",
+  "spatialReference": {
+    "wkid": 4326,
+    "latestWkid": 4326
+  },
+  "fields": [
+    {
+      "name": "OBJECTID",
+      "fieldType": "FIELD_TYPE_BIG_INTEGER",
+      "nullable": false,
+      "alias": "Object ID"
+    },
+    {
+      "name": "NAME",
+      "fieldType": "FIELD_TYPE_STRING",
+      "length": 128,
+      "nullable": true,
+      "alias": "Park Name"
+    },
+    {
+      "name": "AREA",
+      "fieldType": "FIELD_TYPE_DOUBLE",
+      "nullable": true,
+      "alias": "Area (sq ft)"
+    }
+  ],
+  "features": [
+    {
+      "id": "42",
+      "attributes": {
+        "NAME": { "stringValue": "Golden Gate Park" },
+        "AREA": { "doubleValue": 44340000.0 }
+      },
+      "geometry": {
+        "point": {
+          "x": -122.486,
+          "y": 37.769
+        }
+      }
+    }
+  ],
+  "exceededTransferLimit": false
+}

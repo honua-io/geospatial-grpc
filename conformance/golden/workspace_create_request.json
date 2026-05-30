@@ -1,0 +1,1 @@
+{"desired":{"quota":{"maxBytes":"10737418240","maxArtifacts":"500","softTtlSeconds":"604800","hardTtlSeconds":"2592000"},"defaultRetention":{},"labels":{"purpose":"analysis","team":"parks-ops"}},"context":{"timeoutSeconds":"60","metadata":{"requested_by":"analyst-3"}}}

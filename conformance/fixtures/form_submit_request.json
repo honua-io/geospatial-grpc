@@ -1,0 +1,25 @@
+{
+  "formId": "park-inspection",
+  "formVersion": "1.2.0",
+  "instance": {
+    "instanceId": "5f2c8e1a-9b3d-4c7e-8a1f-2b6d4e7c9a01",
+    "formId": "park-inspection",
+    "createdBy": "inspector-7",
+    "status": "INSTANCE_STATUS_COMPLETE",
+    "createdAt": "1748520000000",
+    "modifiedAt": "1748520600000",
+    "fieldValues": {
+      "inspector_name": { "stringValue": "Jordan Lee" },
+      "condition": { "stringValue": "fair" },
+      "needs_followup": { "boolValue": true }
+    }
+  },
+  "metadata": {
+    "deviceId": "ipad-014",
+    "appVersion": "3.4.1",
+    "platform": "ios",
+    "latitude": 37.7694,
+    "longitude": -122.4862,
+    "submissionTime": "1748520600000"
+  }
+}

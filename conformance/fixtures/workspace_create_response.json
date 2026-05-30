@@ -1,0 +1,33 @@
+{
+  "workspace": {
+    "ref": {
+      "workspaceId": "ws-analytics-01",
+      "workspaceRevision": "rev-1"
+    },
+    "lifecycle": "WORKSPACE_LIFECYCLE_ACTIVE",
+    "promotionStage": "PROMOTION_STAGE_DRAFT",
+    "quota": {
+      "maxBytes": "10737418240",
+      "maxArtifacts": "500",
+      "softTtlSeconds": "604800",
+      "hardTtlSeconds": "2592000"
+    },
+    "usage": {
+      "usedBytes": "0",
+      "usedArtifacts": "0",
+      "bytesAvailable": "10737418240",
+      "artifactsAvailable": "500"
+    },
+    "defaultRetention": {
+      "ref": {
+        "retentionPolicyId": "standard-30d"
+      }
+    },
+    "createdAt": "1748520000000",
+    "updatedAt": "1748520000000",
+    "labels": {
+      "team": "parks-ops",
+      "purpose": "analysis"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "desired": {
+    "quota": {
+      "maxBytes": "10737418240",
+      "maxArtifacts": "500",
+      "softTtlSeconds": "604800",
+      "hardTtlSeconds": "2592000"
+    },
+    "defaultRetention": {
+      "ref": {
+        "retentionPolicyId": "standard-30d"
+      }
+    },
+    "labels": {
+      "team": "parks-ops",
+      "purpose": "analysis"
+    }
+  },
+  "context": {
+    "timeoutSeconds": "60",
+    "metadata": {
+      "requested_by": "analyst-3"
+    }
+  }
+}
