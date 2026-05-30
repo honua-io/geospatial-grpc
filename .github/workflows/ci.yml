@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [trunk]
   pull_request:
-    branches: [main]
+    branches: [trunk]
   workflow_dispatch:
 
 env:
@@ -90,7 +90,7 @@ jobs:
     name: Publish to Buf Registry
     runs-on: ubuntu-latest
     needs: [lint-and-validate, generate]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/trunk' && github.event_name == 'push'
     environment: production
     permissions:
       contents: write
