@@ -11,7 +11,7 @@
     <AnalysisLevel>latest</AnalysisLevel>
     <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <PackageId>Geospatial.Grpc</PackageId>
-    <Version>0.1.0-alpha.1</Version>
+    <Version>0.1.0-alpha.2</Version>
     <Description>Generated .NET bindings for the Geospatial gRPC protocol standard.</Description>
     <Authors>Geospatial gRPC Standard Contributors</Authors>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

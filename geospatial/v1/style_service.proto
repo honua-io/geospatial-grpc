@@ -1,0 +1,48 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/style_types.proto";
+
+// StyleService provides typed RPC access to 2D style catalogs and metadata.
+//
+// A style is a first-class, addressable cartographic resource (see
+// StyleRef / StyleEncoding in style_types.proto), identified by a stable
+// `style_id` whose canonical URI form is `honua://styles/{style_id}`. This
+// service exposes discovery (ListStyles) and retrieval (GetStyle); the
+// concrete encoded bodies are carried on the returned StyleRef.encodings.
+service StyleService {
+  // ListStyles returns the catalog of available 2D styles.
+  rpc ListStyles(ListStylesRequest) returns (ListStylesResponse);
+
+  // GetStyle returns a single style by id, including its encodings.
+  rpc GetStyle(GetStyleRequest) returns (GetStyleResponse);
+}
+
+// ListStylesRequest specifies optional pagination for the style catalog.
+message ListStylesRequest {
+  // Pagination offset.
+  int32 result_offset = 1;
+  // Pagination limit; zero means server default.
+  int32 result_record_count = 2;
+}
+
+// ListStylesResponse contains the matching style catalog entries.
+message ListStylesResponse {
+  repeated StyleRef styles = 1;
+  // True when more entries are available beyond this page.
+  bool exceeded_transfer_limit = 2;
+}
+
+// GetStyleRequest identifies a single style by id.
+message GetStyleRequest {
+  string style_id = 1;
+}
+
+// GetStyleResponse returns the requested style.
+message GetStyleResponse {
+  StyleRef style = 1;
+}

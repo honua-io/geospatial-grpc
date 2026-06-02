@@ -45,6 +45,7 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 | `BuilderService` | Application bundle synthesis | Build validation, dry-run, streaming execution, produces `AppPackage` |
 | `DeploymentService` | Deployment promotion and lifecycle | Validation, dry-run, streaming execution, rollback, health telemetry |
 | `SpecService` | Spec plan/apply workflows | Plan canonical specs, stream apply progress, cancel apply |
+| `StyleService` | 2D style catalog and retrieval | List/get first-class `StyleRef` styles with typed encodings |
 
 ### Key Message Types
 
@@ -54,6 +55,7 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 - **Execution Types**: Plans, steps, jobs, artifacts, provenance, and structured errors
 - **Workspace & Artifact Types**: `WorkspaceRef`, `ArtifactRef`, `RetentionPolicyRef` typed handles; `Workspace`, `Artifact`, `RetentionPolicy` resources; typed `PromotionStage`, `WorkspaceLifecycle`, `MaterializationState` enums
 - **Packaging Types**: `MapPackage`, `AppPackage`, `DeploymentSpec` canonical domain objects shared across render, build, and deployment
+- **Style Types**: `StyleRef` first-class 2D style (canonical URI `honua://styles/{style_id}`) with one or more typed `StyleEncoding` representations (MapLibre, SLD, Esri drawing info, ...)
 - **Mobile Optimizations**: Battery, network, and device-aware
 
 Lifecycle and packaging requests use the typed ref pattern end-to-end. New writes should prefer `WorkspaceRef`, `ArtifactRef.workspace`, `ArtifactRef.retention`, `ArtifactRef.materialization`, and `ExecutionContext.workspace`; the legacy string fields remain only for v1 wire/JSON compatibility.
