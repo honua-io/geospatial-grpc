@@ -1,0 +1,75 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+// First-class 2D style types for the geospatial gRPC protocol standard.
+//
+// Historically a 2D style was an opaque packaging artifact (for example the
+// `style_artifact` ArtifactRef on MapPackage in packaging_types.proto), so
+// tooling such as MCP servers, agents, and SDKs could not treat a style as a
+// typed, addressable object. These messages give a 2D style the same
+// first-class footing the 3D pipeline already has with FeatureStyle3D /
+// SceneStyle3D / MaterialOverride in scene_types.proto.
+//
+// This file is additive and does not redefine or replace the 3D styling
+// messages: 3D appearance overrides remain owned by scene_types.proto, and a
+// 3D-tiles styling expression may also be carried here as a StyleEncoding
+// (encoding "3d-tiles-styling") when a style is published as a standalone,
+// addressable resource rather than embedded in a SceneStyle3D.
+//
+// The shape mirrors the honua-server metadata-v2 style contract
+// (MetadataV2ResourceStyle / MetadataV2StyleEncoding): one logical style,
+// identified by a stable style_id, may be published in several encodings
+// (for example MapLibre/Mapbox style JSON plus an SLD plus an Esri drawing
+// info) that all render the same cartography.
+
+// StyleRef is a typed, addressable reference to a single logical 2D style.
+//
+// The canonical identifier is `style_id`, whose canonical URI form is
+// `honua://styles/{style_id}`. A style is encoding-independent at this level:
+// the concrete serialized representations live in `encodings`, one entry per
+// encoding (MapLibre, SLD, Esri drawing info, ...). At least one encoding is
+// expected for a publishable style.
+message StyleRef {
+  // Stable style identifier. Canonical URI form: `honua://styles/{style_id}`.
+  string style_id = 1;
+  // Human-readable style title.
+  string title = 2;
+  // Optional free-form style description / abstract.
+  string description = 3;
+  // Author-managed integer version of this style document. Increments when the
+  // cartography changes; independent of the proto package version.
+  int32 style_version = 4;
+  // Encoded representations of this style. A publishable style carries at least
+  // one entry; multiple entries express the same cartography in different
+  // encodings.
+  repeated StyleEncoding encodings = 5;
+  // Optional legend graphic URL for the style.
+  string legend_url = 6;
+}
+
+// StyleEncoding is a single serialized representation of a StyleRef.
+//
+// Exactly one of `inline_body` or `storage_ref` is expected: the encoded style
+// is either inlined into the message or stored externally and referenced.
+message StyleEncoding {
+  // Style encoding identifier. Canonical values: `mapbox-style`, `sld-1.0.0`,
+  // `sld-1.1.0`, `esri-drawing-info`, `esri-image-renderer`,
+  // `3d-tiles-styling`. Custom encodings use an `x-` prefix
+  // (for example `x-my-renderer`).
+  string encoding = 1;
+  // The encoded style body. Exactly one branch is expected.
+  oneof body {
+    // Inline serialized style body (JSON / XML / GLSL / ...).
+    string inline_body = 2;
+    // Reference to externally stored style bytes (for example a storage
+    // binding id or artifact locator) that materializes this encoding.
+    string storage_ref = 3;
+  }
+  // Optional content-type override for the encoded body
+  // (for example `application/json`, `application/vnd.ogc.sld+xml`).
+  string content_type = 4;
+}
