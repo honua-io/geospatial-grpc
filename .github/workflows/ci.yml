@@ -7,6 +7,9 @@ on:
     branches: [trunk]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   BUF_VERSION: "1.66.0"
   DOTNET_VERSION: "10.0.x"
