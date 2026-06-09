@@ -1,5 +1,7 @@
 # Geospatial gRPC Protocol Standard
 
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/honua-io/geospatial-grpc/badge)](https://scorecard.dev/viewer/?uri=github.com/honua-io/geospatial-grpc)
+
 > Open source gRPC protocol definitions for geospatial data access, mobile data collection, and execution workflows
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
