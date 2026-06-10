@@ -146,7 +146,7 @@ jobs:
       packages: write
     steps:
       - name: Download package artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: geospatial-grpc-dotnet-${{ github.run_id }}-packages
           path: nupkgs
