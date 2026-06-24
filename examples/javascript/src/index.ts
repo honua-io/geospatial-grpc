@@ -45,7 +45,7 @@ async function runFeatureServiceExample() {
       where: 'AREA > 1000',
       returnGeometry: true,
       outSr: { wkid: 4326 }, // WGS84
-      resultRecordCount: 10,
+      resultRecordCountLong: 10n,
     });
 
     console.log(`Found ${response.features.length} parks:`);

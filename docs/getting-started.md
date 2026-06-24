@@ -142,7 +142,7 @@ var request = new QueryFeaturesRequest
     LayerId = 0,
     Where = "AREA > 1000",
     ReturnGeometry = true,
-    ResultRecordCount = 100
+    ResultRecordCountLong = 100
 };
 
 // Execute query
@@ -181,7 +181,7 @@ const response = await client.queryFeatures({
   layerId: 0,
   where: 'AREA > 1000',
   returnGeometry: true,
-  resultRecordCount: 100
+  resultRecordCountLong: 100n
 });
 
 // Process results
@@ -212,7 +212,7 @@ request = feature_service_pb2.QueryFeaturesRequest(
     layer_id=0,
     where='AREA > 1000',
     return_geometry=True,
-    result_record_count=100
+    result_record_count_long=100
 )
 
 # Execute query
@@ -311,7 +311,7 @@ var streamRequest = new QueryFeaturesRequest
     LayerId = 0,
     Where = "1=1", // All features
     ReturnGeometry = false, // Attributes only for performance
-    ResultRecordCount = 1000 // Page size
+    ResultRecordCountLong = 1000 // Page size
 };
 
 using var streamCall = client.QueryFeaturesStream(streamRequest);

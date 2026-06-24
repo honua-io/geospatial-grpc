@@ -66,7 +66,7 @@ class GeospatialGrpcExample:
                 where="AREA > 1000",
                 return_geometry=True,
                 out_sr=common_pb2.SpatialReference(wkid=4326),  # WGS84
-                result_record_count=10
+                result_record_count_long=10
             )
 
             response = await stub.QueryFeatures(request)
