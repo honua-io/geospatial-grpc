@@ -500,22 +500,37 @@ message FormAttachment {
   AttachmentMetadata metadata = 8;
 }
 
+// AttachmentMetadata carries capture-time context for a FormAttachment.
+//
+// Location is reported in lat/lon field order (latitude first), matching the GPS
+// fix delivered by mobile devices. Note this is the OPPOSITE axis order of
+// spatial_types PointGeometry/Coordinate (x=longitude, y=latitude): when copying
+// this location into a PointGeometry the axes must be swapped (x=longitude,
+// y=latitude), not assigned positionally.
 message AttachmentMetadata {
-  double latitude = 1; // GPS location when captured
-  double longitude = 2;
-  double altitude = 3;
-  double accuracy = 4;
+  double latitude = 1; // GPS latitude when captured, degrees (geographic CRS, e.g. EPSG:4326)
+  double longitude = 2; // GPS longitude when captured, degrees (geographic CRS, e.g. EPSG:4326)
+  double altitude = 3; // Meters above the reference surface
+  double accuracy = 4; // Horizontal accuracy radius, meters
   int64 timestamp = 5; // Capture timestamp
   string device_id = 6;
   map<string, string> exif_data = 7; // For photos
 }
 
+// SubmissionMetadata carries device and location context for a form submission.
+//
+// Location is reported in lat/lon field order (latitude first), matching the GPS
+// fix delivered by mobile devices. Note this is the OPPOSITE axis order of
+// spatial_types PointGeometry/Coordinate (x=longitude, y=latitude): when copying
+// this submission location into a PointGeometry the axes must be swapped
+// (x=longitude, y=latitude), not assigned positionally. This is the SubmitFormData
+// copy path most at risk of a silent coordinate swap.
 message SubmissionMetadata {
   string device_id = 1;
   string app_version = 2;
   string platform = 3;
-  double latitude = 4; // Submission location
-  double longitude = 5;
+  double latitude = 4; // Submission latitude, degrees (geographic CRS, e.g. EPSG:4326)
+  double longitude = 5; // Submission longitude, degrees (geographic CRS, e.g. EPSG:4326)
   int64 submission_time = 6;
   map<string, string> custom_metadata = 7;
 }

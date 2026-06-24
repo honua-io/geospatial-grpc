@@ -22,9 +22,15 @@ message Geometry {
 }
 
 // PointGeometry represents a single point.
+//
+// Axis order is (x, y): x is the longitude/easting, y is the latitude/northing.
+// For geographic coordinate systems (e.g. EPSG:4326) x is longitude in degrees
+// and y is latitude in degrees. This is x/y (lon/lat) order, the opposite of the
+// lat/lon field order used by FormService location metadata; copying a captured
+// (latitude, longitude) point into a PointGeometry requires x=longitude, y=latitude.
 message PointGeometry {
-  double x = 1;
-  double y = 2;
+  double x = 1; // Longitude / easting (degrees for geographic CRS, e.g. EPSG:4326)
+  double y = 2; // Latitude / northing (degrees for geographic CRS, e.g. EPSG:4326)
   optional double z = 3; // Elevation/height
   optional double m = 4; // Measure value
 }
@@ -35,9 +41,13 @@ message MultiPointGeometry {
 }
 
 // Coordinate is a single coordinate in a path or ring.
+//
+// Axis order is (x, y): x is longitude/easting, y is latitude/northing, matching
+// PointGeometry. For geographic CRS (e.g. EPSG:4326) x is longitude in degrees
+// and y is latitude in degrees.
 message Coordinate {
-  double x = 1;
-  double y = 2;
+  double x = 1; // Longitude / easting (degrees for geographic CRS, e.g. EPSG:4326)
+  double y = 2; // Latitude / northing (degrees for geographic CRS, e.g. EPSG:4326)
   optional double z = 3; // Elevation/height
   optional double m = 4; // Measure value
 }
