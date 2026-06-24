@@ -121,10 +121,16 @@ message StatisticDefinition {
 }
 
 // Extent represents a bounding box.
+//
+// Axis order matches PointGeometry/Coordinate: x is longitude/easting, y is
+// latitude/northing. Units follow spatial_reference (degrees for geographic CRS
+// such as EPSG:4326). When this Extent is reused as a 3D Tiles region (see
+// scene_types BoundingVolume.region) the angular bounds are RADIANS instead;
+// that contract is documented at the region field, not here.
 message Extent {
-  double xmin = 1;
-  double ymin = 2;
-  double xmax = 3;
-  double ymax = 4;
+  double xmin = 1; // Minimum x (longitude/easting), units per spatial_reference
+  double ymin = 2; // Minimum y (latitude/northing), units per spatial_reference
+  double xmax = 3; // Maximum x (longitude/easting), units per spatial_reference
+  double ymax = 4; // Maximum y (latitude/northing), units per spatial_reference
   SpatialReference spatial_reference = 5;
 }

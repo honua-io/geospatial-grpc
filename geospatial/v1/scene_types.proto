@@ -37,9 +37,14 @@ message Extent3D {
 // Position is geographic (lon/lat/height); orientation uses the standard
 // heading/pitch/roll triple in degrees. fov is optional so consumers can fall
 // back to a viewer default when it is not supplied.
+//
+// Field order here is longitude-first (lon, lat), which matches PointGeometry's
+// (x=lon, y=lat) axis order but is the OPPOSITE of FormService location metadata
+// (AttachmentMetadata/SubmissionMetadata), which is latitude-first. Map fields by
+// name, not position, when moving coordinates between these messages.
 message Camera {
-  double longitude = 1; // Degrees
-  double latitude = 2; // Degrees
+  double longitude = 1; // Longitude, degrees (geographic CRS, e.g. EPSG:4326)
+  double latitude = 2; // Latitude, degrees (geographic CRS, e.g. EPSG:4326)
   double height = 3; // Meters above the reference surface
   double heading = 4; // Degrees, clockwise from north
   double pitch = 5; // Degrees, negative looks down
@@ -115,6 +120,13 @@ enum TileContentType {
 message BoundingVolume {
   oneof volume {
     // Geographic region as a 3D extent (west/south/east/north + height range).
+    //
+    // Per the 3D Tiles boundingVolume.region convention, the bounds are geodetic
+    // and angular: the horizontal Extent maps xmin=west, ymin=south, xmax=east,
+    // ymax=north. Angular bounds are in RADIANS (not degrees) and heights are in
+    // meters above the WGS 84 ellipsoid, with spatial_reference set to WGS 84
+    // (EPSG:4326). This differs from the degrees-based convention used elsewhere
+    // (PointGeometry, Camera); consumers must not assume degrees for region.
     Extent3D region = 1;
     // Oriented bounding box: 12 doubles (center xyz, then three half-axis vectors).
     BoxVolume box = 2;
