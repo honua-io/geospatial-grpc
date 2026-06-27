@@ -1,5 +1,0 @@
-obj/Debug/net8.0/geospatial/v1/PipelineService.cs \
-obj/Debug/net8.0/geospatial/v1/PipelineServiceGrpc.cs: ../../geospatial/v1/common.proto\
- ../../geospatial/v1/spatial_types.proto\
- ../../geospatial/v1/execution_types.proto\
- ../../geospatial/v1/pipeline_service.proto

@@ -380,13 +380,29 @@ var channel = GrpcChannel.ForAddress("https://api.production.com", new GrpcChann
     MaxSendMessageSize = 4 * 1024 * 1024,     // 4MB
 
     // Retry configuration
+    //
+    // IMPORTANT: only retry safe, read-only (idempotent) methods. The protocol
+    // does not define idempotency keys, so automatically retrying a mutation on
+    // a transient StatusCode.Unavailable can SILENTLY DUPLICATE the write — the
+    // original request may have already been applied on the server before the
+    // connection dropped. Do NOT use MethodName.Default here, because that would
+    // apply the retry policy to mutating RPCs such as
+    // FeatureService.ApplyEdits and FormService.SubmitFormData. Instead, scope
+    // the policy to specific read-only methods.
     ServiceConfig = new ServiceConfig
     {
         MethodConfigs =
         {
             new MethodConfig
             {
-                Names = { MethodName.Default },
+                Names =
+                {
+                    new MethodName { Service = "geospatial.v1.FeatureService", Method = "QueryFeatures" },
+                    new MethodName { Service = "geospatial.v1.FeatureService", Method = "QueryFeaturesStream" },
+                    new MethodName { Service = "geospatial.v1.FormService", Method = "GetFormDefinition" },
+                    new MethodName { Service = "geospatial.v1.FormService", Method = "GetFormMetadata" },
+                    new MethodName { Service = "geospatial.v1.FormService", Method = "ValidateFormData" },
+                },
                 RetryPolicy = new RetryPolicy
                 {
                     MaxAttempts = 3,

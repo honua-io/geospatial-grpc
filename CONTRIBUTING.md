@@ -18,18 +18,18 @@ buf lint
 # Check formatting
 buf format --diff --exit-code
 
-# Check for breaking changes against main
-buf breaking --against '.git#branch=main'
+# Check for breaking changes against trunk
+buf breaking --against '.git#branch=trunk'
 ```
 
 All three checks run in CI and must pass for a PR to merge.
 
 ## Proto Change Workflow
 
-1. Create a feature branch from `main`.
+1. Create a feature branch from `trunk`.
 2. Make proto changes in `geospatial/v1/`.
 3. Run the local validation commands above.
-4. Open a PR against `main`.
+4. Open a PR against `trunk`.
 
 ## PR Requirements
 

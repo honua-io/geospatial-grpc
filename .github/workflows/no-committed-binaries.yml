@@ -1,0 +1,45 @@
+name: No Committed Binaries
+
+# Guards against re-committing build output (bin/, obj/) and compiled
+# third-party assemblies (DLLs, etc.). These are ignored by .gitignore but were
+# historically force-added, redistributing third-party binaries of unverifiable
+# provenance in an Apache-2.0 repo. Fail the build if any such file is tracked.
+
+on:
+  push:
+    branches: [trunk]
+  pull_request:
+    branches: [trunk]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-no-binaries:
+    name: Check for committed build output / binaries
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Fail if bin/ or obj/ is tracked
+        run: |
+          tracked_dirs="$(git ls-files -- '**/bin/**' '**/obj/**')"
+          if [[ -n "${tracked_dirs}" ]]; then
+            echo "::error::Build output under bin/ or obj/ is tracked in git. Remove it with 'git rm -r --cached <path>'."
+            echo "${tracked_dirs}"
+            exit 1
+          fi
+
+      - name: Fail if compiled binaries are tracked
+        run: |
+          tracked_bins="$(git ls-files -- '*.dll' '*.exe' '*.so' '*.dylib' '*.pdb' '*.nupkg' '*.snupkg')"
+          if [[ -n "${tracked_bins}" ]]; then
+            echo "::error::Compiled binaries are tracked in git. They must not be committed."
+            echo "${tracked_bins}"
+            exit 1
+          fi
+
+          echo "No committed build output or binaries found."

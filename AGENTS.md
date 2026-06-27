@@ -46,8 +46,8 @@ buf lint
 buf format --diff --exit-code
 buf format -w                       # auto-format in place
 
-# Breaking-change check against main
-buf breaking --against '.git#branch=main'
+# Breaking-change check against trunk
+buf breaking --against '.git#branch=trunk'
 
 # Generate all configured languages into gen/ (uses buf.gen.yaml)
 buf generate

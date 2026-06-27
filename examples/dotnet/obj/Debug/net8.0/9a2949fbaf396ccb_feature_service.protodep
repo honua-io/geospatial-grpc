@@ -1,4 +1,0 @@
-obj/Debug/net8.0/geospatial/v1/FeatureService.cs \
-obj/Debug/net8.0/geospatial/v1/FeatureServiceGrpc.cs: ../../geospatial/v1/common.proto\
- ../../geospatial/v1/spatial_types.proto\
- ../../geospatial/v1/feature_service.proto

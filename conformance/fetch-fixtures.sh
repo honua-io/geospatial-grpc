@@ -102,13 +102,15 @@ if [[ ! -f "${WORK}/${TARBALL}" ]]; then
   exit 1
 fi
 
-# Verify the tarball checksum if the .sha256 sidecar was retrieved.
-if [[ -f "${WORK}/${TARBALL}.sha256" ]]; then
-  echo "Verifying tarball checksum ..."
-  (cd "${WORK}" && sha256sum -c "${TARBALL}.sha256")
-else
-  echo "warning: ${TARBALL}.sha256 not found; skipping tarball checksum verification" >&2
+# Verify the tarball checksum BEFORE extracting. Fail closed: a missing .sha256
+# sidecar is a hard error, never a skip, so a release or mirror that omits the
+# checksum cannot pass an unverified tarball through.
+if [[ ! -f "${WORK}/${TARBALL}.sha256" ]]; then
+  echo "error: ${TARBALL}.sha256 not found; refusing to use an unverified tarball" >&2
+  exit 1
 fi
+echo "Verifying tarball checksum ..."
+(cd "${WORK}" && sha256sum -c "${TARBALL}.sha256")
 
 # Extract.
 mkdir -p "${WORK}/extract"
@@ -120,11 +122,14 @@ if [[ ! -d "${EXTRACTED}" ]]; then
   exit 1
 fi
 
-# Re-verify every packaged file against the in-tarball manifest.
-if [[ -f "${EXTRACTED}/SHA256SUMS" ]]; then
-  echo "Verifying per-file checksums ..."
-  (cd "${EXTRACTED}" && sha256sum -c SHA256SUMS)
+# Re-verify every packaged file against the in-tarball manifest. Fail closed:
+# a tarball without SHA256SUMS is rejected rather than trusted blindly.
+if [[ ! -f "${EXTRACTED}/SHA256SUMS" ]]; then
+  echo "error: extracted tarball is missing SHA256SUMS; refusing unverified fixtures" >&2
+  exit 1
 fi
+echo "Verifying per-file checksums ..."
+(cd "${EXTRACTED}" && sha256sum -c SHA256SUMS)
 
 # Confirm the embedded VERSION matches the requested pin.
 if [[ -f "${EXTRACTED}/VERSION" ]]; then
