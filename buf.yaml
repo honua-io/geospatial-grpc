@@ -10,4 +10,13 @@ lint:
     - RPC_RESPONSE_STANDARD_NAME
 breaking:
   use:
+    # WIRE_JSON enforces field/enum wire+JSON compatibility (incl. reserved-aware
+    # field deletion via FIELD_NO_DELETE_UNLESS_NAME_RESERVED), but it does NOT
+    # include the RPC/service deletion rules. In gRPC the method path
+    # /geospatial.v1.Service/Method is part of the wire contract, so deleting or
+    # renaming an RPC or service breaks every existing client with UNIMPLEMENTED.
+    # Add the RPC/service no-delete rules to close that hole without losing the
+    # reserved-aware field-deletion behavior that PACKAGE/FILE would override.
     - WIRE_JSON
+    - RPC_NO_DELETE
+    - PACKAGE_SERVICE_NO_DELETE

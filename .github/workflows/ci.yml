@@ -107,10 +107,40 @@ jobs:
           path: generated/${{ matrix.language }}/
           retention-days: 30
 
+  generate-aggregate:
+    name: Generate Code (aggregate buf.gen.yaml)
+    runs-on: ubuntu-latest
+    needs: lint-and-validate
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Install Buf CLI
+        run: |
+          curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          chmod +x "${RUNNER_TEMP}/buf"
+          echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
+
+      # Exercise the canonical aggregate template that README/getting-started
+      # and the JS example tell consumers to run. The per-language matrix above
+      # never touches buf.gen.yaml, so plugin/namespace drift (and the Rust,
+      # Swift, and API-docs targets) would otherwise land green. Running the
+      # full template here covers every configured plugin on every PR.
+      - name: Generate All Languages (buf generate)
+        run: buf generate --template buf.gen.yaml --output generated/all
+
+      - name: Upload Aggregate Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: generated-all-code
+          path: generated/all/
+          retention-days: 30
+
   publish:
     name: Publish to Buf Registry
     runs-on: ubuntu-latest
-    needs: [lint-and-validate, generate]
+    needs: [lint-and-validate, generate, generate-aggregate]
     if: github.ref == 'refs/heads/trunk' && github.event_name == 'push'
     environment: production
     permissions:

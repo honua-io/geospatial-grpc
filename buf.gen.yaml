@@ -8,10 +8,13 @@ managed:
       value: io.grpc.geospatial
 plugins:
   # C# / .NET
+  # No base_namespace override: managed mode derives the namespace from the
+  # proto package (geospatial.v1 -> Geospatial.V1). A base_namespace must be a
+  # prefix of that namespace or the csharp plugin hard-fails; GeospatialGrpc is
+  # not a prefix of Geospatial.V1. This matches buf.gen.csharp.yaml and the
+  # published NuGet package.
   - remote: buf.build/protocolbuffers/csharp
     out: gen/csharp
-    opt:
-      - base_namespace=GeospatialGrpc
 
   # Go
   - remote: buf.build/protocolbuffers/go
@@ -49,10 +52,14 @@ plugins:
     out: gen/swift
 
   # Documentation
-  - remote: buf.build/protocolbuffers/doc
+  # buf.build/protocolbuffers/doc does not exist in the Buf registry; the
+  # canonical docs plugin is buf.build/community/pseudomuto-doc. Use its built-in
+  # markdown format (no external template file) so generation is self-contained:
+  # opt is "<format>,<output-filename>".
+  - remote: buf.build/community/pseudomuto-doc
     out: docs/api
     opt:
-      - docs/template.md,docs/api.md
+      - markdown,api.md
 
 inputs:
   - directory: .
