@@ -113,7 +113,7 @@ message QualityRule {
   string field = 3;
   string expression = 4;
   string message = 5;
-  IssueSeverity severity = 6;
+  Severity severity = 6;
 }
 
 // ValidatePipelineRequest asks the server to check a pipeline definition.
@@ -204,7 +204,7 @@ message QualityIssue {
   string field = 2;
   int64 affected_count = 3;
   string message = 4;
-  IssueSeverity severity = 5;
+  Severity severity = 5;
 }
 
 // PublishedServiceInfo describes the service created by a publishing pipeline.

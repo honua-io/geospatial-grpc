@@ -53,17 +53,18 @@ message SceneMetadata {
 message ListScenesRequest {
   // Optional spatial constraint: only scenes intersecting this 3D extent.
   Extent3D extent = 1;
-  // Pagination offset.
-  int32 result_offset = 2;
-  // Pagination limit; zero means server default.
-  int32 result_record_count = 3;
+  // Maximum number of catalog entries to return. Zero means server default.
+  int32 page_size = 2;
+  // Opaque continuation token from a prior response's next_page_token. Empty
+  // requests the first page. Replaces the retired int32 offset pagination.
+  string page_token = 3;
 }
 
 // ListScenesResponse contains the matching scene catalog entries.
 message ListScenesResponse {
   repeated SceneMetadata scenes = 1;
-  // True when more entries are available beyond this page.
-  bool exceeded_transfer_limit = 2;
+  // Continuation token for the next page; empty when no further pages remain.
+  string next_page_token = 2;
 }
 
 // GetSceneRequest identifies a single scene by id.

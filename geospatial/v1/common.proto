@@ -120,6 +120,17 @@ message StatisticDefinition {
   string out_statistic_field_name = 3;
 }
 
+// Severity is the canonical severity classification shared across the protocol
+// (validation issues, diagnostics, quality findings). Values are ordered
+// ascending by seriousness so that a numeric comparison or cast preserves the
+// INFO < WARNING < ERROR relationship.
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_INFO = 1;
+  SEVERITY_WARNING = 2;
+  SEVERITY_ERROR = 3;
+}
+
 // Extent represents a bounding box.
 //
 // Axis order matches PointGeometry/Coordinate: x is longitude/easting, y is
