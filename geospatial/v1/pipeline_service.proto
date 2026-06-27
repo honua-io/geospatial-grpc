@@ -220,6 +220,11 @@ message PublishedServiceInfo {
 message SubmitPipelineJobRequest {
   PipelineDefinition pipeline = 1;
   ExecutionContext context = 2;
+  // Optional client-generated idempotency key. When set, the server MUST treat
+  // a retry carrying the same key within its dedup window as the same submission
+  // and return the original job_id instead of spawning a duplicate job.
+  // Recommended: a UUID per logical submission.
+  string idempotency_key = 3;
 }
 
 // SubmitPipelineJobResponse confirms pipeline job submission.

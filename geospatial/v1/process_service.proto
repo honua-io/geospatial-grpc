@@ -86,6 +86,11 @@ message DryRunPlanResponse {
 message ExecutePlanRequest {
   ExecutionPlan plan = 1;
   ExecutionContext context = 2;
+  // Optional client-generated idempotency key. When set, the server MUST treat
+  // a retry carrying the same key within its dedup window as the same execution
+  // and return the original result instead of executing the plan again.
+  // Recommended: a UUID per logical execution attempt.
+  string idempotency_key = 3;
 }
 
 // ExecutePlanResponse returns the complete result of synchronous execution.
@@ -124,6 +129,11 @@ message ExecutionResult {
 message SubmitJobRequest {
   ExecutionPlan plan = 1;
   ExecutionContext context = 2;
+  // Optional client-generated idempotency key. When set, the server MUST treat
+  // a retry carrying the same key within its dedup window as the same submission
+  // and return the original job_id instead of spawning a duplicate job.
+  // Recommended: a UUID per logical submission.
+  string idempotency_key = 3;
 }
 
 // SubmitJobResponse confirms job submission and returns the job identifier.

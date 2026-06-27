@@ -1,4 +1,8 @@
 version: v1
+# BSR module name. `buf push` (CI's publish step, gated on BUF_TOKEN) requires a
+# module name under buf.yaml v1; without it the publish fails when credentials
+# are configured. Matches the canonical honua-io org used across the repo.
+name: buf.build/honua-io/geospatial-grpc
 lint:
   use:
     - STANDARD
