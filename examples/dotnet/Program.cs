@@ -38,7 +38,7 @@ class Program
                 Where = "AREA > 1000",
                 ReturnGeometry = true,
                 OutSr = new SpatialReference { Wkid = 4326 }, // WGS84
-                ResultRecordCount = 10
+                ResultRecordCountLong = 10
             };
 
             var response = await client.QueryFeaturesAsync(request);

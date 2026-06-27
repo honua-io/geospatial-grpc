@@ -757,8 +757,9 @@ For non-streaming queries, use offset-based pagination:
 
 ```protobuf
 message QueryFeaturesRequest {
-  int32 result_offset = 8;
-  int32 result_record_count = 9;
+  reserved 8, 9; // Retired int32 result_offset / result_record_count
+  int64 result_offset_long = 20;
+  int64 result_record_count_long = 21;
 }
 ```
 

@@ -8,8 +8,8 @@
     "wkid": 4326,
     "latestWkid": 4326
   },
-  "resultOffset": 0,
-  "resultRecordCount": 10,
+  "resultOffsetLong": 0,
+  "resultRecordCountLong": 10,
   "orderBy": "NAME ASC",
   "spatialFilter": {
     "geometry": {

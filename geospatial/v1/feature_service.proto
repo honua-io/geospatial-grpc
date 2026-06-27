@@ -31,8 +31,8 @@ message QueryFeaturesRequest {
   repeated string out_fields = 5; // Fields to include in response
   bool return_geometry = 6; // Whether to include geometry
   SpatialReference out_sr = 7; // Output spatial reference
-  int32 result_offset = 8; // Pagination offset
-  int32 result_record_count = 9; // Pagination limit
+  reserved 8, 9; // Retired int32 result_offset / result_record_count (see fields 20, 21)
+  reserved "result_offset", "result_record_count"; // Old names; never reuse
   string order_by = 10; // SQL-like order clause
   bool return_distinct = 11; // Return unique results only
   bool return_count_only = 12; // Return count instead of features
@@ -43,6 +43,8 @@ message QueryFeaturesRequest {
   int32 geometry_precision = 17; // Geometry coordinate precision
   double max_allowable_offset = 18; // Geometry generalization tolerance
   SpatialFilter spatial_filter = 19; // Spatial query constraint
+  int64 result_offset_long = 20; // Pagination offset (int64; replaces retired field 8)
+  int64 result_record_count_long = 21; // Pagination limit (int64; replaces retired field 9)
 }
 
 // QueryFeaturesResponse contains the full result of a unary feature query.
