@@ -62,6 +62,12 @@ Geometries are encoded using structured Protocol Buffer messages rather than WKT
 - `PolygonGeometry`: Exterior ring plus optional holes
 - `MultiPolygonGeometry`: Collection of polygons
 
+For geodetic coordinates, geometry messages use the standard GIS axis mapping
+`x = longitude/easting` and `y = latitude/northing`. Human-facing form capture
+metadata is exposed as explicit `latitude` and `longitude` fields; clients that
+copy captured positions into `PointGeometry` or `Coordinate` must map
+`longitude -> x` and `latitude -> y`.
+
 ### FormService
 
 The `FormService` provides mobile data collection capabilities as a modern alternative to OpenRosa XML forms:
@@ -71,6 +77,11 @@ The `FormService` provides mobile data collection capabilities as a modern alter
 - **Mobile Optimization**: Device-aware form rendering
 - **Real-time Collaboration**: Multi-user form editing
 - **Workflow and Access Control**: Lifecycle actions plus role/location rules
+
+Captured form positions in `AttachmentMetadata` and `SubmissionMetadata` are
+encoded as decimal-degree `latitude` and `longitude` fields for mobile and EXIF
+compatibility. These fields are not in geometry axis order; convert them to
+geometry messages by assigning longitude to `x` and latitude to `y`.
 
 #### Key Methods
 
