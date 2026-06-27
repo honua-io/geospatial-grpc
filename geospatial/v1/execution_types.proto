@@ -11,6 +11,34 @@ import "geospatial/v1/workspace_artifact_types.proto";
 
 // Shared types for operator execution contracts across ProcessService,
 // PipelineService, RenderService, BuilderService, and DeploymentService.
+//
+// Job-lifecycle messages: shared payload types vs. per-service control plane.
+//
+// The five operator services share an identical validate / dry-run / submit /
+// poll / cancel lifecycle. The payload-bearing pieces of that lifecycle are
+// already factored here and reused by every service: ExecutionPlan/PlanStep,
+// JobState, JobProgress, StageResult, PlanValidationIssue, DryRunResult,
+// ErrorDetail, ArtifactRef, ProvenanceRecord, and ExecutionContext. As a
+// result the per-service request/response messages are thin shells around
+// these shared types.
+//
+// The remaining duplication — each service declaring its own
+// Validate*/DryRun* response, Submit*Job response, Get*Job request/response,
+// Get*JobResult request, and Cancel*Job request/response, all structurally
+// identical and carrying only a job id and/or JobState/JobProgress — is
+// retained DELIBERATELY for v1. These messages are the request/response types
+// of already-published RPCs, and the buf WIRE_JSON breaking ruleset this
+// module is gated on (see buf.yaml) treats changing an RPC's request or
+// response type as a breaking change even when the replacement message is
+// byte-identical on the wire. Collapsing the duplicates onto shared messages
+// (e.g. a single GetJobRequest/GetJobResponse/CancelJobRequest reused across
+// services) therefore cannot land additively under the current contract; it is
+// a deliberate, coordinated change deferred to the next major version
+// (geospatial/v2), where the per-service control-plane messages should be
+// replaced by shared lifecycle messages defined in this file. Until then, new
+// execution services SHOULD reuse the shared payload types above and keep
+// their control-plane messages structurally aligned with the existing five so
+// the v2 consolidation is mechanical. See AGENTS.md and VERSIONING.md.
 
 // WorkflowFamily identifies the category of operator workflow.
 // Values are scoped to families with a defined owning service in this package.

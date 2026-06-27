@@ -12,6 +12,44 @@ import "geospatial/v1/execution_types.proto";
 // geospatial spec documents. Plan is side-effect-free and returns the DAG shape
 // plus per-node cost estimates. Apply is server-streaming and emits per-node
 // progress events.
+//
+// Intentional divergence from the shared execution surface.
+//
+// SpecService shares execution_types.proto's error model (see Diagnostics
+// below) but deliberately does NOT adopt the rest of the operator-execution
+// contract that ProcessService, PipelineService, RenderService,
+// BuilderService, and DeploymentService share. The two surfaces model
+// different execution paradigms, and fully collapsing them would distort both.
+// The axes below are intentional, not accidental duplication:
+//
+//   - Identity / cancellation model. The operator services address a single
+//     submitted job by `job_id`. SpecService addresses a whole declarative
+//     apply run by `apply_token` (CancelApplyRequest.apply_token) and reports
+//     progress per DAG node, not per job. There is no one-to-one job handle to
+//     reuse.
+//   - Plan/cost shape. SpecCostEstimate / SpecCostActual express per-node row,
+//     byte, and duration estimates for a dependency DAG. The shared
+//     DryRunResult expresses a single whole-plan estimate (EstimatedArtifact,
+//     SideEffect, CostEstimate) and has no per-node DAG dimension. They are
+//     not substitutable.
+//   - Diagnostics: already converged. SpecDiagnostic embeds the shared
+//     ErrorDetail (numeric code, message, details, node_id) and the shared
+//     Severity enum, keeping only a spec-specific `remedy` hint. This is the
+//     one axis where the spec and operator surfaces deliberately share a type
+//     rather than diverge; the former bespoke string code / message / node_id
+//     and SpecDiagnosticSeverity were removed during the pre-v1 wire-contract
+//     finalization.
+//   - Node inputs. CanonicalSpecNode.inputs/parameters are intentionally
+//     string maps: they hold already-canonicalized spec fragments (the spec
+//     grammar is the source of truth and is hashed for caching via
+//     `content_hash`/`source_pins`), not the live, typed operator parameters
+//     that ParameterValue models for ad-hoc step inputs.
+//
+// In short, this is a separate, self-contained plan/apply subsystem by design,
+// not accidental duplication of execution_types. New shared execution concepts
+// belong in execution_types.proto; spec-grammar concepts belong here. Any
+// future unification must be a deliberate, versioned contract change (see
+// VERSIONING.md), not an incidental refactor.
 service SpecService {
   // Plans a canonical spec document and returns the DAG, cost estimates, and
   // any structured warnings.
