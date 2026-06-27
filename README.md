@@ -241,7 +241,7 @@ cd geospatial-grpc
 
 # Validate protocols
 buf lint
-buf breaking --against '.git#branch=main'
+buf breaking --against '.git#branch=trunk'
 
 # Generate client libraries
 buf generate

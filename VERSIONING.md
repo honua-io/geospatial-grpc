@@ -83,7 +83,7 @@ Breaking changes follow a structured process:
 
 ## Release Process
 
-- Every merge to `main` that modifies `.proto` files should result in a tagged semver release.
+- Every merge to `trunk` that modifies `.proto` files should result in a tagged semver release.
 - Documentation-only changes may be batched into a single patch release.
 
 ## CI Enforcement
