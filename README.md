@@ -236,7 +236,7 @@ geospatial-grpc/
 
 ```bash
 # Clone the repository
-git clone https://github.com/mikemcdougall/geospatial-grpc.git
+git clone https://github.com/honua-io/geospatial-grpc.git
 cd geospatial-grpc
 
 # Validate protocols

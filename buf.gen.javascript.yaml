@@ -1,6 +1,9 @@
 version: v2
 plugins:
-  - remote: buf.build/connectrpc/es
+  # protoc-gen-es emits *_pb.js modules (messages, enums, and service
+  # descriptors). connectrpc/es only produced *_connect shims, which the docs
+  # and examples do not import, so generation produced nothing importable.
+  - remote: buf.build/bufbuild/es
     out: .
     opt:
       - target=js

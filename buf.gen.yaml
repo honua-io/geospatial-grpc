@@ -25,7 +25,12 @@ plugins:
       - paths=source_relative
 
   # TypeScript / JavaScript (ES modules)
-  - remote: buf.build/connectrpc/es
+  # protoc-gen-es (buf.build/bufbuild/es) emits one *_pb module per .proto
+  # containing messages, enums, AND service descriptors. With @connectrpc/connect
+  # v2 those _pb service descriptors are passed directly to createClient, so the
+  # separate connectrpc/es *_connect shims are no longer required. The docs and
+  # examples import from *_pb modules, which only this plugin produces.
+  - remote: buf.build/bufbuild/es
     out: gen/typescript
     opt:
       - target=ts
