@@ -84,14 +84,6 @@ enum ArtifactClass {
   ARTIFACT_CLASS_SERVICE_DEFINITION = 9;
 }
 
-// IssueSeverity classifies the severity of a validation or quality issue.
-enum IssueSeverity {
-  ISSUE_SEVERITY_UNSPECIFIED = 0;
-  ISSUE_SEVERITY_ERROR = 1;
-  ISSUE_SEVERITY_WARNING = 2;
-  ISSUE_SEVERITY_INFO = 3;
-}
-
 // ExecutionPlan describes a sequence of steps to execute.
 message ExecutionPlan {
   string plan_id = 1;
@@ -113,20 +105,36 @@ message PlanStep {
   repeated string dependencies = 4;
 }
 
-// ErrorDetail provides structured error information for execution failures.
+// ErrorDetail is the canonical, structured application-error type for the
+// protocol. It is reused (directly or embedded) by every surface that reports a
+// structured error — streaming terminal error events, feature edit failures
+// (FeatureService), and spec diagnostics (SpecService) — so that clients parse
+// one error shape everywhere.
+//
+// Fields 1-3 are the canonical core (code, message, details); fields 4-8 carry
+// optional execution-context that the operator/execution surfaces populate and
+// that other surfaces simply leave unset.
 message ErrorDetail {
-  string error_code = 1;
-  ErrorCategory category = 2;
-  string message = 3;
+  // Numeric, machine-parseable error code. Aligned with GeoServices/Esri REST
+  // error-code semantics where applicable (e.g. 400 invalid/missing parameters,
+  // 403 forbidden, 404 not found, 498/499 token/auth, 500 internal server
+  // error); these also line up with HTTP/gRPC status conventions. 0 means
+  // unset.
+  int32 code = 1;
+  // Human-readable error message.
+  string message = 2;
+  // Additional machine-readable key/value context for the error.
+  map<string, string> details = 3;
+  // Domain of the error (execution surfaces).
+  ErrorCategory category = 4;
   // Descriptive label for the execution phase where the error occurred.
-  string phase = 4;
+  string phase = 5;
   // Correlates to the originating node: PlanStep.step_id (ProcessService),
   // PipelineStage.stage_id (PipelineService), or a server-chosen stage
   // identifier (RenderService, BuilderService, DeploymentService).
-  string node_id = 5;
-  Retryability retryability = 6;
-  string suggested_action = 7;
-  map<string, string> details = 8;
+  string node_id = 6;
+  Retryability retryability = 7;
+  string suggested_action = 8;
 }
 
 // ArtifactRef identifies a produced artifact and carries the canonical typed
@@ -232,7 +240,7 @@ message PlanValidationIssue {
   string node_id = 1;
   string field = 2;
   string message = 3;
-  IssueSeverity severity = 4;
+  Severity severity = 4;
 }
 
 // Assumption records a decision or inference made during execution.

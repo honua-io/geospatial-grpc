@@ -6,6 +6,7 @@ syntax = "proto3";
 package geospatial.v1;
 
 import "geospatial/v1/common.proto";
+import "geospatial/v1/execution_types.proto";
 import "geospatial/v1/spatial_types.proto";
 
 // FeatureService provides typed RPC access to geospatial feature queries and editing.
@@ -89,18 +90,15 @@ message ApplyEditsResponse {
   repeated EditResult add_results = 1;
   repeated EditResult update_results = 2;
   repeated EditResult delete_results = 3;
-  EditError error = 4; // Global error if any
+  // Global error if any. Uses the canonical ErrorDetail (execution_types.proto);
+  // the former EditError type was retired in favor of the one shared error model.
+  ErrorDetail error = 4;
 }
 
 // EditResult is the outcome of a single create/update/delete operation.
 message EditResult {
   int64 object_id = 1; // Feature ID affected
   bool success = 2; // Operation success status
-  EditError error = 3; // Error details if failed
-}
-
-// EditError provides details for a failed edit operation.
-message EditError {
-  int32 code = 1; // Error code
-  string message = 2; // Human-readable error message
+  // Error details if failed. Canonical ErrorDetail (execution_types.proto).
+  ErrorDetail error = 3;
 }

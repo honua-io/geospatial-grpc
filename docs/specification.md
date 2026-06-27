@@ -145,16 +145,23 @@ Jobs transition through these states: `DRAFT` → `VALIDATED` → `RUNNING` → 
 
 #### Error Model
 
-Execution errors are returned as `ErrorDetail` messages with:
+`ErrorDetail` is the single canonical application-error type for the protocol. It
+is reused (directly or embedded) by every surface that reports a structured
+error — execution/streaming terminal events, feature edit failures, and spec
+diagnostics — so clients parse one error shape everywhere. Fields 1-3 (`code`,
+`message`, `details`) are the canonical core; fields 4-8 carry optional
+execution context. It contains:
 
-- `error_code`: Machine-parseable error code
+- `code`: Numeric (`int32`) machine-parseable error code, aligned with
+  GeoServices/Esri REST error-code semantics where applicable
+- `message`: Human-readable error description
+- `details`: Optional key-value map for additional machine-readable context
 - `category`: Domain classification (validation, authorization, policy, execution, artifact, packaging, deployment)
 - `message`: Human-readable error description
 - `phase`: Execution phase where the error occurred (e.g., validation, planning, execution)
 - `node_id`: Identifies the plan step that produced the error (correlates to `PlanStep.step_id`; see [Node Identifier Convention](#node-identifier-convention))
 - `retryability`: How to recover (fix plan, fix data, retry transient error, permanent failure)
 - `suggested_action`: Human-readable recovery guidance
-- `details`: Optional key-value map for additional machine-readable context
 
 ### SpecService
 
@@ -640,24 +647,31 @@ Standard gRPC status codes are used for request-phase failures — errors detect
 
 ### Application Errors
 
-Application-specific errors are returned in response messages:
+Application-specific errors are returned in response messages using the canonical
+`ErrorDetail` (the former `EditError` and `SpecDiagnostic` string-code types were
+retired in favor of the one shared error model). For example, `EditResult.error`
+and `ApplyEditsResponse.error` carry an `ErrorDetail`:
 
 ```protobuf
-message EditError {
-  int32 code = 1;           // Application error code
-  string message = 2;       // Human-readable error message
+message ErrorDetail {
+  int32 code = 1;                    // Numeric application error code
+  string message = 2;               // Human-readable error message
+  map<string, string> details = 3;  // Additional machine-readable context
+  // ... optional execution-context fields 4-8
 }
 ```
 
 ### Validation Errors
 
-Form validation errors include severity levels:
+Form validation, spec diagnostics, and quality issues share one ascending
+`Severity` enum (`common.proto`); numeric casts preserve INFO < WARNING < ERROR:
 
 ```protobuf
-enum ValidationSeverity {
-  VALIDATION_SEVERITY_ERROR = 1;   // Prevents submission
-  VALIDATION_SEVERITY_WARNING = 2; // Shows warning but allows submission
-  VALIDATION_SEVERITY_INFO = 3;    // Informational only
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_INFO = 1;     // Informational only
+  SEVERITY_WARNING = 2;  // Shows warning but allows submission
+  SEVERITY_ERROR = 3;    // Prevents submission
 }
 ```
 

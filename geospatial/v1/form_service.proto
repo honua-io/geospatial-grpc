@@ -286,7 +286,9 @@ message ValidationRule {
   string rule_id = 1;
   ValidationType validation_type = 2;
   string error_message = 3;
-  ValidationSeverity severity = 4;
+  // Shared ascending Severity (common.proto). SEVERITY_ERROR prevents
+  // submission; SEVERITY_WARNING warns but allows; SEVERITY_INFO is advisory.
+  Severity severity = 4;
 
   oneof rule_config {
     RangeValidation range = 10;
@@ -305,13 +307,6 @@ enum ValidationType {
   VALIDATION_TYPE_PATTERN = 4;
   VALIDATION_TYPE_CUSTOM = 5;
   VALIDATION_TYPE_CONDITIONAL = 6;
-}
-
-enum ValidationSeverity {
-  VALIDATION_SEVERITY_UNSPECIFIED = 0;
-  VALIDATION_SEVERITY_ERROR = 1; // Prevents submission
-  VALIDATION_SEVERITY_WARNING = 2; // Shows warning but allows submission
-  VALIDATION_SEVERITY_INFO = 3; // Informational only
 }
 
 message RangeValidation {
@@ -544,7 +539,7 @@ message SubmissionResult {
 
 message ValidationIssue {
   string field_id = 1;
-  ValidationSeverity severity = 2;
+  Severity severity = 2;
   string message = 3;
   string suggested_value = 4; // Optional suggestion
 }
@@ -687,9 +682,16 @@ message GetFormMetadataRequest {
   repeated string form_ids = 1; // Empty = all forms
   repeated string tags = 2; // Filter by tags
   string service_id = 3; // Filter by target service
+  // Maximum number of catalog entries to return. Zero means server default.
+  int32 page_size = 4;
+  // Opaque continuation token from a prior response's next_page_token. Empty
+  // requests the first page.
+  string page_token = 5;
 }
 
 message GetFormMetadataResponse {
   repeated FormMetadata forms = 1;
   int32 total_count = 2;
+  // Continuation token for the next page; empty when no further pages remain.
+  string next_page_token = 3;
 }

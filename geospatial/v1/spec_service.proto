@@ -5,6 +5,9 @@ syntax = "proto3";
 
 package geospatial.v1;
 
+import "geospatial/v1/common.proto";
+import "geospatial/v1/execution_types.proto";
+
 // SpecService exposes Terraform-style plan/apply semantics for canonical
 // geospatial spec documents. Plan is side-effect-free and returns the DAG shape
 // plus per-node cost estimates. Apply is server-streaming and emits per-node
@@ -121,11 +124,14 @@ message SpecApplySummary {
 }
 
 message SpecDiagnostic {
-  string code = 1;
-  string message = 2;
-  SpecDiagnosticSeverity severity = 3;
-  optional string node_id = 4;
-  optional string remedy = 5;
+  // Canonical error payload (numeric code, message, details, and the originating
+  // node_id). Replaces the former string code / message / node_id fields and
+  // converges spec diagnostics onto the one shared ErrorDetail model.
+  ErrorDetail error = 1;
+  // Diagnostic severity, using the shared ascending Severity enum.
+  Severity severity = 2;
+  // Optional remediation hint.
+  optional string remedy = 3;
 }
 
 // Enums.
@@ -151,13 +157,6 @@ enum SpecApplyEventKind {
   SPEC_APPLY_EVENT_KIND_APPLY_STARTED = 8;
   SPEC_APPLY_EVENT_KIND_APPLY_COMPLETED = 9;
   SPEC_APPLY_EVENT_KIND_APPLY_CANCELLED = 10;
-}
-
-enum SpecDiagnosticSeverity {
-  SPEC_DIAGNOSTIC_SEVERITY_UNSPECIFIED = 0;
-  SPEC_DIAGNOSTIC_SEVERITY_INFO = 1;
-  SPEC_DIAGNOSTIC_SEVERITY_WARNING = 2;
-  SPEC_DIAGNOSTIC_SEVERITY_ERROR = 3;
 }
 
 enum SpecCacheMode {
