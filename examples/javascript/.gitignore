@@ -1,0 +1,4 @@
+node_modules/
+dist/
+# Generated protobuf-es client (produced by `npm run generate`).
+src/gen/

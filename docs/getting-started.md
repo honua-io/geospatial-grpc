@@ -32,7 +32,7 @@ buf --version
 ## Step 2: Clone the Repository
 
 ```bash
-git clone https://github.com/mikemcdougall/geospatial-grpc.git
+git clone https://github.com/honua-io/geospatial-grpc.git
 cd geospatial-grpc
 ```
 
@@ -95,7 +95,7 @@ cp -r ../gen/csharp/* .
 1. **Create a new Node.js project**:
 ```bash
 npm init -y
-npm install @connectrpc/connect @connectrpc/connect-node
+npm install @bufbuild/protobuf @connectrpc/connect @connectrpc/connect-node
 ```
 
 2. **Copy generated files**:

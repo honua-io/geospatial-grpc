@@ -1,0 +1,17 @@
+# Code-generation template for the JavaScript/TypeScript example.
+#
+# protoc-gen-es (buf.build/bufbuild/es) emits one *_pb.ts module per .proto,
+# each containing the messages, enums, and service descriptors defined in that
+# file. With @connectrpc/connect v2 the generated service descriptor is passed
+# straight to createClient, so no separate *_connect module is needed.
+#
+# `out: .` combined with `--output src/gen` (see package.json) writes files to
+# src/gen/<proto path>, e.g. src/gen/geospatial/v1/feature_service_pb.ts, which
+# matches the './gen/geospatial/v1/*_pb.js' import specifiers in src/index.ts.
+version: v2
+plugins:
+  - remote: buf.build/bufbuild/es
+    out: .
+    opt:
+      - target=ts
+      - import_extension=.js
