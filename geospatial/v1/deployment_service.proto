@@ -131,6 +131,12 @@ message ExecuteDeploymentRequest {
   DeploymentSpec spec = 1;
   DeploymentOperationMode operation_mode = 2;
   ExecutionContext context = 3;
+  // Optional client-generated idempotency key. When set, the server MUST treat
+  // a retry carrying the same key within its dedup window as the same execution
+  // and return the original result instead of creating the deployment again, so
+  // a retry after a lost response cannot create duplicate deployments.
+  // Recommended: a UUID per logical execution attempt.
+  string idempotency_key = 4;
 }
 
 // ExecuteDeploymentResponse returns the complete result of synchronous execution.
@@ -235,6 +241,11 @@ message RollbackDeploymentRequest {
   // immediately prior successful revision.
   string target_revision = 2;
   ExecutionContext context = 3;
+  // Optional client-generated idempotency key. When set, the server MUST treat
+  // a retry carrying the same key within its dedup window as the same rollback
+  // and return the original result instead of performing the rollback again.
+  // Recommended: a UUID per logical rollback attempt.
+  string idempotency_key = 4;
 }
 
 // RollbackDeploymentResponse returns the outcome of a rollback operation.

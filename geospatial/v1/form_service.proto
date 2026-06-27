@@ -457,6 +457,13 @@ message SubmitFormDataRequest {
   FormInstance instance = 3;
   repeated FormAttachment attachments = 4;
   SubmissionMetadata metadata = 5;
+  // Optional client-generated idempotency key. When set, the server MUST treat
+  // a retry carrying the same key within its dedup window as the same submission
+  // and return the original created_feature_id instead of creating the feature a
+  // second time, so an offline resubmit over a lossy link cannot create
+  // duplicate features. Recommended: a UUID per logical submission attempt
+  // (FormInstance.instance_id is a natural source for this value).
+  string idempotency_key = 6;
 }
 
 message SubmitFormDataResponse {
