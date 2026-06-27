@@ -82,6 +82,12 @@ message ApplyEditsRequest {
   repeated int64 deletes = 5; // Feature IDs to delete
   bool rollback_on_failure = 6; // Transactional behavior
   bool force_write = 7; // Override optimistic locking
+  // Optional client-generated idempotency key. When set, the server MUST treat
+  // a retry carrying the same key within its dedup window as the same operation
+  // and return the original result instead of applying the edits a second time,
+  // so a retry after a lost response cannot create duplicate features.
+  // Recommended: a UUID per logical edit attempt.
+  string idempotency_key = 8;
 }
 
 // ApplyEditsResponse contains add/update/delete results.
