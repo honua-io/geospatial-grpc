@@ -8,7 +8,7 @@
   "validationIssues": [
     {
       "fieldId": "condition",
-      "severity": "VALIDATION_SEVERITY_WARNING",
+      "severity": "SEVERITY_WARNING",
       "message": "Condition 'fair' should include a follow-up note."
     }
   ]

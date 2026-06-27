@@ -1,1 +1,1 @@
-{"result":{"success":true,"message":"Submission accepted.","serverTimestamp":"1748520601000"},"createdFeatureId":"101","validationIssues":[{"fieldId":"condition","severity":"VALIDATION_SEVERITY_WARNING","message":"Condition 'fair' should include a follow-up note."}]}
+{"result":{"success":true,"message":"Submission accepted.","serverTimestamp":"1748520601000"},"createdFeatureId":"101","validationIssues":[{"fieldId":"condition","severity":"SEVERITY_WARNING","message":"Condition 'fair' should include a follow-up note."}]}
