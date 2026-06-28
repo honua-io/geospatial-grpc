@@ -154,12 +154,16 @@ foreach (var feature in response.Features)
 
 #### TypeScript Example
 ```typescript
-import { FeatureService } from './gen/typescript/geospatial/v1/feature_service_pb';
+import { FeatureService } from './gen/geospatial/v1/feature_service_pb';
 import { createClient } from '@connectrpc/connect';
+import { createGrpcTransport } from '@connectrpc/connect-node';
 
-const client = createClient(FeatureService, {
+// connect v2 requires a Transport instance, not a baseUrl config object.
+const transport = createGrpcTransport({
   baseUrl: 'https://api.example.com'
 });
+
+const client = createClient(FeatureService, transport);
 
 const response = await client.queryFeatures({
   serviceId: 'parcels',
@@ -262,7 +266,7 @@ buf breaking --against '.git#branch=trunk'
 buf generate
 
 # Run examples
-cd examples/typescript && npm install && npm start
+cd examples/javascript && npm install && npm run generate && npm run dev
 ```
 
 ### Adding New Features

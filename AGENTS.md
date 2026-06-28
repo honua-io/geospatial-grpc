@@ -75,7 +75,7 @@ dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj --configuration Release -
 Examples (each in its own directory):
 
 ```bash
-cd examples/typescript && npm install && npm start   # README references typescript; dir is examples/javascript
+cd examples/javascript && npm install && npm run generate && npm run dev
 cd examples/python && pip install -r requirements.txt && python main.py
 cd examples/dotnet && dotnet run
 ```
@@ -158,8 +158,6 @@ gen/                    # Generated client libraries (output, not committed sour
   enabled (`AnalysisMode=AllEnabledByDefault`); generated/compiled proto code
   must stay warning-clean. Bump `<Version>` in the `.csproj`; the publish
   workflow requires the `geospatial-grpc-v*` tag version to match it exactly.
-- **README example note:** the README references `examples/typescript`, but the
-  actual directory is `examples/javascript`.
 
 ## Shared dev-environment rules (multi-agent WSL)
 
