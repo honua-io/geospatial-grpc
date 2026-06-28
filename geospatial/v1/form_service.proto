@@ -9,6 +9,28 @@ import "geospatial/v1/common.proto";
 
 // FormService provides gRPC-native form definition and submission capabilities.
 // Designed as an alternative to OpenRosa XML with type-safe mobile optimization.
+//
+// Intentional divergence from the shared error model.
+//
+// Unlike the operator-execution and spec surfaces (ProcessService,
+// PipelineService, RenderService, BuilderService, DeploymentService,
+// SpecService) which embed the shared execution_types.proto ErrorDetail
+// (numeric code, ErrorCategory, Retryability, structured details),
+// FormService deliberately reports submission/validation outcomes through the
+// bespoke SubmissionResult / ValidationIssue pair below. These model
+// field-level, end-user-facing form validation feedback (per-`field_id`
+// messages with optional `suggested_value` corrections rendered inline on a
+// mobile device), not machine-driven server execution faults. They do share
+// the common.proto Severity enum, so severity is already canonical.
+//
+// Consequence for clients: FormService does NOT expose machine-readable
+// ErrorDetail.code / category / retryability on its submission path. Form
+// errors are user-correctable input problems, not retryable RPC faults; the
+// gRPC status carries transport/RPC-level failures, and ValidationIssue
+// carries the per-field user feedback. If a future need arises to surface
+// canonical ErrorDetail on SubmitFormDataResponse it should be added
+// additively (a new field) rather than by replacing ValidationIssue, to keep
+// the v1 wire contract backward compatible.
 service FormService {
   // GetFormDefinition retrieves a form definition for mobile rendering.
   rpc GetFormDefinition(GetFormDefinitionRequest) returns (GetFormDefinitionResponse);
@@ -537,6 +559,10 @@ message SubmissionMetadata {
   map<string, string> custom_metadata = 7;
 }
 
+// SubmissionResult / ValidationIssue are FormService's bespoke,
+// user-facing validation outcome types. They intentionally do NOT use the
+// shared execution_types.proto ErrorDetail; see the divergence note on the
+// FormService definition above for the rationale.
 message SubmissionResult {
   bool success = 1;
   string message = 2;
@@ -544,6 +570,10 @@ message SubmissionResult {
   int64 server_timestamp = 4;
 }
 
+// ValidationIssue is per-field, end-user-facing form validation feedback. It is
+// deliberately not execution_types.proto ErrorDetail (no machine-readable
+// code / category / retryability); it shares the canonical common.proto
+// Severity enum. See the FormService divergence note above.
 message ValidationIssue {
   string field_id = 1;
   Severity severity = 2;
