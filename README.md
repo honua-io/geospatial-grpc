@@ -48,6 +48,9 @@ The **Geospatial gRPC Standard** aims to democratize geospatial development by p
 | `DeploymentService` | Deployment promotion and lifecycle | Validation, dry-run, streaming execution, rollback, health telemetry |
 | `SpecService` | Spec plan/apply workflows | Plan canonical specs, stream apply progress, cancel apply |
 | `StyleService` | 2D style catalog and retrieval | List/get first-class `StyleRef` styles with typed encodings |
+| `ElevationService` | Elevation sampling | Point elevation and geodesic profile sampling with mosaic rules and no-data handling |
+| `SceneService` | 3D scene catalog and metadata | List/get scenes backed by 3D Tiles tilesets and optional terrain |
+| `TileService` | 3D tile delivery | Fetch a tile by node or stream tiles for a scene by LOD and extent |
 
 ### Key Message Types
 
@@ -71,6 +74,8 @@ Lifecycle and packaging requests use the typed ref pattern end-to-end. New write
 ls geospatial/v1/
 # ├── common.proto                      # Shared types
 # ├── spatial_types.proto               # Geometry definitions
+# ├── scene_types.proto                 # 3D scene/tile types
+# ├── style_types.proto                 # StyleRef and style encodings
 # ├── feature_service.proto             # Feature CRUD
 # ├── form_service.proto                # Mobile forms
 # ├── workspace_artifact_types.proto    # Workspace/artifact handles and enums
@@ -83,7 +88,11 @@ ls geospatial/v1/
 # ├── render_service.proto              # Map composition and packaging
 # ├── builder_service.proto             # Application bundle synthesis
 # ├── deployment_service.proto          # Deployment promotion and lifecycle
-# └── spec_service.proto                # Spec plan/apply workflows
+# ├── spec_service.proto                # Spec plan/apply workflows
+# ├── style_service.proto               # 2D style catalog and retrieval
+# ├── elevation_service.proto           # Elevation point/profile sampling
+# ├── scene_service.proto               # 3D scene catalog and metadata
+# └── tile_service.proto                # 3D tile delivery
 ```
 
 ### 2. Generate Client Libraries
@@ -201,6 +210,8 @@ geospatial-grpc/
 ├── geospatial/v1/                        # Protocol definitions
 │   ├── common.proto                      # Shared types and enums
 │   ├── spatial_types.proto               # Geometry types
+│   ├── scene_types.proto                 # 3D scene/tile types
+│   ├── style_types.proto                 # StyleRef and style encodings
 │   ├── feature_service.proto             # Feature CRUD operations
 │   ├── form_service.proto                # Mobile data collection
 │   ├── workspace_artifact_types.proto    # Workspace/artifact handles, enums, retention
@@ -213,7 +224,11 @@ geospatial-grpc/
 │   ├── render_service.proto              # Map composition and packaging
 │   ├── builder_service.proto             # Application bundle synthesis
 │   ├── deployment_service.proto          # Deployment promotion and lifecycle
-│   └── spec_service.proto                # Spec plan/apply workflows
+│   ├── spec_service.proto                # Spec plan/apply workflows
+│   ├── style_service.proto               # 2D style catalog and retrieval
+│   ├── elevation_service.proto           # Elevation point/profile sampling
+│   ├── scene_service.proto               # 3D scene catalog and metadata
+│   └── tile_service.proto                # 3D tile delivery
 ├── src/Geospatial.Grpc/        # .NET protocol package project
 ├── docs/                       # Protocol documentation
 ├── examples/                   # Language-specific examples
