@@ -1,6 +1,6 @@
 version: v2
 plugins:
-  - remote: buf.build/protocolbuffers/csharp
+  - remote: buf.build/protocolbuffers/csharp:v35.1
     out: .
-  - remote: buf.build/grpc/csharp
+  - remote: buf.build/grpc/csharp:v1.81.1
     out: .

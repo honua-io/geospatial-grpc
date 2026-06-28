@@ -13,13 +13,13 @@ plugins:
   # prefix of that namespace or the csharp plugin hard-fails; GeospatialGrpc is
   # not a prefix of Geospatial.V1. This matches buf.gen.csharp.yaml and the
   # published NuGet package.
-  - remote: buf.build/protocolbuffers/csharp
+  - remote: buf.build/protocolbuffers/csharp:v35.1
     out: gen/csharp
 
   # Go
-  - remote: buf.build/protocolbuffers/go
+  - remote: buf.build/protocolbuffers/go:v1.36.11
     out: gen/go
-  - remote: buf.build/grpc/go
+  - remote: buf.build/grpc/go:v1.6.2
     out: gen/go
     opt:
       - paths=source_relative
@@ -30,30 +30,30 @@ plugins:
   # v2 those _pb service descriptors are passed directly to createClient, so the
   # separate connectrpc/es *_connect shims are no longer required. The docs and
   # examples import from *_pb modules, which only this plugin produces.
-  - remote: buf.build/bufbuild/es
+  - remote: buf.build/bufbuild/es:v2.12.1
     out: gen/typescript
     opt:
       - target=ts
       - import_extension=.js
 
   # Java
-  - remote: buf.build/protocolbuffers/java
+  - remote: buf.build/protocolbuffers/java:v35.1
     out: gen/java
-  - remote: buf.build/grpc/java
+  - remote: buf.build/grpc/java:v1.82.1
     out: gen/java
 
   # Python
-  - remote: buf.build/protocolbuffers/python
+  - remote: buf.build/protocolbuffers/python:v35.1
     out: gen/python
-  - remote: buf.build/grpc/python
+  - remote: buf.build/grpc/python:v1.81.1
     out: gen/python
 
   # Rust
-  - remote: buf.build/community/neoeinstein-prost
+  - remote: buf.build/community/neoeinstein-prost:v0.5.0
     out: gen/rust
 
   # Swift
-  - remote: buf.build/grpc/swift
+  - remote: buf.build/grpc/swift:v1.27.5
     out: gen/swift
 
   # Documentation
@@ -61,7 +61,7 @@ plugins:
   # canonical docs plugin is buf.build/community/pseudomuto-doc. Use its built-in
   # markdown format (no external template file) so generation is self-contained:
   # opt is "<format>,<output-filename>".
-  - remote: buf.build/community/pseudomuto-doc
+  - remote: buf.build/community/pseudomuto-doc:v1.5.1
     out: docs/api
     opt:
       - markdown,api.md
