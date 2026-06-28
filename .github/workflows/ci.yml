@@ -46,10 +46,15 @@ jobs:
       - name: Check Breaking Changes (push vs previous release tag)
         if: github.event_name == 'push' && github.ref == 'refs/heads/trunk'
         run: |
-          # Compare the pushed trunk state against the most recent release tag.
+          # Compare the pushed trunk state against the most recent *curated*
+          # release tag. Curated release tags are the conformance "v<VERSION>"
+          # tags (e.g. v0.1.0-alpha.2); the per-push CI snapshot tags use the
+          # distinct "ci-snapshot/" namespace (see the publish job) so they do
+          # not pollute this baseline. Select the highest semver, not whatever
+          # tag happened to be pushed last.
           # If no release tag exists yet, there is no baseline to break against.
           git fetch --tags --quiet
-          prev_tag="$(git tag --list 'v*' --sort=-creatordate | head -n1)"
+          prev_tag="$(git tag --list 'v*' --sort=-version:refname | head -n1)"
           if [[ -z "${prev_tag}" ]]; then
             echo "No prior release tag found; skipping push-time breaking check (nothing to break against yet)."
             exit 0
@@ -214,14 +219,25 @@ jobs:
         if: steps.buf-auth.outputs.enabled == 'true'
         run: buf push
 
-      - name: Create Release Tag
+      - name: Create Snapshot Tag
         if: steps.buf-auth.outputs.enabled == 'true'
         run: |
-          # Generate a tag based on timestamp for versioning
-          TAG="v$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
-          echo "Creating tag: $TAG"
-          git tag $TAG
-          git push origin $TAG
+          # Per-push CI snapshot tag for traceability of registry pushes.
+          # Lives in the dedicated "ci-snapshot/" namespace (NOT "v*") so it
+          # never collides with curated release tags or the push-time breaking
+          # baseline. TAG is a pure function of date+SHA, so guard creation to
+          # keep workflow re-runs idempotent (mirrors the fixture-release guard
+          # below): on a re-run for the same commit/day the tag already exists
+          # and we skip instead of failing the publish job.
+          TAG="ci-snapshot/$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null \
+            || git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Snapshot tag ${TAG} already exists; skipping."
+          else
+            echo "Creating tag: ${TAG}"
+            git tag "${TAG}"
+            git push origin "${TAG}"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
