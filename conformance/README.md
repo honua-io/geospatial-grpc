@@ -55,13 +55,22 @@ For each entry in `fixtures/manifest.txt`, `run.sh`:
    against the current `.proto` definitions; and
 3. compares the canonical JSON to the committed golden in `golden/`.
 
-Because step 2 is interpreted against the current schema, any **contract drift**
-that changes the wire/JSON shape of a canonical message — a removed or renamed
-field, a changed field type, a dropped enum value — either fails the conversion
-or changes the canonical output, so the golden comparison fails. This
-complements `buf breaking` (which compares the schema to its own history) by
-asserting that *concrete, real-world payloads for the canonical workflows* still
-behave as committed.
+Because step 2 is interpreted against the current schema, **contract drift**
+that changes the canonical JSON of a fixture — a changed field type, a dropped
+enum value, or a removed/renamed field that a fixture exercises with a
+non-default value — either fails the conversion or changes the canonical
+output, so the golden comparison fails. This complements `buf breaking` (which
+compares the schema to its own history) by asserting that *concrete, real-world
+payloads for the canonical workflows* still behave as committed.
+
+> **Detection scope.** The canonical protobuf JSON mapping omits proto3
+> default-valued fields, and `buf convert` silently drops JSON keys the schema
+> no longer recognizes (exit 0). A removed or renamed field is therefore only
+> caught here when some fixture sets it to a **non-default** value; drift in a
+> field that is absent — or present only with its proto3 default — in every
+> fixture is not caught by this round-trip (`buf breaking` covers that case).
+> To extend coverage to a field, add a fixture that exercises it with a
+> non-default value.
 
 ## Running locally
 

@@ -11,11 +11,19 @@
 #      conformance/golden/.
 #
 # Because the round-trip is interpreted against the current .proto definitions,
-# any contract drift that changes the wire/JSON shape of a canonical workflow
-# message — a removed or renamed field, a changed type, a dropped enum value —
-# either fails the conversion or changes the canonical output, so the golden
-# comparison fails. This catches drift in this repo before it reaches the
-# downstream generated SDKs.
+# contract drift that changes the canonical JSON of a fixture changes the golden
+# comparison and fails the harness. This catches drift in this repo before it
+# reaches the downstream generated SDKs.
+#
+# Detection scope (important): the canonical protobuf JSON mapping omits
+# proto3 default-valued fields, and `buf convert` silently drops JSON keys the
+# schema no longer recognizes (exit 0). So a removed or renamed field is only
+# detectable here when a fixture sets that field to a NON-default value — that
+# value either appears in the golden (and disappears on removal/rename) or makes
+# the conversion fail. Drift in a field that is absent, or present only with its
+# proto3 default value, in every fixture is NOT caught by this round-trip; rely
+# on `buf breaking` for that class. To extend coverage to a given field, add a
+# fixture that exercises it with a non-default value.
 #
 # Usage:
 #   conformance/run.sh            # verify all fixtures against goldens
