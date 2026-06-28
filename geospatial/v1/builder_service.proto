@@ -139,6 +139,12 @@ message DryRunBuildResponse {
 message ExecuteBuildRequest {
   BuildSpec spec = 1;
   ExecutionContext context = 2;
+  // Optional client-generated idempotency key. When set, the server MUST treat
+  // a retry carrying the same key within its dedup window as the same execution
+  // and return the original result instead of executing the build again, so a
+  // retry after a lost response cannot produce duplicate packages.
+  // Recommended: a UUID per logical execution attempt.
+  string idempotency_key = 3;
 }
 
 // ExecuteBuildResponse returns the complete result of synchronous execution.

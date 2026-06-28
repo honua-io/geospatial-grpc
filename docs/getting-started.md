@@ -381,14 +381,20 @@ var channel = GrpcChannel.ForAddress("https://api.production.com", new GrpcChann
 
     // Retry configuration
     //
-    // IMPORTANT: only retry safe, read-only (idempotent) methods. The protocol
-    // does not define idempotency keys, so automatically retrying a mutation on
-    // a transient StatusCode.Unavailable can SILENTLY DUPLICATE the write — the
-    // original request may have already been applied on the server before the
-    // connection dropped. Do NOT use MethodName.Default here, because that would
-    // apply the retry policy to mutating RPCs such as
-    // FeatureService.ApplyEdits and FormService.SubmitFormData. Instead, scope
-    // the policy to specific read-only methods.
+    // IMPORTANT: read-only (idempotent) methods are always safe to retry.
+    // Mutating RPCs are only safe to retry when the request carries a stable
+    // idempotency_key: the server MUST treat a retry that reuses the same key
+    // within its dedup window as the same operation and return the original
+    // result, so a retry after a lost response cannot SILENTLY DUPLICATE the
+    // write. The protocol defines this idempotency_key field on the mutating
+    // RPCs — FeatureService.ApplyEdits, FormService.SubmitFormData, and the
+    // operator Submit*/Execute*/RollbackDeployment requests. Set a stable key
+    // (e.g. a UUID per logical attempt) before adding those methods to a retry
+    // policy. Do NOT use MethodName.Default to blanket-retry every method,
+    // because that would also retry mutations on calls where you did not set an
+    // idempotency_key, which can duplicate the write. Instead, scope the policy
+    // to specific read-only methods (below) plus any mutating method for which
+    // you always send an idempotency_key.
     ServiceConfig = new ServiceConfig
     {
         MethodConfigs =
