@@ -141,7 +141,9 @@ gen/                    # Generated client libraries (output, not committed sour
   reuse field numbers; reserve removed field numbers/names; do not rename
   fields, messages, services, or enum values. Breaking changes require a new
   version path (e.g. `geospatial/v2`). `buf breaking` uses the `WIRE_JSON`
-  ruleset.
+  ruleset plus `RPC_NO_DELETE` and `PACKAGE_SERVICE_NO_DELETE` (WIRE_JSON alone
+  does not catch RPC/service deletion or rename;
+  `conformance/breaking-gate-test.sh` guards that in CI).
 - **Typed ref pattern:** new writes should use `WorkspaceRef`, `ArtifactRef.*`,
   and `ExecutionContext.workspace`; legacy string fields exist only for v1
   wire/JSON compatibility.
