@@ -102,9 +102,11 @@ required status checks on the `trunk` branch protection):
 
 ### Breaking-change gate coverage
 
-The `buf breaking` gate (`WIRE_JSON` ruleset in `buf.yaml`) runs on **two paths**
-so a wire/JSON-breaking proto edit (removed/renamed field, changed type or
-number, dropped enum value, reused reserved number) cannot land:
+The `buf breaking` gate (`WIRE_JSON` + `RPC_NO_DELETE` +
+`PACKAGE_SERVICE_NO_DELETE` rules in `buf.yaml`) runs on **two paths** so a
+wire/JSON-breaking proto edit (removed/renamed field, changed type or number,
+dropped enum value, reused reserved number) **or a removed/renamed RPC or
+service** cannot land:
 
 - **Pull requests** — `buf breaking --against '.git#branch=<base>'` compares the
   PR head to its target branch. This is the primary required check.
@@ -112,6 +114,13 @@ number, dropped enum value, reused reserved number) cannot land:
   compares the pushed state to the most recent `v*` release tag, so a breaking
   change cannot slip in via a non-PR push. (If no release tag exists yet, there
   is no baseline and the push-time check is a no-op.)
+
+`WIRE_JSON` alone does **not** include the RPC/service no-delete rules — the
+gRPC method path `/geospatial.v1.<Service>/<Method>` is part of the wire
+contract, so `RPC_NO_DELETE` and `PACKAGE_SERVICE_NO_DELETE` are added to close
+that gap. `conformance/breaking-gate-test.sh` (run in CI) asserts the gate
+actually catches RPC/service deletion and rename, so the config cannot silently
+regress to a permissive gate.
 
 CI catches accidental breakage. This policy adds the human governance layer for **intentional** breakage, deprecation tracking, field reservation, and consumer-facing compatibility promises.
 

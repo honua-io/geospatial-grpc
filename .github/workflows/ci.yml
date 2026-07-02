@@ -65,6 +65,13 @@ jobs:
       - name: Format Check
         run: buf format --diff --exit-code
 
+      # Meta-test of the buf.yaml breaking config: proves the gate actually
+      # catches RPC/service deletion and rename (RPC_NO_DELETE +
+      # PACKAGE_SERVICE_NO_DELETE), so it can never silently regress to a
+      # permissive WIRE_JSON-only gate. Self-contained; needs only buf + git.
+      - name: Verify Breaking Gate Catches RPC/Service Removal
+        run: ./conformance/breaking-gate-test.sh
+
   generate:
     name: Generate Code
     runs-on: ubuntu-latest
