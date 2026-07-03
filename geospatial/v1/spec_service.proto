@@ -5,7 +5,6 @@ syntax = "proto3";
 
 package geospatial.v1;
 
-import "geospatial/v1/common.proto";
 import "geospatial/v1/execution_types.proto";
 
 // SpecService exposes Terraform-style plan/apply semantics for canonical
@@ -13,43 +12,28 @@ import "geospatial/v1/execution_types.proto";
 // plus per-node cost estimates. Apply is server-streaming and emits per-node
 // progress events.
 //
-// Intentional divergence from the shared execution surface.
+// Converged onto the shared execution surface (pre-v1 refactor, issue #48).
 //
-// SpecService shares execution_types.proto's error model (see Diagnostics
-// below) but deliberately does NOT adopt the rest of the operator-execution
-// contract that ProcessService, PipelineService, RenderService,
-// BuilderService, and DeploymentService share. The two surfaces model
-// different execution paradigms, and fully collapsing them would distort both.
-// The axes below are intentional, not accidental duplication:
+// SpecService now shares the job-lifecycle control-plane messages defined in
+// execution_types.proto. The convergence axes:
 //
-//   - Identity / cancellation model. The operator services address a single
-//     submitted job by `job_id`. SpecService addresses a whole declarative
-//     apply run by `apply_token` (CancelApplyRequest.apply_token) and reports
-//     progress per DAG node, not per job. There is no one-to-one job handle to
-//     reuse.
-//   - Plan/cost shape. SpecCostEstimate / SpecCostActual express per-node row,
-//     byte, and duration estimates for a dependency DAG. The shared
-//     DryRunResult expresses a single whole-plan estimate (EstimatedArtifact,
-//     SideEffect, CostEstimate) and has no per-node DAG dimension. They are
-//     not substitutable.
-//   - Diagnostics: already converged. SpecDiagnostic embeds the shared
-//     ErrorDetail (numeric code, message, details, node_id) and the shared
-//     Severity enum, keeping only a spec-specific `remedy` hint. This is the
-//     one axis where the spec and operator surfaces deliberately share a type
-//     rather than diverge; the former bespoke string code / message / node_id
-//     and SpecDiagnosticSeverity were removed during the pre-v1 wire-contract
-//     finalization.
-//   - Node inputs. CanonicalSpecNode.inputs/parameters are intentionally
-//     string maps: they hold already-canonicalized spec fragments (the spec
-//     grammar is the source of truth and is hashed for caching via
-//     `content_hash`/`source_pins`), not the live, typed operator parameters
-//     that ParameterValue models for ad-hoc step inputs.
-//
-// In short, this is a separate, self-contained plan/apply subsystem by design,
-// not accidental duplication of execution_types. New shared execution concepts
-// belong in execution_types.proto; spec-grammar concepts belong here. Any
-// future unification must be a deliberate, versioned contract change (see
-// VERSIONING.md), not an incidental refactor.
+//   - Identity / cancellation model. CancelApply now uses the shared
+//     CancelJobRequest / CancelJobResponse keyed on job_id. The job_id is
+//     emitted in each ApplySpecEvent (field 10); the historical apply_token
+//     field (field 3) is reserved.
+//   - Plan/cost shape. SpecCostEstimate and SpecCostActual are retired in
+//     favour of DryRunResult, which is extended (fields 5-10) to carry per-
+//     node row, byte, and duration estimates (fields 5-7) and per-node actual
+//     execution metrics (fields 8-10). SpecPlanNode.cost uses DryRunResult;
+//     ApplySpecEvent.actual_cost uses DryRunResult with the actual_* fields.
+//   - Diagnostics. SpecDiagnostic is retired. ErrorDetail (extended with
+//     Severity severity=9 and string remedy=10 in this release) replaces it
+//     directly. SpecPlanNode.warnings, SpecPlan.warnings, and
+//     ApplySpecEvent.diagnostic all use ErrorDetail.
+//   - Node inputs / parameters. CanonicalSpecNode.inputs and .parameters now
+//     use map<string, ParameterValue> so spec fragments are typed consistently
+//     with the rest of the execution surface. source_pins remains
+//     map<string, string> (content-hash values).
 service SpecService {
   // Plans a canonical spec document and returns the DAG, cost estimates, and
   // any structured warnings.
@@ -59,8 +43,8 @@ service SpecService {
   // The stream completes when the apply reaches a terminal state.
   rpc ApplySpec(ApplySpecRequest) returns (stream ApplySpecEvent);
 
-  // Cooperatively cancels an in-flight apply run by apply token.
-  rpc CancelApply(CancelApplyRequest) returns (CancelApplyResponse);
+  // Cooperatively cancels an in-flight apply run by job id.
+  rpc CancelApply(CancelJobRequest) returns (CancelJobResponse);
 }
 
 // Plan messages.
@@ -84,21 +68,22 @@ message ApplySpecRequest {
 message ApplySpecEvent {
   int64 sequence = 1;
   SpecApplyEventKind kind = 2;
-  string apply_token = 3;
+  // Reserved: field 3 (apply_token) retired in v0.2.0-alpha.1. Use job_id
+  // (field 10) to identify the apply run for CancelApply.
+  reserved 3;
+  reserved "apply_token";
   optional string node_id = 4;
   optional string content_hash = 5;
   int64 timestamp_unix_ms = 6;
-  optional SpecDiagnostic diagnostic = 7;
-  optional SpecCostActual actual_cost = 8;
+  optional ErrorDetail diagnostic = 7;
+  // Per-node actual execution metrics. The actual_rows, actual_bytes, and
+  // actual_duration_ms fields (8-10) of DryRunResult are populated here;
+  // the estimate fields (1-7) are left at their defaults.
+  optional DryRunResult actual_cost = 8;
   optional SpecApplySummary summary = 9;
-}
-
-message CancelApplyRequest {
-  string apply_token = 1;
-}
-
-message CancelApplyResponse {
-  bool cancelled = 1;
+  // Job identifier for this apply run. Use this value in CancelJobRequest
+  // to cancel the in-flight apply.
+  string job_id = 10;
 }
 
 // Domain messages.
@@ -114,9 +99,15 @@ message CanonicalSpecNode {
   string id = 1;
   SpecResourceKind kind = 2;
   optional string op = 3;
-  map<string, string> inputs = 4;
-  map<string, string> parameters = 5;
+  // Typed input parameters. Uses ParameterValue so spec fragments are
+  // consistently typed across the execution surface. String fragments are
+  // carried as string_value branches.
+  map<string, ParameterValue> inputs = 4;
+  // Typed configuration parameters. Same typing convention as inputs.
+  map<string, ParameterValue> parameters = 5;
   optional string canonical_fragment = 6;
+  // Content-hash pins for source references. Remains map<string, string>
+  // because values are opaque hashes, not typed parameters.
   map<string, string> source_pins = 7;
   bool nondeterministic = 8;
 }
@@ -126,7 +117,8 @@ message SpecPlan {
   string grammar_version = 2;
   string process_family_version = 3;
   repeated SpecPlanNode nodes = 4;
-  repeated SpecDiagnostic warnings = 5;
+  // Plan-level warnings. Uses the shared ErrorDetail with severity populated.
+  repeated ErrorDetail warnings = 5;
 }
 
 message SpecPlanNode {
@@ -135,20 +127,13 @@ message SpecPlanNode {
   optional string op = 3;
   repeated string depends_on = 4;
   string content_hash = 5;
-  SpecCostEstimate cost = 6;
-  repeated SpecDiagnostic warnings = 7;
-}
-
-message SpecCostEstimate {
-  optional int64 estimated_rows = 1;
-  optional int64 estimated_bytes = 2;
-  optional double estimated_duration_ms = 3;
-}
-
-message SpecCostActual {
-  optional int64 rows = 1;
-  optional int64 bytes = 2;
-  double duration_ms = 3;
+  // Per-node cost estimate. The estimated_rows, estimated_bytes, and
+  // estimated_duration_ms fields (5-7) of DryRunResult are populated here;
+  // the operator-service estimate fields (1-4) may also be set for
+  // whole-node cost envelope.
+  DryRunResult cost = 6;
+  // Node-level warnings. Uses the shared ErrorDetail with severity populated.
+  repeated ErrorDetail warnings = 7;
 }
 
 message SpecApplySummary {
@@ -159,17 +144,6 @@ message SpecApplySummary {
   int32 skipped_nodes = 5;
   double total_duration_ms = 6;
   bool cancelled = 7;
-}
-
-message SpecDiagnostic {
-  // Canonical error payload (numeric code, message, details, and the originating
-  // node_id). Replaces the former string code / message / node_id fields and
-  // converges spec diagnostics onto the one shared ErrorDetail model.
-  ErrorDetail error = 1;
-  // Diagnostic severity, using the shared ascending Severity enum.
-  Severity severity = 2;
-  // Optional remediation hint.
-  optional string remedy = 3;
 }
 
 // Enums.
