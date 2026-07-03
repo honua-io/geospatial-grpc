@@ -3,6 +3,29 @@
 This document governs how the `geospatial.v1` proto surface evolves.
 It is the canonical reference for maintainers and contributors making proto changes.
 
+## Pre-1.0 Exception (v0.x-alpha)
+
+While git release tags remain `v0.x-alpha` and no external consumers have pinned
+the wire contract, the strong within-major compatibility guarantees below do not
+yet apply. The maintainer may authorize deliberate, coordinated breaking changes —
+without the new-major-version governance process described in this document — when
+all of the following conditions are met:
+
+1. No external consumers depend on the wire contract (verified via issue discussion
+   before the PR opens).
+2. The break is explicitly acknowledged in `CHANGELOG.md` with a clear list of
+   removed/changed messages and migration guidance.
+3. The branch is tagged as a new `v0.<MINOR>.0-alpha.<N>` release immediately after
+   merging to trunk, establishing a new `buf breaking` baseline.
+4. Downstream repos (`honua-server`, `honua-sdk-dotnet`, `honua-mobile`, etc.)
+   schedule SDK regeneration and re-pinning before the GA (`v1.0.0`) cut.
+
+Such breaks are one-time, scoped windows, not a blanket exemption. From `v1.0.0`
+forward, all compatibility guarantees in this document apply without exception. The
+decision for the first use of this exception is documented in
+[issue #48](https://github.com/honua-io/geospatial-grpc/issues/48) (pre-v1
+job-lifecycle refactor + SpecService convergence).
+
 ## Version Numbering
 
 | Component | Format | Example |
