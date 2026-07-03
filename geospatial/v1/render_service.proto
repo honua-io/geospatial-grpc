@@ -43,10 +43,10 @@ import "geospatial/v1/packaging_types.proto";
 // arrive as gRPC-level codes from client deadlines or transport cancellation.
 service RenderService {
   // ValidateRender checks a render spec for structural and capability issues.
-  rpc ValidateRender(ValidateRenderRequest) returns (ValidateRenderResponse);
+  rpc ValidateRender(ValidateRenderRequest) returns (ValidateResponse);
 
   // DryRunRender estimates the cost and impact of executing a render without side effects.
-  rpc DryRunRender(DryRunRenderRequest) returns (DryRunRenderResponse);
+  rpc DryRunRender(DryRunRenderRequest) returns (DryRunResponse);
 
   // ExecuteRender runs a render synchronously and returns the result.
   rpc ExecuteRender(ExecuteRenderRequest) returns (ExecuteRenderResponse);
@@ -55,16 +55,16 @@ service RenderService {
   rpc ExecuteRenderStream(ExecuteRenderRequest) returns (stream RenderEvent);
 
   // SubmitRenderJob submits a render spec for asynchronous execution and returns a job handle.
-  rpc SubmitRenderJob(SubmitRenderJobRequest) returns (SubmitRenderJobResponse);
+  rpc SubmitRenderJob(SubmitRenderJobRequest) returns (SubmitJobResponse);
 
   // GetRenderJob retrieves the current state and progress of a render job.
-  rpc GetRenderJob(GetRenderJobRequest) returns (GetRenderJobResponse);
+  rpc GetRenderJob(GetJobRequest) returns (GetJobResponse);
 
   // GetRenderJobResult retrieves the results of a completed render job.
-  rpc GetRenderJobResult(GetRenderJobResultRequest) returns (GetRenderJobResultResponse);
+  rpc GetRenderJobResult(GetJobResultRequest) returns (GetRenderJobResultResponse);
 
   // CancelRenderJob requests cancellation of a running or pending render job.
-  rpc CancelRenderJob(CancelRenderJobRequest) returns (CancelRenderJobResponse);
+  rpc CancelRenderJob(CancelJobRequest) returns (CancelJobResponse);
 }
 
 // LayerSourceKind enumerates the source types that may back a render layer.
@@ -121,22 +121,9 @@ message ValidateRenderRequest {
   RenderSpec spec = 1;
 }
 
-// ValidateRenderResponse returns the validation outcome.
-message ValidateRenderResponse {
-  bool valid = 1;
-  repeated PlanValidationIssue issues = 2;
-}
-
 // DryRunRenderRequest asks the server to estimate render execution impact.
 message DryRunRenderRequest {
   RenderSpec spec = 1;
-}
-
-// DryRunRenderResponse contains the validation outcome and dry-run estimation.
-message DryRunRenderResponse {
-  bool valid = 1;
-  repeated PlanValidationIssue issues = 2;
-  DryRunResult result = 3;
 }
 
 // ExecuteRenderRequest submits a render for synchronous or streaming execution.
@@ -201,29 +188,6 @@ message SubmitRenderJobRequest {
   string idempotency_key = 3;
 }
 
-// SubmitRenderJobResponse confirms render job submission.
-message SubmitRenderJobResponse {
-  string job_id = 1;
-  JobState state = 2;
-}
-
-// GetRenderJobRequest retrieves the current state of a render job.
-message GetRenderJobRequest {
-  string job_id = 1;
-}
-
-// GetRenderJobResponse returns the render job state and progress.
-message GetRenderJobResponse {
-  string job_id = 1;
-  JobState state = 2;
-  JobProgress progress = 3;
-}
-
-// GetRenderJobResultRequest retrieves the results of a completed render job.
-message GetRenderJobResultRequest {
-  string job_id = 1;
-}
-
 // GetRenderJobResultResponse returns the render job result.
 // The gRPC status is OK regardless of job outcome. For failed jobs, the
 // error field carries the structured ErrorDetail.
@@ -233,15 +197,4 @@ message GetRenderJobResultResponse {
     RenderResult result = 2;
     ErrorDetail error = 3;
   }
-}
-
-// CancelRenderJobRequest requests cancellation of a render job.
-message CancelRenderJobRequest {
-  string job_id = 1;
-}
-
-// CancelRenderJobResponse confirms the render cancellation outcome.
-message CancelRenderJobResponse {
-  string job_id = 1;
-  JobState state = 2;
 }

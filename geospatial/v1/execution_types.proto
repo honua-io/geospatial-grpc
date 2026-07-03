@@ -10,35 +10,27 @@ import "geospatial/v1/spatial_types.proto";
 import "geospatial/v1/workspace_artifact_types.proto";
 
 // Shared types for operator execution contracts across ProcessService,
-// PipelineService, RenderService, BuilderService, and DeploymentService.
+// PipelineService, RenderService, BuilderService, DeploymentService, and
+// SpecService.
 //
-// Job-lifecycle messages: shared payload types vs. per-service control plane.
+// Shared payload types vs. shared control plane.
 //
-// The five operator services share an identical validate / dry-run / submit /
-// poll / cancel lifecycle. The payload-bearing pieces of that lifecycle are
-// already factored here and reused by every service: ExecutionPlan/PlanStep,
-// JobState, JobProgress, StageResult, PlanValidationIssue, DryRunResult,
-// ErrorDetail, ArtifactRef, ProvenanceRecord, and ExecutionContext. As a
-// result the per-service request/response messages are thin shells around
-// these shared types.
+// The six execution services share an identical validate / dry-run / submit /
+// poll / cancel lifecycle. Both the payload-bearing types and the control-plane
+// types are fully factored here and reused by every service:
 //
-// The remaining duplication — each service declaring its own
-// Validate*/DryRun* response, Submit*Job response, Get*Job request/response,
-// Get*JobResult request, and Cancel*Job request/response, all structurally
-// identical and carrying only a job id and/or JobState/JobProgress — is
-// retained DELIBERATELY for v1. These messages are the request/response types
-// of already-published RPCs, and the buf WIRE_JSON breaking ruleset this
-// module is gated on (see buf.yaml) treats changing an RPC's request or
-// response type as a breaking change even when the replacement message is
-// byte-identical on the wire. Collapsing the duplicates onto shared messages
-// (e.g. a single GetJobRequest/GetJobResponse/CancelJobRequest reused across
-// services) therefore cannot land additively under the current contract; it is
-// a deliberate, coordinated change deferred to the next major version
-// (geospatial/v2), where the per-service control-plane messages should be
-// replaced by shared lifecycle messages defined in this file. Until then, new
-// execution services SHOULD reuse the shared payload types above and keep
-// their control-plane messages structurally aligned with the existing five so
-// the v2 consolidation is mechanical. See AGENTS.md and VERSIONING.md.
+//   Shared payload types: ExecutionPlan/PlanStep, JobState, JobProgress,
+//   StageResult, PlanValidationIssue, DryRunResult, ErrorDetail, ArtifactRef,
+//   ProvenanceRecord, and ExecutionContext.
+//
+//   Shared control-plane messages (promoted in the pre-v1 job-lifecycle
+//   refactor, issue #48): ValidateResponse, DryRunResponse, SubmitJobResponse,
+//   GetJobRequest, GetJobResponse, GetJobResultRequest, CancelJobRequest, and
+//   CancelJobResponse. Every service's Validate* and DryRun* RPCs return the
+//   shared response; Submit/Get/Cancel RPCs use the shared request and/or
+//   response messages. Per-service Validate* and DryRun* requests, Submit*Job
+//   requests, Execute* requests/responses, and GetJobResult responses remain
+//   service-specific because they carry the per-service payload or result type.
 
 // WorkflowFamily identifies the category of operator workflow.
 // Values are scoped to families with a defined owning service in this package.
@@ -141,7 +133,9 @@ message PlanStep {
 //
 // Fields 1-3 are the canonical core (code, message, details); fields 4-8 carry
 // optional execution-context that the operator/execution surfaces populate and
-// that other surfaces simply leave unset.
+// that other surfaces simply leave unset. Fields 9-10 carry diagnostic context
+// (severity, remedy) used by surfaces that classify errors at a severity level,
+// such as SpecService plan and apply diagnostics.
 message ErrorDetail {
   // Numeric, machine-parseable error code. Aligned with GeoServices/Esri REST
   // error-code semantics where applicable (e.g. 400 invalid/missing parameters,
@@ -159,10 +153,18 @@ message ErrorDetail {
   string phase = 5;
   // Correlates to the originating node: PlanStep.step_id (ProcessService),
   // PipelineStage.stage_id (PipelineService), or a server-chosen stage
-  // identifier (RenderService, BuilderService, DeploymentService).
+  // identifier (RenderService, BuilderService, DeploymentService, SpecService).
   string node_id = 6;
   Retryability retryability = 7;
   string suggested_action = 8;
+  // Diagnostic severity. Set by surfaces that classify errors at a severity
+  // level (e.g., SpecService warnings in PlanSpec and ApplySpec). Execution-
+  // phase terminal errors implicitly have SEVERITY_ERROR; callers may leave
+  // this unset for non-diagnostic error contexts.
+  Severity severity = 9;
+  // Optional remediation hint. Populated by surfaces that can suggest a
+  // corrective action (e.g., SpecService diagnostics).
+  string remedy = 10;
 }
 
 // ArtifactRef identifies a produced artifact and carries the canonical typed
@@ -227,12 +229,28 @@ message CostEstimate {
   double amount = 2;
 }
 
-// DryRunResult contains the estimated impact of executing a plan without side effects.
+// DryRunResult contains the estimated impact of executing a plan without side
+// effects. Fields 1-4 are the canonical cost envelope used by the five operator
+// services (ProcessService, PipelineService, RenderService, BuilderService,
+// DeploymentService). Fields 5-10 extend the message for per-node DAG
+// estimation and actuals, used by SpecService where the cost model is
+// per-node rather than per-plan. Operator-service dry-run responses populate
+// fields 1-4; SpecService node estimates populate fields 5-7; SpecService
+// apply-event actuals populate fields 8-10.
 message DryRunResult {
   int64 estimated_duration_seconds = 1;
   repeated EstimatedArtifact estimated_artifacts = 2;
   repeated SideEffect side_effects = 3;
   CostEstimate cost_estimate = 4;
+  // Per-node estimation fields for dependency-DAG workflows (SpecService).
+  int64 estimated_rows = 5;
+  int64 estimated_bytes = 6;
+  double estimated_duration_ms = 7;
+  // Per-node actual execution metrics, populated in streaming apply events
+  // after a node completes (SpecService ApplySpec).
+  int64 actual_rows = 8;
+  int64 actual_bytes = 9;
+  double actual_duration_ms = 10;
 }
 
 // JobProgress reports the current state of a running job.
@@ -363,4 +381,76 @@ message ExecutionContext {
   // Canonical typed workspace handle for this request. Authoritative over
   // the deprecated `workspace_id` string.
   WorkspaceRef workspace = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Shared job-lifecycle control-plane messages.
+//
+// The five operator services (ProcessService, PipelineService, RenderService,
+// BuilderService, DeploymentService) and SpecService share a common
+// validate / dry-run / submit / poll / cancel lifecycle. The messages below
+// are the shared control-plane types for that lifecycle. Per-service Validate*
+// and DryRun* requests, Submit*Job requests, Execute* messages, and
+// GetJobResult responses remain service-specific because they carry the
+// per-service payload or result type.
+// ---------------------------------------------------------------------------
+
+// ValidateResponse is the shared response for Validate* RPCs across the five
+// operator services. Servers always return gRPC status OK; plan or spec issues
+// are conveyed in the issues list with valid=false.
+message ValidateResponse {
+  bool valid = 1;
+  repeated PlanValidationIssue issues = 2;
+}
+
+// DryRunResponse is the shared response for DryRun* RPCs across the five
+// operator services. Servers always return gRPC status OK; plan or spec issues
+// are conveyed in issues with valid=false; result is populated on success.
+message DryRunResponse {
+  bool valid = 1;
+  repeated PlanValidationIssue issues = 2;
+  DryRunResult result = 3;
+}
+
+// SubmitJobResponse is the shared response for Submit*Job RPCs across the five
+// operator services and SpecService. Confirms submission and returns the job
+// identifier and initial state.
+message SubmitJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+}
+
+// GetJobRequest is the shared request for Get*Job RPCs across the five
+// operator services. Retrieves the current state and progress of a submitted
+// job.
+message GetJobRequest {
+  string job_id = 1;
+}
+
+// GetJobResponse is the shared response for Get*Job RPCs across the five
+// operator services. Returns the job state and current progress.
+message GetJobResponse {
+  string job_id = 1;
+  JobState state = 2;
+  JobProgress progress = 3;
+}
+
+// GetJobResultRequest is the shared request for Get*JobResult RPCs across the
+// five operator services. Retrieves the results of a completed job.
+message GetJobResultRequest {
+  string job_id = 1;
+}
+
+// CancelJobRequest is the shared request for Cancel*Job RPCs across the five
+// operator services and SpecService. Requests cooperative cancellation of a
+// running or pending job.
+message CancelJobRequest {
+  string job_id = 1;
+}
+
+// CancelJobResponse is the shared response for Cancel*Job RPCs across the five
+// operator services and SpecService. Confirms the cancellation outcome.
+message CancelJobResponse {
+  string job_id = 1;
+  JobState state = 2;
 }

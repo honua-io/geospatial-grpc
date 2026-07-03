@@ -54,10 +54,10 @@ import "geospatial/v1/packaging_types.proto";
 // expected to reconnect to resume telemetry.
 service DeploymentService {
   // ValidateDeployment checks a deployment spec for structural and capability issues.
-  rpc ValidateDeployment(ValidateDeploymentRequest) returns (ValidateDeploymentResponse);
+  rpc ValidateDeployment(ValidateDeploymentRequest) returns (ValidateResponse);
 
   // DryRunDeployment estimates the cost and impact of executing a deployment without side effects.
-  rpc DryRunDeployment(DryRunDeploymentRequest) returns (DryRunDeploymentResponse);
+  rpc DryRunDeployment(DryRunDeploymentRequest) returns (DryRunResponse);
 
   // ExecuteDeployment runs a deployment synchronously and returns the result.
   rpc ExecuteDeployment(ExecuteDeploymentRequest) returns (ExecuteDeploymentResponse);
@@ -66,16 +66,16 @@ service DeploymentService {
   rpc ExecuteDeploymentStream(ExecuteDeploymentRequest) returns (stream DeploymentEvent);
 
   // SubmitDeploymentJob submits a deployment spec for asynchronous execution and returns a job handle.
-  rpc SubmitDeploymentJob(SubmitDeploymentJobRequest) returns (SubmitDeploymentJobResponse);
+  rpc SubmitDeploymentJob(SubmitDeploymentJobRequest) returns (SubmitJobResponse);
 
   // GetDeploymentJob retrieves the current state and progress of a deployment job.
-  rpc GetDeploymentJob(GetDeploymentJobRequest) returns (GetDeploymentJobResponse);
+  rpc GetDeploymentJob(GetJobRequest) returns (GetJobResponse);
 
   // GetDeploymentJobResult retrieves the results of a completed deployment job.
-  rpc GetDeploymentJobResult(GetDeploymentJobResultRequest) returns (GetDeploymentJobResultResponse);
+  rpc GetDeploymentJobResult(GetJobResultRequest) returns (GetDeploymentJobResultResponse);
 
   // CancelDeploymentJob requests cancellation of a running or pending deployment job.
-  rpc CancelDeploymentJob(CancelDeploymentJobRequest) returns (CancelDeploymentJobResponse);
+  rpc CancelDeploymentJob(CancelJobRequest) returns (CancelJobResponse);
 
   // RollbackDeployment reverts a deployment to a prior revision.
   rpc RollbackDeployment(RollbackDeploymentRequest) returns (RollbackDeploymentResponse);
@@ -101,23 +101,10 @@ message ValidateDeploymentRequest {
   DeploymentOperationMode operation_mode = 2;
 }
 
-// ValidateDeploymentResponse returns the validation outcome.
-message ValidateDeploymentResponse {
-  bool valid = 1;
-  repeated PlanValidationIssue issues = 2;
-}
-
 // DryRunDeploymentRequest asks the server to estimate deployment execution impact.
 message DryRunDeploymentRequest {
   DeploymentSpec spec = 1;
   DeploymentOperationMode operation_mode = 2;
-}
-
-// DryRunDeploymentResponse contains the validation outcome and dry-run estimation.
-message DryRunDeploymentResponse {
-  bool valid = 1;
-  repeated PlanValidationIssue issues = 2;
-  DryRunResult result = 3;
 }
 
 // ExecuteDeploymentRequest submits a deployment for synchronous or streaming
@@ -189,29 +176,6 @@ message SubmitDeploymentJobRequest {
   string idempotency_key = 4;
 }
 
-// SubmitDeploymentJobResponse confirms deployment job submission.
-message SubmitDeploymentJobResponse {
-  string job_id = 1;
-  JobState state = 2;
-}
-
-// GetDeploymentJobRequest retrieves the current state of a deployment job.
-message GetDeploymentJobRequest {
-  string job_id = 1;
-}
-
-// GetDeploymentJobResponse returns the deployment job state and progress.
-message GetDeploymentJobResponse {
-  string job_id = 1;
-  JobState state = 2;
-  JobProgress progress = 3;
-}
-
-// GetDeploymentJobResultRequest retrieves the results of a completed deployment job.
-message GetDeploymentJobResultRequest {
-  string job_id = 1;
-}
-
 // GetDeploymentJobResultResponse returns the deployment job result.
 // The gRPC status is OK regardless of job outcome. For failed jobs, the
 // error field carries the structured ErrorDetail.
@@ -221,17 +185,6 @@ message GetDeploymentJobResultResponse {
     DeploymentResult result = 2;
     ErrorDetail error = 3;
   }
-}
-
-// CancelDeploymentJobRequest requests cancellation of a deployment job.
-message CancelDeploymentJobRequest {
-  string job_id = 1;
-}
-
-// CancelDeploymentJobResponse confirms the deployment cancellation outcome.
-message CancelDeploymentJobResponse {
-  string job_id = 1;
-  JobState state = 2;
 }
 
 // RollbackDeploymentRequest asks the server to revert a deployment to a prior revision.
