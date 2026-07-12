@@ -1,333 +1,257 @@
 # Geospatial gRPC Protocol Standard
 
+[![CI](https://github.com/honua-io/geospatial-grpc/actions/workflows/ci.yml/badge.svg)](https://github.com/honua-io/geospatial-grpc/actions/workflows/ci.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/honua-io/geospatial-grpc/badge)](https://scorecard.dev/viewer/?uri=github.com/honua-io/geospatial-grpc)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/honua-io/geospatial-grpc?include_prereleases)](https://github.com/honua-io/geospatial-grpc/releases)
 
-> Open source gRPC protocol definitions for geospatial data access, mobile data collection, and execution workflows
+An open, vendor-neutral gRPC/Protobuf protocol standard for geospatial systems:
+feature access, mobile data collection, styles, elevation, 3D scenes/tiles, and
+execution workflows (processes, pipelines, rendering, app building, deployment).
+Existing geospatial interop standards are REST/XML-first; this project defines
+the equivalent contracts as strongly typed, streaming-capable gRPC services so
+servers and clients in any language can interoperate over one schema.
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Buf Registry](https://img.shields.io/badge/buf-registry-blue)](https://buf.build/geospatial/standard)
+This is a **schema/contract repository** — the `.proto` files under
+[`geospatial/v1/`](geospatial/v1/) are the source of truth. There is no server
+or application code here; implementations and SDKs generate clients from these
+definitions ([ownership rules](docs/proto-ownership.md)).
 
-Current protocol capabilities are summarized in [docs/features/README.md](docs/features/README.md).
+## Status
 
-## 🌍 Vision
+**Pre-1.0 (alpha).** The wire contract is still being deliberately settled;
+alpha releases may include acknowledged breaking changes, each documented in the
+[CHANGELOG](CHANGELOG.md) and re-baselined with a new tag. From `v1.0.0` the
+full within-major compatibility guarantees in [VERSIONING.md](VERSIONING.md)
+apply without exception. Every PR is gated by `buf lint`, `buf format`,
+`buf breaking` (WIRE_JSON + RPC/service no-delete rules), multi-language
+codegen, and a conformance-fixture round-trip.
 
-The **Geospatial gRPC Standard** aims to democratize geospatial development by providing open, standardized gRPC protocols for:
+## What the standard defines
 
-- **Feature data access**: Query, stream, and edit geospatial features
-- **Mobile data collection**: Modern alternative to OpenRosa XML forms
-- **Process execution**: Validate, dry-run, and execute geospatial analysis workflows
-- **Data publishing**: Ingest, transform, and publish geospatial datasets
-- **Map rendering**: Compose deterministic, MapLibre-compatible `MapPackage` bundles
-- **Application building**: Synthesize `AppPackage` bundles from templates and data bindings
-- **Deployment**: Promote packages to live targets with health telemetry and rollback
-- **Real-time collaboration**: Multi-user editing and synchronization
-- **Cross-platform compatibility**: Native mobile, web, and desktop apps
+All services live in the `geospatial.v1` package, one service per file. Each
+execution-plane service follows a validate / dry-run / execute pattern.
 
-### Why gRPC for Geospatial?
+| Service | Purpose |
+|---------|---------|
+| `FeatureService` | Feature CRUD: query, server-streaming pages, batch edits |
+| `FormService` | Mobile data collection: dynamic forms, validation, submission |
+| `WorkspaceService` | Workspace lifecycle: create/open/list, promote, retain/release, quotas |
+| `ArtifactService` | Artifact lifecycle: publish/read/inspect, retention policies |
+| `ProcessService` | Geospatial process execution: plan validation, dry-run, sync/streaming/async |
+| `PipelineService` | Data publishing pipelines: validation, dry-run, stage-by-stage execution |
+| `RenderService` | Map composition; produces MapLibre-compatible `MapPackage` bundles |
+| `BuilderService` | Application bundle synthesis; produces `AppPackage` bundles |
+| `DeploymentService` | Promotion to live targets with health telemetry and rollback |
+| `SpecService` | Declarative spec plan/apply workflows with streaming progress |
+| `StyleService` | 2D style catalog: `StyleRef` styles with typed encodings (MapLibre, SLD, Esri drawing info) |
+| `ElevationService` | Point elevation and geodesic profile sampling |
+| `SceneService` | 3D scene catalog backed by 3D Tiles tilesets and optional terrain |
+| `TileService` | 3D tile delivery by node, or streamed by LOD and extent |
 
-- **Type Safety**: Strongly typed schemas prevent integration errors
-- **Performance**: Binary serialization and HTTP/2 streaming
-- **Mobile Optimized**: Efficient network usage and battery life
-- **Language Agnostic**: Generate client libraries for 10+ languages
-- **Streaming Support**: Real-time updates and large dataset pagination
+Shared type modules: `common.proto`, `spatial_types.proto` (geometries with
+Z/M support), `execution_types.proto` (plans, steps, jobs, provenance,
+structured errors), `packaging_types.proto` (`MapPackage`, `AppPackage`,
+`DeploymentSpec`), `workspace_artifact_types.proto` (typed
+`WorkspaceRef`/`ArtifactRef`/`RetentionPolicyRef` handles and lifecycle enums),
+`style_types.proto`, and `scene_types.proto`.
 
-## 📋 Protocol Overview
+The full capability map is in [docs/features/README.md](docs/features/README.md);
+message-level detail is in the [protocol specification](docs/specification.md).
 
-### Core Services
+## Quick start
 
-| Service | Purpose | Key Features |
-|---------|---------|--------------|
-| `FeatureService` | Geospatial CRUD operations | Query, stream, edit features |
-| `FormService` | Mobile data collection | Dynamic forms, validation, collaboration |
-| `WorkspaceService` | Workspace lifecycle management | Create/open/get/list/update, promote/retain/release, quota inspection |
-| `ArtifactService` | Artifact lifecycle management | Publish/read/get/inspect/list, retain/release, retention policies |
-| `ProcessService` | Geospatial process execution | Plan validation, dry-run, sync/streaming/async execution |
-| `PipelineService` | Data publishing pipelines | Pipeline validation, dry-run, stage-by-stage execution |
-| `RenderService` | Map composition and packaging | Render validation, dry-run, streaming execution, produces `MapPackage` |
-| `BuilderService` | Application bundle synthesis | Build validation, dry-run, streaming execution, produces `AppPackage` |
-| `DeploymentService` | Deployment promotion and lifecycle | Validation, dry-run, streaming execution, rollback, health telemetry |
-| `SpecService` | Spec plan/apply workflows | Plan canonical specs, stream apply progress, cancel apply |
-| `StyleService` | 2D style catalog and retrieval | List/get first-class `StyleRef` styles with typed encodings |
-| `ElevationService` | Elevation sampling | Point elevation and geodesic profile sampling with mosaic rules and no-data handling |
-| `SceneService` | 3D scene catalog and metadata | List/get scenes backed by 3D Tiles tilesets and optional terrain |
-| `TileService` | 3D tile delivery | Fetch a tile by node or stream tiles for a scene by LOD and extent |
-
-### Key Message Types
-
-- **Spatial Types**: Point, Polygon, MultiPolygon geometries with Z/M support
-- **Feature**: Attributes + geometry with flexible typing
-- **Form Controls**: Rich input types (location, media, validation)
-- **Execution Types**: Plans, steps, jobs, artifacts, provenance, and structured errors
-- **Workspace & Artifact Types**: `WorkspaceRef`, `ArtifactRef`, `RetentionPolicyRef` typed handles; `Workspace`, `Artifact`, `RetentionPolicy` resources; typed `PromotionStage`, `WorkspaceLifecycle`, `MaterializationState` enums
-- **Packaging Types**: `MapPackage`, `AppPackage`, `DeploymentSpec` canonical domain objects shared across render, build, and deployment
-- **Style Types**: `StyleRef` first-class 2D style (canonical URI `honua://styles/{style_id}`) with one or more typed `StyleEncoding` representations (MapLibre, SLD, Esri drawing info, ...)
-- **Mobile Optimizations**: Battery, network, and device-aware
-
-Lifecycle and packaging requests use the typed ref pattern end-to-end. New writes should prefer `WorkspaceRef`, `ArtifactRef.workspace`, `ArtifactRef.retention`, `ArtifactRef.materialization`, and `ExecutionContext.workspace`; the legacy string fields remain only for v1 wire/JSON compatibility.
-
-## 🚀 Quick Start
-
-### 1. Browse the Protocols
+### Generate client code
 
 ```bash
-# View proto definitions
-ls geospatial/v1/
-# ├── common.proto                      # Shared types
-# ├── spatial_types.proto               # Geometry definitions
-# ├── scene_types.proto                 # 3D scene/tile types
-# ├── style_types.proto                 # StyleRef and style encodings
-# ├── feature_service.proto             # Feature CRUD
-# ├── form_service.proto                # Mobile forms
-# ├── workspace_artifact_types.proto    # Workspace/artifact handles and enums
-# ├── execution_types.proto             # Shared execution infrastructure
-# ├── packaging_types.proto             # MapPackage, AppPackage, DeploymentSpec
-# ├── workspace_service.proto           # Workspace lifecycle (create/promote/retain/release)
-# ├── artifact_service.proto            # Artifact lifecycle (publish/read/retain)
-# ├── process_service.proto             # Process execution
-# ├── pipeline_service.proto            # Data publishing pipelines
-# ├── render_service.proto              # Map composition and packaging
-# ├── builder_service.proto             # Application bundle synthesis
-# ├── deployment_service.proto          # Deployment promotion and lifecycle
-# ├── spec_service.proto                # Spec plan/apply workflows
-# ├── style_service.proto               # 2D style catalog and retrieval
-# ├── elevation_service.proto           # Elevation point/profile sampling
-# ├── scene_service.proto               # 3D scene catalog and metadata
-# └── tile_service.proto                # 3D tile delivery
-```
+git clone https://github.com/honua-io/geospatial-grpc.git
+cd geospatial-grpc
 
-### 2. Generate Client Libraries
-
-```bash
-# Install buf CLI
+# Install the Buf CLI (https://buf.build/docs/installation), e.g.:
 npm install -g @bufbuild/buf
 
-# Generate for your language
+# Generate every configured language into gen/
 buf generate
+# gen/csharp, gen/go, gen/java, gen/python, gen/rust, gen/swift, gen/typescript
 
-# Generated libraries are in gen/
-ls gen/
-# ├── csharp/     # C# / .NET
-# ├── go/         # Go
-# ├── java/       # Java
-# ├── python/     # Python
-# ├── typescript/ # TypeScript/JavaScript
-# └── ...
+# Or generate a single language with its dedicated template
+buf generate --template buf.gen.go.yaml --output generated/go
+# also: buf.gen.csharp.yaml, buf.gen.python.yaml, buf.gen.javascript.yaml, buf.gen.java.yaml
 ```
 
-### .NET Protocol Package
+`gen/` is build output — it is never committed; regenerate it from the protos.
 
-The repository also includes a generated .NET protocol package project:
+### .NET: use the published protocol package
+
+The `Geospatial.Grpc` NuGet package (netstandard2.0, protos compiled via
+`Grpc.Tools`) is published to
+[GitHub Packages](https://github.com/orgs/honua-io/packages?repo_name=geospatial-grpc)
+by the `Publish .NET Protocol Package` workflow on `geospatial-grpc-v*` tags.
+Downstream .NET projects should reference the package rather than copying
+`.proto` files. You can also pack it locally:
 
 ```bash
 dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj --configuration Release -o ./nupkgs
 ```
 
-Downstream .NET clients should reference a published `Geospatial.Grpc` package
-instead of copying `.proto` files into application or SDK repositories.
-The `Publish .NET Protocol Package` workflow publishes `Geospatial.Grpc` to
-GitHub Packages from `geospatial-grpc-v*` tags or manual non-dry-run dispatches.
+### First query
 
-### 3. Use in Your Project
+.NET:
 
-#### .NET Example
 ```csharp
 using Geospatial.V1;
 using Grpc.Net.Client;
 
-var channel = GrpcChannel.ForAddress("https://api.example.com");
+using var channel = GrpcChannel.ForAddress("https://api.example.com");
 var client = new FeatureService.FeatureServiceClient(channel);
 
-var request = new QueryFeaturesRequest
+var response = await client.QueryFeaturesAsync(new QueryFeaturesRequest
 {
     ServiceId = "parcels",
     LayerId = 0,
     Where = "AREA > 1000",
     ReturnGeometry = true
-};
+});
 
-var response = await client.QueryFeaturesAsync(request);
 foreach (var feature in response.Features)
 {
     Console.WriteLine($"Feature {feature.Id}: {feature.Attributes}");
 }
 ```
 
-#### TypeScript Example
+TypeScript (protobuf-es + Connect v2):
+
 ```typescript
-import { FeatureService } from './gen/geospatial/v1/feature_service_pb';
+import { FeatureService } from './gen/geospatial/v1/feature_service_pb.js';
 import { createClient } from '@connectrpc/connect';
 import { createGrpcTransport } from '@connectrpc/connect-node';
 
-// connect v2 requires a Transport instance, not a baseUrl config object.
-const transport = createGrpcTransport({
-  baseUrl: 'https://api.example.com'
-});
-
+const transport = createGrpcTransport({ baseUrl: 'https://api.example.com' });
 const client = createClient(FeatureService, transport);
 
 const response = await client.queryFeatures({
   serviceId: 'parcels',
   layerId: 0,
   where: 'AREA > 1000',
-  returnGeometry: true
+  returnGeometry: true,
 });
 
-response.features.forEach(feature => {
+response.features.forEach((feature) => {
   console.log(`Feature ${feature.id}:`, feature.attributes);
 });
 ```
 
-#### Python Example
+Python:
+
 ```python
 import grpc
 from geospatial.v1 import feature_service_pb2
 from geospatial.v1 import feature_service_pb2_grpc
 
-channel = grpc.insecure_channel('api.example.com:443')
+channel = grpc.secure_channel('api.example.com:443', grpc.ssl_channel_credentials())
 client = feature_service_pb2_grpc.FeatureServiceStub(channel)
 
-request = feature_service_pb2.QueryFeaturesRequest(
+response = client.QueryFeatures(feature_service_pb2.QueryFeaturesRequest(
     service_id='parcels',
     layer_id=0,
     where='AREA > 1000',
-    return_geometry=True
-)
-
-response = client.QueryFeatures(request)
+    return_geometry=True,
+))
 for feature in response.features:
     print(f'Feature {feature.id}: {feature.attributes}')
 ```
 
-## 📚 Documentation
+Runnable end-to-end samples live in [`examples/`](examples/):
 
-- **[Protocol Specification](docs/specification.md)** - Detailed protocol documentation
-- **[Protocol Ownership](docs/proto-ownership.md)** - Canonical proto ownership and downstream sync rules
-- **[Getting Started Guide](docs/getting-started.md)** - Developer quick start
-- **[Versioning Policy](VERSIONING.md)** - Compatibility guarantees and change governance
-- **[Release Checklist](docs/release-checklist.md)** - Release coordination and generated-client regeneration workflow
-- **[Examples](examples/)** - Code samples for multiple languages
+| Example | Run |
+|---------|-----|
+| [JavaScript/TypeScript](examples/javascript/) | `npm install && npm run generate && npm run dev` |
+| [Python](examples/python/) | `pip install -r requirements.txt && python main.py` |
+| [.NET](examples/dotnet/) | `dotnet run` |
 
-## 🏗️ Repository Structure
+## Conformance suite
 
-```
-geospatial-grpc/
-├── geospatial/v1/                        # Protocol definitions
-│   ├── common.proto                      # Shared types and enums
-│   ├── spatial_types.proto               # Geometry types
-│   ├── scene_types.proto                 # 3D scene/tile types
-│   ├── style_types.proto                 # StyleRef and style encodings
-│   ├── feature_service.proto             # Feature CRUD operations
-│   ├── form_service.proto                # Mobile data collection
-│   ├── workspace_artifact_types.proto    # Workspace/artifact handles, enums, retention
-│   ├── execution_types.proto             # Shared execution infrastructure
-│   ├── packaging_types.proto             # MapPackage, AppPackage, DeploymentSpec
-│   ├── workspace_service.proto           # Workspace lifecycle
-│   ├── artifact_service.proto            # Artifact lifecycle
-│   ├── process_service.proto             # Geospatial process execution
-│   ├── pipeline_service.proto            # Data publishing pipelines
-│   ├── render_service.proto              # Map composition and packaging
-│   ├── builder_service.proto             # Application bundle synthesis
-│   ├── deployment_service.proto          # Deployment promotion and lifecycle
-│   ├── spec_service.proto                # Spec plan/apply workflows
-│   ├── style_service.proto               # 2D style catalog and retrieval
-│   ├── elevation_service.proto           # Elevation point/profile sampling
-│   ├── scene_service.proto               # 3D scene catalog and metadata
-│   └── tile_service.proto                # 3D tile delivery
-├── src/Geospatial.Grpc/        # .NET protocol package project
-├── docs/                       # Protocol documentation
-├── examples/                   # Language-specific examples
-├── gen/                        # Generated client libraries
-├── buf.yaml                    # Buf configuration
-├── buf.gen.yaml                # Code generation config
-├── CONTRIBUTING.md             # Contribution guidelines
-├── VERSIONING.md               # Versioning and compatibility policy
-└── README.md
-```
-
-## 🛠️ Building and Contributing
-
-### Prerequisites
-- [Buf CLI](https://buf.build/docs/installation)
-- Protocol Buffers knowledge
-- Git
-
-### Development Workflow
+[`conformance/`](conformance/) holds canonical request/response fixtures for
+the core workflows plus a language-agnostic regression harness that round-trips
+them against the live schema with `buf convert` — catching contract drift
+before it reaches generated SDKs:
 
 ```bash
-# Clone the repository
-git clone https://github.com/honua-io/geospatial-grpc.git
-cd geospatial-grpc
-
-# Validate protocols
-buf lint
-buf breaking --against '.git#branch=trunk'
-
-# Generate client libraries
-buf generate
-
-# Run examples
-cd examples/javascript && npm install && npm run generate && npm run dev
+conformance/run.sh            # verify fixtures against committed goldens
+conformance/run.sh --update   # regenerate goldens after a reviewed schema change
 ```
 
-### Adding New Features
+Each schema release publishes the fixture set as a versioned, checksummed
+tarball on the matching [GitHub Release](https://github.com/honua-io/geospatial-grpc/releases)
+(`conformance-fixtures-<version>.tar.gz`). Implementations pin a version with
+`conformance/fetch-fixtures.sh --version <version>` and run the bundled harness
+in their own CI. See [conformance/README.md](conformance/README.md) for the
+consumer contract.
 
-1. **Modify proto files** in `geospatial/v1/`
-2. **Validate changes** with `buf lint` and `buf breaking`
-3. **Update documentation** in `docs/`
-4. **Add examples** in appropriate language directories
-5. **Submit PR** with clear description of changes
+## Versioning and stability
 
-## 🎯 Use Cases
+[VERSIONING.md](VERSIONING.md) is the canonical policy. In short:
 
-### Enterprise GIS
-- **Asset Management**: Track infrastructure, utilities, facilities
-- **Fleet Operations**: Vehicle tracking and route optimization
-- **Emergency Response**: Real-time incident mapping and coordination
+- Proto package majors (`geospatial.v1`) align with release-tag majors.
+- Within a major: wire compatibility, JSON mapping stability, field/enum number
+  stability, and RPC surface stability are guaranteed between tagged releases.
+- Breaking changes require deprecation first, maintainer sign-off, and a new
+  package version path (`geospatial/v2`) — enforced in CI by `buf breaking`
+  on every PR and on every push to `trunk` against the previous release tag.
+- Pre-1.0 exception: while tags are `v0.x-alpha`, coordinated breaks are
+  allowed under documented conditions (changelog acknowledgment + new baseline
+  tag).
 
-### Mobile Field Collection
-- **Environmental Monitoring**: Water quality, air quality, wildlife surveys
-- **Construction Management**: Progress tracking, defect reporting
-- **Public Works**: Road maintenance, park inspections, permit processing
+## Implementing the standard
 
-### Smart Cities
-- **Urban Planning**: Development tracking, zoning management
-- **Transportation**: Traffic monitoring, public transit optimization
-- **Citizen Services**: 311 reporting, service request management
+1. Generate server stubs for your language (`buf generate`, or the per-language
+   templates).
+2. Implement the services relevant to your product — the standard does not
+   require every service.
+3. Validate payload compatibility against the pinned
+   [conformance fixtures](conformance/README.md) in your CI.
+4. Follow [CONTRIBUTING.md](CONTRIBUTING.md) to propose schema changes —
+   contracts evolve here first, never in downstream copies
+   ([proto ownership](docs/proto-ownership.md)).
 
-### Research & Science
-- **Climate Monitoring**: Weather stations, environmental sensors
-- **Archaeology**: Site documentation, artifact tracking
-- **Agriculture**: Precision farming, crop monitoring, yield analysis
+Known implementations and clients:
 
-## 🌐 Ecosystem
+- [Honua Server](https://github.com/honua-io/honua-server) — reference server implementation (ELv2)
+- [Honua .NET SDK](https://github.com/honua-io/honua-sdk-dotnet) and [Honua Mobile](https://github.com/honua-io/honua-mobile) — .NET / MAUI clients
+- [Honua JS SDK](https://github.com/honua-io/honua-sdk-js) — JavaScript/TypeScript clients
+- Your implementation here — PRs welcome.
 
-### Compatible Servers
-- **[Honua Server](https://github.com/honua-io/honua-server)** - Reference implementation (ELv2)
-- **Your Server Here** - Add your implementation!
+## Documentation
 
-### Client Libraries
-- **[Honua .NET SDK](https://github.com/honua-io/honua-sdk-dotnet)** - .NET MAUI mobile SDK
-- **[Honua JS SDK](https://github.com/honua-io/honua-sdk-js)** - Web and React Native SDK
-- **Community Libraries** - Coming soon!
+| Document | Contents |
+|----------|----------|
+| [Protocol specification](docs/specification.md) | Design principles and per-service protocol detail |
+| [Getting started](docs/getting-started.md) | Tooling setup and per-language walkthroughs |
+| [Feature map](docs/features/README.md) | Implemented protocol surfaces and boundaries |
+| [Proto ownership](docs/proto-ownership.md) | Canonical-source and downstream sync rules |
+| [Versioning policy](VERSIONING.md) | Compatibility guarantees and breaking-change governance |
+| [Release checklist](docs/release-checklist.md) | Release coordination and client regeneration |
+| [Changelog](CHANGELOG.md) | Release history, including acknowledged alpha baselines |
 
-## 🤝 Contributing
+## Related projects
 
-We welcome contributions from the geospatial community! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+- [geospatial-mcp](https://github.com/honua-io/geospatial-mcp) — companion open standard: geospatial tools over the Model Context Protocol
+- [geobench](https://github.com/honua-io/geobench) — vendor-neutral benchmark suite for geospatial servers
 
-### Code of Conduct
-This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
+## Contributing
 
-### License
-This project is licensed under the [Apache License 2.0](LICENSE) - see the LICENSE file for details.
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for local
+validation (`buf lint`, `buf format --diff --exit-code`,
+`buf breaking --against '.git#branch=trunk'`), the proto change workflow, and
+what must not change within `v1`. Questions and proposals go through
+[GitHub Issues](https://github.com/honua-io/geospatial-grpc/issues).
 
-## 📞 Community
+## Security
 
-- **GitHub Discussions**: Ask questions, share ideas
-- **Issues**: Report bugs, request features
-- **Email**: [geospatial-grpc@honua.io](mailto:geospatial-grpc@honua.io)
+Report vulnerabilities privately to [security@honua.io](mailto:security@honua.io)
+— see the [security policy](https://github.com/honua-io/.github/blob/main/SECURITY.md).
+Do not open public issues for security reports.
 
----
+## License
 
-**Democratizing geospatial development, one protocol at a time.** 🗺️
-
-*Built with ❤️ by the [Honua](https://honua.io) team and the open source community.*
+[Apache License 2.0](LICENSE).
