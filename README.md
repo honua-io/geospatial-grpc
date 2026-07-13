@@ -122,7 +122,7 @@ foreach (var feature in response.Features)
 TypeScript (protobuf-es + Connect v2):
 
 ```typescript
-import { FeatureService } from './gen/geospatial/v1/feature_service_pb.js';
+import { FeatureService } from './gen/typescript/geospatial/v1/feature_service_pb.js';
 import { createClient } from '@connectrpc/connect';
 import { createGrpcTransport } from '@connectrpc/connect-node';
 
