@@ -17,10 +17,10 @@ This guide will help you quickly get up and running with the Geospatial gRPC pro
 brew install bufbuild/buf/buf
 
 # Linux/WSL
-curl -sSL https://github.com/bufbuild/buf/releases/latest/download/buf-Linux-x86_64.tar.gz | tar -xzf - -C /usr/local buf/bin/buf
+npm install --global @bufbuild/buf
 
 # Windows
-# Download from: https://github.com/bufbuild/buf/releases
+npm install --global @bufbuild/buf
 ```
 
 ### Verify Installation
@@ -769,12 +769,16 @@ Make sure you've correctly installed the generated files in your project and imp
 
 ### Connection Issues
 
-Verify the server endpoint and ensure your client can reach it:
+Verify the server endpoint by running one of the typed client examples. A
+successful RPC proves DNS, TLS, HTTP/2, and service routing together:
 
 ```bash
-# Test basic connectivity
-curl -v https://api.example.com/health
+dotnet run --project examples/dotnet
 ```
+
+For a different endpoint, update the example's `GrpcChannel.ForAddress(...)`
+value before running it. Inspect the resulting `RpcException.StatusCode` when a
+connection or service call fails.
 
 ### SSL/TLS Issues
 
