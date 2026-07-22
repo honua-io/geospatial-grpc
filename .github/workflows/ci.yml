@@ -23,6 +23,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v7
 
+      - name: Enforce maintained documentation command policy
+        run: |
+          if git grep -n -i -w curl -- '*.md' '*.mdx' '*.rst' '*.txt'; then
+            echo "::error::Maintained documentation must use supported SDK, CLI, or API-reference workflows."
+            exit 1
+          fi
+
       - name: Install Buf CLI
         run: |
           curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"

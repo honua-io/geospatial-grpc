@@ -141,8 +141,8 @@ conformance/fetch-fixtures.sh --version 0.1.0-alpha.1 --dest ./conformance-fixtu
 `fetch-fixtures.sh`:
 
 1. downloads `conformance-fixtures-<version>.tar.gz` (+ `.sha256`) from the
-   `v<version>` GitHub Release of `honua-io/geospatial-grpc` (via `gh release
-   download` if available, else `curl`/`wget`);
+   `v<version>` GitHub Release of `honua-io/geospatial-grpc` (preferring
+   `gh release download` and using its portable fallback otherwise);
 2. verifies the tarball SHA-256;
 3. extracts it and re-verifies **every** file against the in-tarball
    `SHA256SUMS`;
@@ -151,17 +151,9 @@ conformance/fetch-fixtures.sh --version 0.1.0-alpha.1 --dest ./conformance-fixtu
    `--dest`.
 
 Consumers do not need this repo checked out — copy `fetch-fixtures.sh` into the
-consumer (or vendor it once) and call it with the pinned version. Equivalent raw
-download, if you prefer not to use the helper:
-
-```bash
-v=0.1.0-alpha.1
-base="https://github.com/honua-io/geospatial-grpc/releases/download/v${v}"
-curl -fsSLO "${base}/conformance-fixtures-${v}.tar.gz"
-curl -fsSLO "${base}/conformance-fixtures-${v}.tar.gz.sha256"
-sha256sum -c "conformance-fixtures-${v}.tar.gz.sha256"
-tar -xzf "conformance-fixtures-${v}.tar.gz"
-```
+consumer (or vendor it once) and call it with the pinned version. Use the helper
+instead of reconstructing the release download: it verifies both the release
+checksum and every file in the extracted fixture set.
 
 ### Verifying with the bundled harness
 
