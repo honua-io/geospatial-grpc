@@ -8,17 +8,25 @@ on:
   schedule:
     - cron: '0 6 * * 1'
 
+# Keep the workflow-level grant read-only; write scopes are granted per job
+# below so a compromise of one reusable workflow cannot use the other's
+# privileges (issue #51 / AUD-284).
 permissions:
   contents: read
-  security-events: write
-  id-token: write
-  actions: read
 
 jobs:
   trivy:
-    uses: honua-io/.github/.github/workflows/reusable-trivy.yml@main
+    permissions:
+      contents: read
+      security-events: write # upload SARIF
+    uses: honua-io/.github/.github/workflows/reusable-trivy.yml@024e410fbbe63768af68604a5dd07f361590f26d # main
     with:
       scan-type: fs
 
   scorecard:
-    uses: honua-io/.github/.github/workflows/reusable-scorecard.yml@main
+    permissions:
+      contents: read
+      actions: read # scorecard inspects workflow runs
+      security-events: write # upload SARIF
+      id-token: write # publish results to OpenSSF
+    uses: honua-io/.github/.github/workflows/reusable-scorecard.yml@024e410fbbe63768af68604a5dd07f361590f26d # main
