@@ -185,6 +185,61 @@ jobs:
         working-directory: examples/javascript
         run: npm run build
 
+  examples-dotnet:
+    name: Build .NET Example
+    runs-on: ubuntu-latest
+    needs: lint-and-validate
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # Compile the advertised .NET onboarding example so it cannot silently
+      # break against schema or API changes. The csproj compiles the protos
+      # directly via Grpc.Tools (no buf/network codegen needed), so this is a
+      # cheap restore+build.
+      - name: Build .NET Example
+        run: dotnet build examples/dotnet/GeospatialExample.csproj --configuration Release
+
+  examples-python:
+    name: Build Python Example
+    runs-on: ubuntu-latest
+    needs: lint-and-validate
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Install Buf CLI
+        run: |
+          curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          chmod +x "${RUNNER_TEMP}/buf"
+          echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Generate the Python stubs and import-check the advertised onboarding
+      # example so it cannot silently break against schema or API changes.
+      # Mirrors the documented Python flow in docs/getting-started.md
+      # (generate -> copy gen/python/* next to main.py -> import).
+      - name: Install Example Dependencies
+        run: pip install -r examples/python/requirements.txt
+
+      - name: Generate Python Stubs
+        run: buf generate --template buf.gen.python.yaml --output examples/python
+
+      - name: Import-check Example
+        working-directory: examples/python
+        run: python -c "import ast, sys; ast.parse(open('main.py').read()); import geospatial.v1.feature_service_pb2, geospatial.v1.feature_service_pb2_grpc, geospatial.v1.form_service_pb2, geospatial.v1.form_service_pb2_grpc, geospatial.v1.common_pb2, geospatial.v1.spatial_types_pb2; print('python example imports resolve')"
+
   publish:
     name: Publish to Buf Registry
     runs-on: ubuntu-latest
@@ -408,12 +463,14 @@ jobs:
   notify:
     name: Notify Success
     runs-on: ubuntu-latest
-    needs: [lint-and-validate, generate, examples-javascript, validate-schemas, conformance, dotnet-package, publish]
+    needs: [lint-and-validate, generate, examples-javascript, examples-dotnet, examples-python, validate-schemas, conformance, dotnet-package, publish]
     if: |
       always() &&
       needs.lint-and-validate.result == 'success' &&
       needs.generate.result == 'success' &&
       needs.examples-javascript.result == 'success' &&
+      needs.examples-dotnet.result == 'success' &&
+      needs.examples-python.result == 'success' &&
       needs.validate-schemas.result == 'success' &&
       needs.conformance.result == 'success' &&
       needs.dotnet-package.result == 'success' &&
