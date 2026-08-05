@@ -162,3 +162,20 @@ jobs:
             --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
             --api-key "${{ secrets.GITHUB_TOKEN }}" \
             --skip-duplicate
+
+      - name: Publish to nuget.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        shell: bash
+        run: |
+          # The public feed is what lets downstream SDKs (honua-sdk-dotnet#264)
+          # ship restorable packages to nuget.org. Skip loudly, never fail,
+          # when the credential is not configured.
+          if [[ -z "${NUGET_API_KEY}" ]]; then
+            echo "::warning::NUGET_API_KEY is not configured — packages shipped to GitHub Packages only, not nuget.org."
+            exit 0
+          fi
+          dotnet nuget push nupkgs/*.nupkg \
+            --source "https://api.nuget.org/v3/index.json" \
+            --api-key "${NUGET_API_KEY}" \
+            --skip-duplicate
