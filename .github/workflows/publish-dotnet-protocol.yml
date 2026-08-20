@@ -1,82 +1,98 @@
-name: Publish .NET Protocol Package
+name: Publish Stable Protocol Release
 
 on:
   workflow_dispatch:
-    inputs:
-      dry_run:
-        description: "Run validation only (skip publish)"
-        required: false
-        default: true
-        type: boolean
   push:
     tags:
-      - "geospatial-grpc-v*"
+      - "v*"
 
 permissions:
   contents: read
 
 env:
+  BUF_VERSION: "1.66.0"
   DOTNET_VERSION: "10.0.x"
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_NOLOGO: true
 
 jobs:
-  package-smoke:
-    name: Package Smoke
+  build-and-smoke:
+    name: Build Once and Smoke
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      version: ${{ steps.contract.outputs.version }}
+      tag: ${{ steps.contract.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Validate package version
+      - name: Derive and validate stable release contract
+        id: contract
         shell: bash
         run: |
-          package_version="$(dotnet msbuild src/Geospatial.Grpc/Geospatial.Grpc.csproj -nologo -getProperty:PackageVersion)"
-          if [[ -z "${package_version}" ]]; then
-            package_version="$(dotnet msbuild src/Geospatial.Grpc/Geospatial.Grpc.csproj -nologo -getProperty:Version)"
-          fi
-
-          if [[ -z "${package_version}" ]]; then
-            echo "Could not resolve Geospatial.Grpc package version."
-            exit 1
-          fi
+          contract="$(python3 scripts/release_contract.py --require-stable --json)"
+          version="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' <<<"${contract}")"
+          tag="v${version}"
 
           if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
-            tag_version="${GITHUB_REF_NAME#geospatial-grpc-v}"
-            if [[ "${tag_version}" != "${package_version}" ]]; then
-              echo "Tag version (${tag_version}) does not match package version (${package_version})."
+            python3 scripts/release_contract.py \
+              --require-stable --tag "${GITHUB_REF_NAME}"
+            tag_commit="$(git rev-parse "${GITHUB_REF_NAME}^{commit}")"
+            head_commit="$(git rev-parse HEAD)"
+            if [[ "${tag_commit}" != "${head_commit}" || "${head_commit}" != "${GITHUB_SHA}" ]]; then
+              echo "Tag, checkout, and workflow commit do not identify one commit." >&2
               exit 1
             fi
           fi
 
-          echo "PACKAGE_VERSION=${package_version}" >> "${GITHUB_ENV}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "Stable release contract: ${tag} at ${GITHUB_SHA}"
 
-      - name: Pack Geospatial.Grpc
+      - name: Pack Geospatial.Grpc once
         run: |
           mkdir -p nupkgs
           dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj \
             --configuration Release \
             -o nupkgs \
-            /p:TreatWarningsAsErrors=true
+            /p:TreatWarningsAsErrors=true \
+            /p:ContinuousIntegrationBuild=true \
+            /p:RepositoryCommit="${GITHUB_SHA}"
 
-      - name: Package install smoke
+      - name: Validate runtime and symbol packages
         shell: bash
+        env:
+          VERSION: ${{ steps.contract.outputs.version }}
+        run: |
+          nupkg="nupkgs/Geospatial.Grpc.${VERSION}.nupkg"
+          snupkg="nupkgs/Geospatial.Grpc.${VERSION}.snupkg"
+          test -f "${nupkg}"
+          test -f "${snupkg}"
+          python3 scripts/verify_nuget_package.py \
+            --package "${nupkg}" \
+            --symbol-package "${snupkg}" \
+            --root . \
+            --version "${VERSION}" \
+            --json
+
+      - name: Install smoke from packed artifact
+        shell: bash
+        env:
+          VERSION: ${{ steps.contract.outputs.version }}
         run: |
           smoke_dir="$(mktemp -d)"
           trap 'rm -rf "${smoke_dir}"' EXIT
-
-          dotnet new console --framework net10.0 --output "${smoke_dir}"
-
-          pushd "${smoke_dir}" >/dev/null
-
-          cat > NuGet.config <<EOF
+          cat > "${smoke_dir}/NuGet.config" <<EOF
           <?xml version="1.0" encoding="utf-8"?>
           <configuration>
             <packageSources>
@@ -94,16 +110,24 @@ jobs:
             </packageSourceMapping>
           </configuration>
           EOF
-
-          dotnet add package Grpc.Net.Client --version 2.76.0
-          dotnet add package Geospatial.Grpc --version "${PACKAGE_VERSION}"
-
-          cat > Program.cs <<'EOF'
+          cat > "${smoke_dir}/Smoke.csproj" <<EOF
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net10.0</TargetFramework>
+              <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="Geospatial.Grpc" Version="${VERSION}" />
+              <PackageReference Include="Grpc.Net.Client" Version="2.80.0" />
+            </ItemGroup>
+          </Project>
+          EOF
+          cat > "${smoke_dir}/Program.cs" <<'EOF'
           using Geospatial.V1;
           using Grpc.Net.Client;
 
           using var channel = GrpcChannel.ForAddress("https://example.invalid");
-
           _ = new FeatureService.FeatureServiceClient(channel);
           _ = new FormService.FormServiceClient(channel);
           _ = new ProcessService.ProcessServiceClient(channel);
@@ -116,66 +140,434 @@ jobs:
               OutSr = new SpatialReference { Wkid = 4326 }
           };
           EOF
+          dotnet restore "${smoke_dir}/Smoke.csproj" \
+            --configfile "${smoke_dir}/NuGet.config" --no-cache --force-evaluate
+          dotnet build "${smoke_dir}/Smoke.csproj" \
+            --configuration Release --no-restore /p:TreatWarningsAsErrors=true
 
-          dotnet build --configuration Release /p:TreatWarningsAsErrors=true
+      - name: Verify and package conformance fixtures
+        run: |
+          ./conformance/check-version.sh
+          ./conformance/run.sh
+          ./conformance/package.sh --output dist
 
-          popd >/dev/null
+      - name: Assemble immutable build inputs
+        shell: bash
+        env:
+          VERSION: ${{ steps.contract.outputs.version }}
+        run: |
+          mkdir -p release-inputs
+          cp "nupkgs/Geospatial.Grpc.${VERSION}.nupkg" release-inputs/
+          cp "nupkgs/Geospatial.Grpc.${VERSION}.snupkg" release-inputs/
+          cp "dist/conformance-fixtures-${VERSION}.tar.gz" release-inputs/
+          cp "dist/conformance-fixtures-${VERSION}.tar.gz.sha256" release-inputs/
 
-      - name: Upload package artifacts
+      - name: Upload immutable build inputs
         uses: actions/upload-artifact@v7
         with:
-          name: geospatial-grpc-dotnet-${{ github.run_id }}-packages
-          path: nupkgs/*.nupkg
+          name: geospatial-grpc-${{ steps.contract.outputs.version }}-release-inputs
+          path: release-inputs/
           if-no-files-found: error
           retention-days: 90
 
-      - name: Dry-run summary
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
-        shell: bash
+      - name: Validation-only summary
+        if: github.event_name == 'workflow_dispatch'
         run: |
-          echo "Dry run complete. Built packages:" >> "${GITHUB_STEP_SUMMARY}"
-          ls -1 nupkgs/*.nupkg >> "${GITHUB_STEP_SUMMARY}"
+          echo "Validation only: workflow_dispatch never publishes." >> "${GITHUB_STEP_SUMMARY}"
+          echo "Push the exact ${{ steps.contract.outputs.tag }} tag to publish." >> "${GITHUB_STEP_SUMMARY}"
 
-  publish:
-    name: Publish to GitHub Packages
-    needs: package-smoke
-    if: ${{ !(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true') }}
+  publish-public-registries:
+    name: Publish BSR and nuget.org
+    needs: build-and-smoke
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    environment: production
     permissions:
       contents: read
-      packages: write
     steps:
-      - name: Download package artifacts
-        uses: actions/download-artifact@v8
+      - name: Checkout tagged source
+        uses: actions/checkout@v7
         with:
-          name: geospatial-grpc-dotnet-${{ github.run_id }}-packages
-          path: nupkgs
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Publish to GitHub Packages
+      - name: Install Buf CLI
         run: |
-          dotnet nuget push nupkgs/*.nupkg \
-            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-            --api-key "${{ secrets.GITHUB_TOKEN }}" \
-            --skip-duplicate
+          curl -fsSL -o "${RUNNER_TEMP}/buf" \
+            "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          chmod +x "${RUNNER_TEMP}/buf"
+          echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
 
-      - name: Publish to nuget.org
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      - name: Download immutable build inputs
+        uses: actions/download-artifact@v8
+        with:
+          name: geospatial-grpc-${{ needs.build-and-smoke.outputs.version }}-release-inputs
+          path: release-inputs
+
+      - name: Require both registry credentials
         shell: bash
+        env:
+          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          # The public feed is what lets downstream SDKs (honua-sdk-dotnet#264)
-          # ship restorable packages to nuget.org. Skip loudly, never fail,
-          # when the credential is not configured.
-          if [[ -z "${NUGET_API_KEY}" ]]; then
-            echo "::warning::NUGET_API_KEY is not configured — packages shipped to GitHub Packages only, not nuget.org."
-            exit 0
+          if [[ -z "${BUF_TOKEN}" ]]; then
+            echo "BUF_TOKEN is required; refusing a partial release." >&2
+            exit 1
           fi
-          dotnet nuget push nupkgs/*.nupkg \
+          if [[ -z "${NUGET_API_KEY}" ]]; then
+            echo "NUGET_API_KEY is required; refusing a partial release." >&2
+            exit 1
+          fi
+
+      - name: Revalidate tag and artifacts
+        shell: bash
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+          TAG: ${{ needs.build-and-smoke.outputs.tag }}
+        run: |
+          python3 scripts/release_contract.py --require-stable --tag "${TAG}"
+          test "$(git rev-parse "${TAG}^{commit}")" = "${GITHUB_SHA}"
+          python3 scripts/verify_nuget_package.py \
+            --package "release-inputs/Geospatial.Grpc.${VERSION}.nupkg" \
+            --symbol-package "release-inputs/Geospatial.Grpc.${VERSION}.snupkg" \
+            --root . \
+            --version "${VERSION}" \
+            --json
+
+      - name: Preflight occupied public coordinates
+        id: preflight
+        shell: bash
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+        run: |
+          python3 scripts/check_public_registry.py \
+            --root . \
+            --version "${VERSION}" \
+            --local-nuget "release-inputs/Geospatial.Grpc.${VERSION}.nupkg" \
+            --download-dir registry-preflight \
+            --output registry-preflight.json
+          bsr_state="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["bsr"]["state"])' registry-preflight.json)"
+          nuget_state="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["nuget"]["state"])' registry-preflight.json)"
+          echo "bsr_state=${bsr_state}" >> "${GITHUB_OUTPUT}"
+          echo "nuget_state=${nuget_state}" >> "${GITHUB_OUTPUT}"
+          echo "BSR=${bsr_state}; nuget.org=${nuget_state}"
+
+      - name: Login to Buf Schema Registry
+        env:
+          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
+        run: echo "${BUF_TOKEN}" | buf registry login --token-stdin
+
+      - name: Publish versioned BSR commit
+        if: steps.preflight.outputs.bsr_state == 'missing'
+        shell: bash
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+        run: |
+          buf push \
+            --create \
+            --create-visibility public \
+            --create-default-label main \
+            --label "v${VERSION}" \
+            --label main \
+            --source-control-url \
+              "https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+
+      - name: Publish runtime and symbol packages to nuget.org
+        if: steps.preflight.outputs.nuget_state == 'missing'
+        shell: bash
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push \
+            "release-inputs/Geospatial.Grpc.${VERSION}.nupkg" \
+            --source "https://api.nuget.org/v3/index.json" \
+            --api-key "${NUGET_API_KEY}" \
+            --symbol-source "https://www.nuget.org/api/v2/symbolpackage" \
+            --symbol-api-key "${NUGET_API_KEY}"
+
+      - name: Ensure symbols for an existing identical NuGet coordinate
+        if: steps.preflight.outputs.nuget_state == 'present'
+        shell: bash
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          # nuget.org does not expose the uploaded .snupkg as a downloadable
+          # artifact. Re-submit it when the runtime package already exists;
+          # --skip-duplicate makes a verified same-content workflow re-run
+          # idempotent while still filling a previously omitted symbol package.
+          dotnet nuget push \
+            "release-inputs/Geospatial.Grpc.${VERSION}.snupkg" \
             --source "https://api.nuget.org/v3/index.json" \
             --api-key "${NUGET_API_KEY}" \
             --skip-duplicate
+
+      - name: Resolve and verify immutable BSR commit
+        id: bsr
+        shell: bash
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+        run: |
+          buf registry module commit resolve \
+            "buf.build/honua-io/geospatial-grpc:v${VERSION}" \
+            --format json > bsr-resolve.json
+          bsr_commit="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["commit"])' bsr-resolve.json)"
+          if [[ ! "${bsr_commit}" =~ ^[0-9a-f]{32}$ ]]; then
+            echo "Invalid BSR commit identifier: ${bsr_commit}" >&2
+            exit 1
+          fi
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 \
+            -o bsr-label.zip \
+            "https://buf.build/honua-io/geospatial-grpc/archive/v${VERSION}.zip"
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 \
+            -o bsr-commit.zip \
+            "https://buf.build/honua-io/geospatial-grpc/archive/${bsr_commit}.zip"
+          python3 scripts/verify_bsr_archive.py \
+            --root . --archive bsr-label.zip --json
+          python3 scripts/verify_bsr_archive.py \
+            --root . --archive bsr-commit.zip --json
+          echo "commit=${bsr_commit}" >> "${GITHUB_OUTPUT}"
+
+      - name: Record publication coordinates
+        shell: bash
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+          TAG: ${{ needs.build-and-smoke.outputs.tag }}
+          BSR_COMMIT: ${{ steps.bsr.outputs.commit }}
+        run: |
+          python3 - "${VERSION}" "${TAG}" "${GITHUB_SHA}" "${BSR_COMMIT}" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          version, tag, git_commit, bsr_commit = sys.argv[1:]
+          Path("publication-state.json").write_text(
+              json.dumps(
+                  {
+                      "schemaVersion": 1,
+                      "version": version,
+                      "tag": tag,
+                      "gitCommit": git_commit,
+                      "bsrCommit": bsr_commit,
+                  },
+                  indent=2,
+                  sort_keys=True,
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload publication coordinates
+        uses: actions/upload-artifact@v7
+        with:
+          name: geospatial-grpc-${{ needs.build-and-smoke.outputs.version }}-publication-state
+          path: publication-state.json
+          if-no-files-found: error
+          retention-days: 90
+
+  prove-public-consumption:
+    name: Prove Clean Public Consumption
+    needs: [build-and-smoke, publish-public-registries]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install Buf CLI
+        run: |
+          curl -fsSL -o "${RUNNER_TEMP}/buf" \
+            "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          chmod +x "${RUNNER_TEMP}/buf"
+          echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
+
+      - name: Download release inputs
+        uses: actions/download-artifact@v8
+        with:
+          name: geospatial-grpc-${{ needs.build-and-smoke.outputs.version }}-release-inputs
+          path: release-inputs
+
+      - name: Download publication coordinates
+        uses: actions/download-artifact@v8
+        with:
+          name: geospatial-grpc-${{ needs.build-and-smoke.outputs.version }}-publication-state
+          path: publication-state
+
+      - name: Validate publication coordinates
+        id: state
+        shell: bash
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+          TAG: ${{ needs.build-and-smoke.outputs.tag }}
+        run: |
+          state="publication-state/publication-state.json"
+          python3 - "${state}" "${VERSION}" "${TAG}" "${GITHUB_SHA}" <<'PY'
+          import json
+          import re
+          import sys
+
+          path, version, tag, git_commit = sys.argv[1:]
+          state = json.load(open(path, encoding="utf-8"))
+          expected = {"version": version, "tag": tag, "gitCommit": git_commit}
+          drift = {
+              key: {"expected": value, "actual": state.get(key)}
+              for key, value in expected.items()
+              if state.get(key) != value
+          }
+          if drift:
+              raise SystemExit(f"publication-state drift: {drift}")
+          if not re.fullmatch(r"[0-9a-f]{32}", state.get("bsrCommit", "")):
+              raise SystemExit("publication-state has no valid BSR commit")
+          PY
+          bsr_commit="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["bsrCommit"])' "${state}")"
+          echo "bsr_commit=${bsr_commit}" >> "${GITHUB_OUTPUT}"
+
+      - name: Wait for and verify both public registries
+        shell: bash
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+          BSR_COMMIT: ${{ steps.state.outputs.bsr_commit }}
+        run: |
+          python3 scripts/check_public_registry.py \
+            --root . \
+            --version "${VERSION}" \
+            --local-nuget "release-inputs/Geospatial.Grpc.${VERSION}.nupkg" \
+            --bsr-ref "${BSR_COMMIT}" \
+            --download-dir public-registry \
+            --attempts 24 \
+            --delay-seconds 10 \
+            --require-existing \
+            --output public-registry.json
+
+      - name: Consume from clean public-only clients
+        shell: bash
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+          BSR_COMMIT: ${{ steps.state.outputs.bsr_commit }}
+        run: |
+          bash scripts/clean_public_consumption.sh \
+            --version "${VERSION}" \
+            --bsr-commit "${BSR_COMMIT}" \
+            --root "${GITHUB_WORKSPACE}" \
+            --output public-consumption.json
+
+      - name: Assemble release evidence
+        shell: bash
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+          BSR_COMMIT: ${{ steps.state.outputs.bsr_commit }}
+        run: |
+          mkdir -p release-assets
+          cp release-inputs/* release-assets/
+          cp \
+            "public-registry/geospatial-grpc-bsr-${BSR_COMMIT}.zip" \
+            "release-assets/geospatial-grpc-bsr-${BSR_COMMIT}.zip"
+          cp public-consumption.json release-assets/
+          python3 scripts/create_release_receipt.py \
+            --version "${VERSION}" \
+            --git-commit "${GITHUB_SHA}" \
+            --bsr-commit "${BSR_COMMIT}" \
+            --bsr-archive "release-assets/geospatial-grpc-bsr-${BSR_COMMIT}.zip" \
+            --nuget-package "release-assets/Geospatial.Grpc.${VERSION}.nupkg" \
+            --public-nuget-package \
+              "public-registry/Geospatial.Grpc.${VERSION}.public.nupkg" \
+            --symbol-package "release-assets/Geospatial.Grpc.${VERSION}.snupkg" \
+            --public-consumption public-consumption.json \
+            --assets-dir release-assets \
+            --root . \
+            --workflow-run-url \
+              "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --output release-assets/release-receipt.json
+          (
+            cd release-assets
+            find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\0' \
+              | LC_ALL=C sort -z \
+              | xargs -0 sha256sum > SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
+
+      - name: Upload verified release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: geospatial-grpc-${{ needs.build-and-smoke.outputs.version }}-verified-release
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 365
+
+  create-github-release:
+    name: Create Verified GitHub Release
+    needs: [build-and-smoke, prove-public-consumption]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Download verified release assets
+        uses: actions/download-artifact@v8
+        with:
+          name: geospatial-grpc-${{ needs.build-and-smoke.outputs.version }}-verified-release
+          path: release-assets
+
+      - name: Create or verify release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+          TAG: ${{ needs.build-and-smoke.outputs.tag }}
+        run: |
+          python3 scripts/release_contract.py --require-stable --tag "${TAG}"
+          test "$(git rev-parse "${TAG}^{commit}")" = "${GITHUB_SHA}"
+
+          if gh release view "${TAG}" --json targetCommitish > release.json 2>/dev/null; then
+            target="$(python3 -c 'import json; print(json.load(open("release.json"))["targetCommitish"])')"
+            if [[ "${target}" != "${GITHUB_SHA}" ]]; then
+              echo "Existing release targets ${target}, expected ${GITHUB_SHA}." >&2
+              exit 1
+            fi
+          else
+            cat > release-notes.md <<EOF
+          Stable geospatial.v1 protocol release ${TAG}.
+
+          Public coordinates:
+          - BSR: \`buf.build/honua-io/geospatial-grpc:${TAG}\`
+          - NuGet: \`Geospatial.Grpc ${VERSION}\`
+
+          The attached receipt binds the Git commit, immutable BSR commit,
+          public NuGet payload, symbol package, conformance fixtures, and clean
+          public-consumption proof. Verify every attachment with \`SHA256SUMS\`.
+          EOF
+            gh release create "${TAG}" \
+              --verify-tag \
+              --target "${GITHUB_SHA}" \
+              --title "geospatial-grpc ${TAG}" \
+              --notes-file release-notes.md \
+              --latest \
+              release-assets/*
+          fi
+
+          downloaded="$(mktemp -d)"
+          gh release download "${TAG}" --dir "${downloaded}"
+          diff -r release-assets "${downloaded}"
+
+      - name: Release summary
+        run: |
+          echo "Published and verified ${{ needs.build-and-smoke.outputs.tag }}." >> "${GITHUB_STEP_SUMMARY}"
+          echo "Both public registries and clean consumption passed before the GitHub release was created." >> "${GITHUB_STEP_SUMMARY}"

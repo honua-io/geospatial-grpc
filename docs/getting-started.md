@@ -36,6 +36,13 @@ git clone https://github.com/honua-io/geospatial-grpc.git
 cd geospatial-grpc
 ```
 
+The stable schema is also public on the BSR. To generate from its immutable
+release coordinate while using this checkout's generation template:
+
+```bash
+buf generate buf.build/honua-io/geospatial-grpc:v1.0.0
+```
+
 ## Step 3: Generate Client Libraries
 
 ### Generate for All Languages
@@ -80,15 +87,11 @@ cd GeospatialGrpcExample
 2. **Add gRPC packages**:
 ```bash
 dotnet add package Grpc.Net.Client
-dotnet add package Geospatial.Grpc --prerelease
+dotnet add package Geospatial.Grpc --version 1.0.0
 ```
 
-If a published `Geospatial.Grpc` package is not available yet, generate the
-bindings locally and copy them into the example project:
-
-```bash
-cp -r ../gen/csharp/* .
-```
+This restore uses nuget.org; no GitHub Packages credential or source checkout is
+required.
 
 ### TypeScript / JavaScript
 

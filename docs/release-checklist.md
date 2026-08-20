@@ -73,7 +73,7 @@ Run before requesting review / merging the proto PR.
 - [ ] **Bump the package version** in `src/Geospatial.Grpc/Geospatial.Grpc.csproj`
   (`<Version>`) following the minor/patch rules in
   [VERSIONING.md](../VERSIONING.md#version-numbering). The release tag must match
-  this value exactly (`geospatial-grpc-v<Version>`), as enforced by the publish
+  this value exactly (`v<Version>`), as enforced by the publish
   workflow.
 - [ ] **Examples and docs updated** for any observable behavior change.
 - [ ] **Downstream impact noted in the PR description**: list the SDKs/repos that
@@ -82,19 +82,41 @@ Run before requesting review / merging the proto PR.
 
 ## Release Checklist (after merge to `trunk`)
 
+- [ ] **Confirm repository rules require CI before merge.** The `trunk`
+  ruleset must require the CI workflow/status checks; defining the jobs in the
+  repository does not make them required in GitHub settings.
 - [ ] **Confirm CI is green on `trunk`** (lint, breaking, format, multi-language
   generation, descriptor export, .NET pack).
-- [ ] **Tag the release**: `geospatial-grpc-v<Version>`, where `<Version>`
-  matches the `.csproj` `<Version>` exactly. Pushing this tag triggers
-  `publish-dotnet-protocol.yml`.
-- [ ] **Verify the publish workflow** succeeds: package smoke (pack + install
-  smoke against a fresh `net10.0` project) and publish to GitHub Packages.
-  - A `workflow_dispatch` with `dry_run: true` validates packaging without
-    publishing if you want a pre-tag check.
-- [ ] **Publish Buf artifacts** if the registry is in use for this change
-  (`buf push`, CI-side, needs `BUF_TOKEN`); record the resulting module digest.
-- [ ] **Record the released coordinate** on the tracking issue: tag, `.csproj`
-  version, commit SHA, and Buf digest (whichever downstream consumers will pin).
+- [ ] **Provision production credentials before tagging**:
+  - Create the BSR organization `honua-io` first (the CLI can create the module
+    but not a missing owner organization), then issue a `BUF_TOKEN` that can
+    create/push the public `buf.build/honua-io/geospatial-grpc` module.
+  - `NUGET_API_KEY` can push `Geospatial.Grpc` and its symbol package to
+    nuget.org. For the first publish, its package glob must permit creation of
+    the new `Geospatial.Grpc` ID.
+  - Both are Actions secrets available to the `production` environment. The
+    workflow fails before publishing either registry when one is absent.
+- [ ] **Run validation-only** with `workflow_dispatch`. A manual run never
+  publishes; inspect the packed `.nupkg`, `.snupkg`, conformance artifact, and
+  local install smoke result.
+- [ ] **Tag the release once**: `v<Version>`, where `<Version>` matches both the
+  `.csproj` and `conformance/VERSION`. Pushing this exact tag triggers
+  `publish-dotnet-protocol.yml`; do not create a `geospatial-grpc-v*` tag.
+- [ ] **Verify the registry transaction**:
+  - occupied BSR/NuGet coordinates are accepted only when their public content
+    matches the artifact built from the tag;
+  - the BSR `v<Version>` label resolves to a recorded immutable commit;
+  - nuget.org contains the exact runtime package and accepts the `.snupkg`;
+  - a fresh job with no registry credentials builds the BSR commit and restores
+    and compiles `Geospatial.Grpc <Version>` using nuget.org alone.
+- [ ] **Verify the GitHub release is evidence-complete**. It must target the
+  tagged commit and contain the `.nupkg`, `.snupkg`, immutable BSR archive,
+  conformance tarball/checksum, clean-consumption result,
+  `release-receipt.json`, and `SHA256SUMS`. Re-runs compare an existing release
+  byte-for-byte instead of silently replacing assets.
+- [ ] **Record the released coordinate** on the tracking issue: tag, package
+  version, Git commit, immutable BSR commit, release receipt URL, and downstream
+  pins.
 
 ## Downstream Coordination Checklist (per affected SDK)
 
