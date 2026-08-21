@@ -11,6 +11,7 @@ permissions:
 
 env:
   BUF_VERSION: "1.66.0"
+  BUF_LINUX_X86_64_SHA256: "32e8e7b236e1b9da4eb20ad3c7701a404f7909b18d60f6d00837c63b31d4e6cf"
   DOTNET_VERSION: "10.0.x"
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_NOLOGO: true
@@ -202,6 +203,7 @@ jobs:
         run: |
           curl -fsSL -o "${RUNNER_TEMP}/buf" \
             "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          printf '%s  %s\n' "${BUF_LINUX_X86_64_SHA256}" "${RUNNER_TEMP}/buf" | sha256sum --check --strict
           chmod +x "${RUNNER_TEMP}/buf"
           echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
 
@@ -393,6 +395,7 @@ jobs:
         run: |
           curl -fsSL -o "${RUNNER_TEMP}/buf" \
             "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          printf '%s  %s\n' "${BUF_LINUX_X86_64_SHA256}" "${RUNNER_TEMP}/buf" | sha256sum --check --strict
           chmod +x "${RUNNER_TEMP}/buf"
           echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
 

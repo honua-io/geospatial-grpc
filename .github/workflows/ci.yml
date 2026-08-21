@@ -49,9 +49,7 @@ jobs:
         run: |
           # Compare the pushed trunk state against the most recent *curated*
           # release tag. Curated release tags are the conformance "v<VERSION>"
-          # tags (e.g. v0.1.0-alpha.2); the per-push CI snapshot tags use the
-          # distinct "ci-snapshot/" namespace (see the publish job) so they do
-          # not pollute this baseline. Select the highest semver, not whatever
+          # tags (e.g. v0.1.0-alpha.2). Select the highest semver, not whatever
           # tag happened to be pushed last.
           # If no release tag exists yet, there is no baseline to break against.
           git fetch --tags --quiet

@@ -133,6 +133,10 @@ def validate_symbols(
     pdb_path = "lib/netstandard2.0/Geospatial.Grpc.pdb"
     if pdb_path not in files:
         raise PackageError(f"symbol package is missing required entry: {pdb_path}")
+    if not files[pdb_path].startswith(b"BSJB"):
+        raise PackageError(
+            f"symbol package entry is not a portable PDB (missing BSJB signature): {pdb_path}"
+        )
     unexpected_binaries = sorted(
         name for name in files if name.lower().endswith((".dll", ".exe"))
     )
@@ -159,6 +163,7 @@ def validate_symbols(
         "version": version,
         "rawSha256": hashlib.sha256(package_path.read_bytes()).hexdigest(),
         "contentSha256": canonical_digest(files),
+        "portablePdbSha256": hashlib.sha256(files[pdb_path]).hexdigest(),
         "fileCount": len(files),
     }
 

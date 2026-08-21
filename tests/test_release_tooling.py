@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import re
@@ -137,6 +138,7 @@ class NugetPackageTests(unittest.TestCase):
         dll: bytes = b"assembly",
         signed: bool = False,
         symbols: bool = False,
+        pdb: bytes = b"BSJBportable-pdb",
         readme: bytes = b"readme",
         proto: bytes = b"schema",
     ) -> None:
@@ -152,7 +154,7 @@ class NugetPackageTests(unittest.TestCase):
                 f"<version>1.0.0</version>{package_type}</metadata></package>",
             )
             if symbols:
-                package.writestr("lib/netstandard2.0/Geospatial.Grpc.pdb", b"symbols")
+                package.writestr("lib/netstandard2.0/Geospatial.Grpc.pdb", pdb)
             else:
                 package.writestr("README.md", readme)
                 package.writestr("lib/netstandard2.0/Geospatial.Grpc.dll", dll)
@@ -181,6 +183,19 @@ class NugetPackageTests(unittest.TestCase):
             symbols, "Geospatial.Grpc", "1.0.0"
         )
         self.assertEqual("1.0.0", result["version"])
+        self.assertEqual(
+            hashlib.sha256(b"BSJBportable-pdb").hexdigest(),
+            result["portablePdbSha256"],
+        )
+
+        non_portable = Path(self.temp.name) / "non-portable.snupkg"
+        self.write_package(non_portable, symbols=True, pdb=b"not-a-portable-pdb")
+        with self.assertRaisesRegex(
+            verify_nuget_package.PackageError, "not a portable PDB"
+        ):
+            verify_nuget_package.validate_symbols(
+                non_portable, "Geospatial.Grpc", "1.0.0"
+            )
 
         invalid = Path(self.temp.name) / "invalid.snupkg"
         self.write_package(invalid)
@@ -371,6 +386,11 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         self.assertIn("workflow_dispatch never publishes", workflow)
         self.assertIn("BUF_TOKEN is required; refusing a partial release", workflow)
         self.assertIn("NUGET_API_KEY is required; refusing a partial release", workflow)
+        self.assertIn(
+            'BUF_LINUX_X86_64_SHA256: "32e8e7b236e1b9da4eb20ad3c7701a404f7909b18d60f6d00837c63b31d4e6cf"',
+            workflow,
+        )
+        self.assertEqual(2, workflow.count("sha256sum --check --strict"))
         self.assertIn("Geospatial.Grpc.${VERSION}.snupkg", workflow)
         self.assertIn("check_public_registry.py", workflow)
         self.assertIn("clean_public_consumption.sh", workflow)

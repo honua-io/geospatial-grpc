@@ -87,6 +87,13 @@ Run before requesting review / merging the proto PR.
   repository does not make them required in GitHub settings.
 - [ ] **Confirm CI is green on `trunk`** (lint, breaking, format, multi-language
   generation, descriptor export, .NET pack).
+- [ ] **Confirm immutable tag authority.** The active `v*` tag ruleset must deny
+  tag updates and deletions without bypasses, and the `production` environment
+  must admit only selected `v*` tags. This release contract intentionally does
+  not treat a cryptographic Git tag signature as an identity invariant: the
+  protected immutable GitHub ref, tag-triggered Actions identity, and workflow
+  checks that tag, checkout, and `GITHUB_SHA` resolve to one commit are the
+  accepted authority boundary.
 - [ ] **Provision production credentials before tagging**:
   - Create the BSR organization `honua-io` first (the CLI can create the module
     but not a missing owner organization), then issue a `BUF_TOKEN` that can
@@ -112,8 +119,13 @@ Run before requesting review / merging the proto PR.
 - [ ] **Verify the GitHub release is evidence-complete**. It must target the
   tagged commit and contain the `.nupkg`, `.snupkg`, immutable BSR archive,
   conformance tarball/checksum, clean-consumption result,
-  `release-receipt.json`, and `SHA256SUMS`. Re-runs compare an existing release
-  byte-for-byte instead of silently replacing assets.
+  `release-receipt.json`, and `SHA256SUMS`. If a job fails, use GitHub's
+  **Re-run failed jobs** action so the successful build job and its immutable
+  artifacts are reused. Do not use **Re-run all jobs**: NuGet pack archives are
+  not guaranteed byte-identical across independent builds, and the workflow
+  deliberately refuses to overwrite same-name build evidence. Re-runs of the
+  downstream failed jobs compare an existing release byte-for-byte instead of
+  silently replacing assets.
 - [ ] **Record the released coordinate** on the tracking issue: tag, package
   version, Git commit, immutable BSR commit, release receipt URL, and downstream
   pins.
@@ -129,9 +141,10 @@ file generated earlier would therefore describe a different artifact, while a
 lock file generated in the same run would only record the initial resolution
 after it had already happened and would not constrain it.
 
-This does not weaken the release transaction. The local smoke maps
-`Geospatial.Grpc` exclusively to the just-built package and uses exact direct
-versions, isolated temporary state, and empty caches. Before the public smoke,
+This does not weaken the release transaction. The local smoke adds a dedicated
+mapping for `Geospatial.Grpc` to the just-built source, uses exact direct
+versions, isolated temporary state, and empty caches, and runs before that
+version exists publicly. Before the public smoke,
 the workflow verifies the repository-signed nuget.org payload against that
 build, checks the immutable BSR commit, removes registry credentials, and gives
 the consumer only nuget.org plus fresh package and HTTP caches. NuGet package
