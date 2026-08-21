@@ -19,10 +19,8 @@ definitions ([ownership rules](docs/proto-ownership.md)).
 
 ## Status
 
-**Pre-1.0 (alpha).** The wire contract is still being deliberately settled;
-alpha releases may include acknowledged breaking changes, each documented in the
-[CHANGELOG](CHANGELOG.md) and re-baselined with a new tag. From `v1.0.0` the
-full within-major compatibility guarantees in [VERSIONING.md](VERSIONING.md)
+**Stable v1.** `v1.0.0` closes the pre-release stabilization window. The full
+within-major compatibility guarantees in [VERSIONING.md](VERSIONING.md) now
 apply without exception. Every PR is gated by `buf lint`, `buf format`,
 `buf breaking` (WIRE_JSON + RPC/service no-delete rules), multi-language
 codegen, and a conformance-fixture round-trip.
@@ -70,11 +68,12 @@ cd geospatial-grpc
 # Install the Buf CLI (https://buf.build/docs/installation), e.g.:
 npm install -g @bufbuild/buf
 
-# Generate every configured language into gen/
-buf generate
+# Generate every configured language from the immutable stable public schema
+buf generate buf.build/honua-io/geospatial-grpc:v1.0.0
 # gen/csharp, gen/go, gen/java, gen/python, gen/rust, gen/swift, gen/typescript
 
-# Or generate a single language with its dedicated template
+# Or generate the local checkout / a single language with its dedicated template
+buf generate
 buf generate --template buf.gen.go.yaml --output generated/go
 # also: buf.gen.csharp.yaml, buf.gen.python.yaml, buf.gen.javascript.yaml, buf.gen.java.yaml
 ```
@@ -83,12 +82,16 @@ buf generate --template buf.gen.go.yaml --output generated/go
 
 ### .NET: use the published protocol package
 
-The `Geospatial.Grpc` NuGet package (netstandard2.0, protos compiled via
-`Grpc.Tools`) is published to
-[GitHub Packages](https://github.com/orgs/honua-io/packages?repo_name=geospatial-grpc)
-by the `Publish .NET Protocol Package` workflow on `geospatial-grpc-v*` tags.
-Downstream .NET projects should reference the package rather than copying
-`.proto` files. You can also pack it locally:
+The stable `Geospatial.Grpc` NuGet package (netstandard2.0, protos compiled via
+`Grpc.Tools`) is available from [nuget.org](https://www.nuget.org/packages/Geospatial.Grpc).
+Downstream .NET projects should reference the exact package version rather than
+copying `.proto` files:
+
+```bash
+dotnet add package Geospatial.Grpc --version 1.0.0
+```
+
+You can also pack it locally:
 
 ```bash
 dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj --configuration Release -o ./nupkgs
@@ -198,9 +201,8 @@ consumer contract.
 - Breaking changes require deprecation first, maintainer sign-off, and a new
   package version path (`geospatial/v2`) — enforced in CI by `buf breaking`
   on every PR and on every push to `trunk` against the previous release tag.
-- Pre-1.0 exception: while tags are `v0.x-alpha`, coordinated breaks are
-  allowed under documented conditions (changelog acknowledgment + new baseline
-  tag).
+- The historical pre-1.0 exception is closed. It remains documented only to
+  explain the alpha baselines; it cannot be used for `v1` changes.
 
 ## Implementing the standard
 

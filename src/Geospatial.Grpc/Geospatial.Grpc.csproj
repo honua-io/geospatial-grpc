@@ -11,11 +11,12 @@
     <AnalysisLevel>latest</AnalysisLevel>
     <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <PackageId>Geospatial.Grpc</PackageId>
-    <Version>0.2.0-alpha.1</Version>
+    <Version>1.0.0</Version>
     <Description>Generated .NET bindings for the Geospatial gRPC protocol standard.</Description>
     <Authors>Geospatial gRPC Standard Contributors</Authors>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/honua-io/geospatial-grpc</PackageProjectUrl>
+    <PackageReleaseNotes>Stable geospatial.v1 protocol contract. See https://github.com/honua-io/geospatial-grpc/blob/trunk/CHANGELOG.md</PackageReleaseNotes>
     <RepositoryUrl>https://github.com/honua-io/geospatial-grpc</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>geospatial;grpc;protobuf;gis;features;forms;geoprocessing</PackageTags>

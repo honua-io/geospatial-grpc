@@ -1,17 +1,32 @@
 # Changelog
 
 All notable changes to the `geospatial.v1` proto surface and the
-`Geospatial.Grpc` package are recorded here. Versions correspond to the git
-release tags (`v<version>`, and the .NET publish tag
-`geospatial-grpc-v<version>`) and the `conformance/VERSION` fixture set.
+`Geospatial.Grpc` package are recorded here. A single git release tag
+(`v<version>`) identifies the matching NuGet package, BSR commit/label, and
+`conformance/VERSION` fixture set.
 
-The project is **pre-1.0 (alpha)**. Per the note in
-[VERSIONING.md](VERSIONING.md), the strong within-major compatibility
-guarantees apply between tagged `v1` releases once the surface stabilizes;
-while still in the alpha phase the wire contract is being deliberately settled,
-so an alpha release MAY intentionally break wire/JSON compatibility with the
-previous alpha. Such breaks are acknowledged here and by cutting a new baseline
-tag that the `buf breaking` push-time gate compares against.
+## v1.0.0
+
+**First stable release.** This release promotes the `geospatial.v1` schema
+settled in `v0.2.0-alpha.1` to the permanent v1 compatibility contract in
+[VERSIONING.md](VERSIONING.md). There are no wire-surface changes from that
+alpha baseline.
+
+### Distribution contract
+
+- `Geospatial.Grpc 1.0.0` is built once, smoke-tested from the packed artifact,
+  and published with its `.snupkg` to nuget.org from the same `v1.0.0` tag.
+- `buf.build/honua-io/geospatial-grpc:v1.0.0` resolves to an immutable BSR
+  commit. The public archive is compared byte-for-byte with the canonical local
+  README, license, and proto files before the release is declared complete.
+- `conformance-fixtures-1.0.0.tar.gz`, the `.nupkg`, `.snupkg`, registry
+  receipt, and checksums are attached to the `v1.0.0` GitHub release.
+- Release publication fails closed when either registry credential is absent,
+  a version is already occupied by different content, a public restore fails,
+  or the BSR/NuGet verification receipt cannot be produced.
+
+The pre-1.0 exception is now closed. Breaking changes require a new protocol
+package (`geospatial.v2`) and the governance process in VERSIONING.md.
 
 ## v0.2.0-alpha.1
 
@@ -20,7 +35,8 @@ tag that the `buf breaking` push-time gate compares against.
 promotes shared job-lifecycle control-plane messages into `execution_types.proto`
 and converges `SpecService` onto the shared execution surface. This is the
 pre-v1 window identified in issue #48 and authorised under the
-[Pre-1.0 Exception](VERSIONING.md#pre-10-exception-v0x-alpha) in VERSIONING.md.
+[historical pre-1.0 exception](VERSIONING.md#historical-pre-10-exception-closed)
+in VERSIONING.md.
 
 The `buf breaking --against '.git#branch=trunk'` gate will flag this PR as
 expected — it is a sanctioned break. After this PR merges to trunk, cut tag

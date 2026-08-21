@@ -5,6 +5,10 @@
 /descriptors/
 /nupkgs/
 
+# Python release-tooling caches
+__pycache__/
+*.py[cod]
+
 # .NET build artifacts
 **/bin/
 **/obj/

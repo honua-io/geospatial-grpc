@@ -91,14 +91,15 @@ The fixture set is **versioned** so that downstream SDKs
 and pull the *same* canonical payloads instead of copying files out of this
 repo's tree.
 
-- The version lives in **`conformance/VERSION`** (e.g. `0.1.0-alpha.1`).
+- The version lives in **`conformance/VERSION`** (e.g. `1.0.0`).
 - It is the **same version** as the .NET protocol package
   (`src/Geospatial.Grpc/Geospatial.Grpc.csproj` `<Version>`). CI enforces this
   with `conformance/check-version.sh`, so a fixture version maps **1:1 to a
   `geospatial.v1` schema/proto release** — there is exactly one fixture set per
   release, and it is the set that was validated against that release's protos.
-- On a release (push to `trunk`), CI packages the fixtures and attaches the
-  artifact to a GitHub Release tagged **`v<VERSION>`** (e.g. `v0.1.0-alpha.1`).
+- On an exact stable release-tag push, CI packages the fixtures and attaches the
+  artifact to a GitHub Release tagged **`v<VERSION>`** (e.g. `v1.0.0`). The
+  release is created only after BSR and nuget.org public-consumption checks pass.
 
 ### The published artifact
 
@@ -135,7 +136,7 @@ a git copy) with the bundled helper:
 
 ```bash
 # In the consumer repo's CI, fetch a pinned version into ./conformance-fixtures/
-conformance/fetch-fixtures.sh --version 0.1.0-alpha.1 --dest ./conformance-fixtures
+conformance/fetch-fixtures.sh --version 1.0.0 --dest ./conformance-fixtures
 ```
 
 `fetch-fixtures.sh`:
@@ -155,7 +156,7 @@ consumer (or vendor it once) and call it with the pinned version. Equivalent raw
 download, if you prefer not to use the helper:
 
 ```bash
-v=0.1.0-alpha.1
+v=1.0.0
 base="https://github.com/honua-io/geospatial-grpc/releases/download/v${v}"
 curl -fsSLO "${base}/conformance-fixtures-${v}.tar.gz"
 curl -fsSLO "${base}/conformance-fixtures-${v}.tar.gz.sha256"
