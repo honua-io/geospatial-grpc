@@ -37,6 +37,14 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Install Buf CLI
+        run: |
+          curl -fsSL -o "${RUNNER_TEMP}/buf" \
+            "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          printf '%s  %s\n' "${BUF_LINUX_X86_64_SHA256}" "${RUNNER_TEMP}/buf" | sha256sum --check --strict
+          chmod +x "${RUNNER_TEMP}/buf"
+          echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
+
       - name: Derive and validate stable release contract
         id: contract
         shell: bash

@@ -390,7 +390,21 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             'BUF_LINUX_X86_64_SHA256: "32e8e7b236e1b9da4eb20ad3c7701a404f7909b18d60f6d00837c63b31d4e6cf"',
             workflow,
         )
-        self.assertEqual(2, workflow.count("sha256sum --check --strict"))
+        self.assertEqual(3, workflow.count("sha256sum --check --strict"))
+        for job in (
+            "build-and-smoke",
+            "publish-public-registries",
+            "prove-public-consumption",
+        ):
+            with self.subTest(job=job):
+                match = re.search(
+                    rf"(?ms)^  {re.escape(job)}:\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
+                    workflow,
+                )
+                self.assertIsNotNone(match)
+                job_body = match.group("body")
+                self.assertIn("- name: Install Buf CLI", job_body)
+                self.assertIn("sha256sum --check --strict", job_body)
         self.assertIn("Geospatial.Grpc.${VERSION}.snupkg", workflow)
         self.assertIn("check_public_registry.py", workflow)
         self.assertIn("clean_public_consumption.sh", workflow)
