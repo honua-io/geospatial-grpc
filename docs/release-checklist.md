@@ -118,6 +118,27 @@ Run before requesting review / merging the proto PR.
   version, Git commit, immutable BSR commit, release receipt URL, and downstream
   pins.
 
+### Why release-consumer restores are intentionally unlocked
+
+The two release acceptance restores deliberately resolve a fresh dependency
+graph instead of using `packages.lock.json` and `--locked-mode`. The first
+consumes the package built for the current `GITHUB_SHA`, so its content hash is
+not knowable before that build. The second consumes the newly published
+nuget.org package, whose repository signature changes the archive hash. A lock
+file generated earlier would therefore describe a different artifact, while a
+lock file generated in the same run would only record the initial resolution
+after it had already happened and would not constrain it.
+
+This does not weaken the release transaction. The local smoke maps
+`Geospatial.Grpc` exclusively to the just-built package and uses exact direct
+versions, isolated temporary state, and empty caches. Before the public smoke,
+the workflow verifies the repository-signed nuget.org payload against that
+build, checks the immutable BSR commit, removes registry credentials, and gives
+the consumer only nuget.org plus fresh package and HTTP caches. NuGet package
+versions are immutable, and the public payload comparison fails closed on any
+non-signature drift. Revisit locked restore only if an independently known lock
+can name the repository-signed public artifact before the first resolution.
+
 ## Downstream Coordination Checklist (per affected SDK)
 
 The proto owner drives this; the downstream SDK owner executes and confirms.

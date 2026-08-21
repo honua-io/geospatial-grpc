@@ -26,13 +26,13 @@ jobs:
       tag: ${{ steps.contract.outputs.tag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -140,6 +140,8 @@ jobs:
               OutSr = new SpatialReference { Wkid = 4326 }
           };
           EOF
+          # This is intentionally a fresh resolution of the just-built package;
+          # see docs/release-checklist.md#why-release-consumer-restores-are-intentionally-unlocked.
           dotnet restore "${smoke_dir}/Smoke.csproj" \
             --configfile "${smoke_dir}/NuGet.config" --no-cache --force-evaluate
           dotnet build "${smoke_dir}/Smoke.csproj" \
@@ -163,7 +165,7 @@ jobs:
           cp "dist/conformance-fixtures-${VERSION}.tar.gz.sha256" release-inputs/
 
       - name: Upload immutable build inputs
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: geospatial-grpc-${{ steps.contract.outputs.version }}-release-inputs
           path: release-inputs/
@@ -186,13 +188,13 @@ jobs:
       contents: read
     steps:
       - name: Checkout tagged source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -204,7 +206,7 @@ jobs:
           echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
 
       - name: Download immutable build inputs
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: geospatial-grpc-${{ needs.build-and-smoke.outputs.version }}-release-inputs
           path: release-inputs
@@ -365,7 +367,7 @@ jobs:
           PY
 
       - name: Upload publication coordinates
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: geospatial-grpc-${{ needs.build-and-smoke.outputs.version }}-publication-state
           path: publication-state.json
@@ -380,10 +382,10 @@ jobs:
       contents: read
     steps:
       - name: Checkout tagged source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -395,13 +397,13 @@ jobs:
           echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
 
       - name: Download release inputs
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: geospatial-grpc-${{ needs.build-and-smoke.outputs.version }}-release-inputs
           path: release-inputs
 
       - name: Download publication coordinates
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: geospatial-grpc-${{ needs.build-and-smoke.outputs.version }}-publication-state
           path: publication-state
@@ -500,7 +502,7 @@ jobs:
           )
 
       - name: Upload verified release assets
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: geospatial-grpc-${{ needs.build-and-smoke.outputs.version }}-verified-release
           path: release-assets/
@@ -515,13 +517,13 @@ jobs:
       contents: write
     steps:
       - name: Checkout tagged source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
 
       - name: Download verified release assets
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: geospatial-grpc-${{ needs.build-and-smoke.outputs.version }}-verified-release
           path: release-assets

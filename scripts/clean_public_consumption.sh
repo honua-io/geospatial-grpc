@@ -103,6 +103,8 @@ EOF
 export DOTNET_CLI_HOME="${CONSUMER_DIR}/dotnet-cli"
 export NUGET_PACKAGES="${CONSUMER_DIR}/packages"
 export NUGET_HTTP_CACHE_PATH="${CONSUMER_DIR}/http-cache"
+# This is intentionally a fresh public-only resolution; see
+# docs/release-checklist.md#why-release-consumer-restores-are-intentionally-unlocked.
 dotnet restore "${APP_DIR}/PublicConsumer.csproj" \
   --configfile "${APP_DIR}/NuGet.config" --no-cache --force-evaluate
 dotnet build "${APP_DIR}/PublicConsumer.csproj" \

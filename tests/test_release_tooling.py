@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import shutil
 import sys
 import tempfile
@@ -347,6 +348,18 @@ class PublicRegistryProbeTests(unittest.TestCase):
 
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
+    def test_release_actions_are_pinned_to_annotated_commit_shas(self) -> None:
+        workflow = (ROOT / ".github/workflows/publish-dotnet-protocol.yml").read_text(
+            encoding="utf-8"
+        )
+        uses = re.findall(r"^\s*uses:\s+(\S+)(?:\s+#\s+(\S+))?\s*$", workflow, re.MULTILINE)
+
+        self.assertGreater(len(uses), 0)
+        for action, version in uses:
+            with self.subTest(action=action):
+                self.assertRegex(action, r"^[^@]+@[0-9a-f]{40}$")
+                self.assertRegex(version or "", r"^v\d+\.\d+\.\d+$")
+
     def test_publication_is_single_tag_driven_fail_closed_transaction(self) -> None:
         workflow = (ROOT / ".github/workflows/publish-dotnet-protocol.yml").read_text(
             encoding="utf-8"
