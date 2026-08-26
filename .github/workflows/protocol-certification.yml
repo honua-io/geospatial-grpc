@@ -152,6 +152,15 @@ jobs:
           docker logs honua-server || true
           exit 1
 
+      - name: Authenticate the promoted-package feed
+        # Geospatial.Grpc is published to the org GitHub Packages feed, not nuget.org.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          dotnet nuget add source --name github-honua
+          --username "${GITHUB_ACTOR}" --password "${GH_TOKEN}" --store-password-in-clear-text
+          "https://nuget.pkg.github.com/honua-io/index.json"
+
       - name: Execute promoted .NET client fixtures
         env:
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"

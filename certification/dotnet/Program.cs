@@ -129,7 +129,7 @@ await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(new
     runner_lane = "grpc-dotnet",
     package = "Geospatial.Grpc",
     package_version = "0.2.0-alpha.1",
-    package_source = "https://api.nuget.org/v3/index.json",
+    package_source = "https://nuget.pkg.github.com/honua-io/index.json",
     operations = outcomes,
 }, new JsonSerializerOptions { WriteIndented = true }));
 return 0;
