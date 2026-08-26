@@ -25,7 +25,7 @@ async Task Execute<TRequest, TResponse>(
     string responseFixture,
     Func<TRequest, Metadata, AsyncUnaryCall<TResponse>> invoke)
     where TRequest : IMessage<TRequest>, new()
-    where TResponse : IMessage<TResponse>
+    where TResponse : IMessage<TResponse>, new()
 {
     try
     {
