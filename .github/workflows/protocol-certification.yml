@@ -1,0 +1,201 @@
+name: gRPC protocol certification
+
+on:
+  pull_request:
+    branches: [trunk]
+    paths:
+      - "geospatial/v1/**"
+      - "conformance/**"
+      - "certification/**"
+      - "scripts/build_protocol_certification_fragment.py"
+      - "tests/test_protocol_certification_fragment.py"
+      - ".github/workflows/protocol-certification.yml"
+  schedule:
+    - cron: "15 14 * * *"
+  workflow_dispatch:
+    inputs:
+      tier:
+        type: choice
+        options: [release, nightly, pr]
+        default: release
+        required: true
+      server_image:
+        description: "Immutable Honua Server candidate image (required for release)"
+        required: false
+      server_source_sha:
+        description: "Full source SHA that produced the candidate (required for release)"
+        required: false
+      release_cut:
+        description: "Frozen ISO-8601 candidate cut (required for release)"
+        required: false
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  PINNED_SERVER_IMAGE: "ghcr.io/honua-io/honua-server@sha256:d7a45c871bf318b4882ec8e1c32004803e6d0210246be30120751f05dee1a14d"
+  PINNED_SERVER_SOURCE_SHA: "e3ab87cebb7bf2d32c4e8cdb145f8d626b864d8e"
+  GRPC_TARGET: "http://localhost:8081"
+
+permissions:
+  attestations: read
+  contents: read
+  packages: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4@sha256:44126d872ac91993766c341e369c539e8196614321765d36a6f1bab0419a5fa5
+        env:
+          POSTGRES_USER: honua
+          POSTGRES_PASSWORD: honua
+          POSTGRES_DB: honua_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Resolve and verify immutable candidate
+        id: identity
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TIER: ${{ inputs.tier }}
+          INPUT_IMAGE: ${{ inputs.server_image }}
+          INPUT_SOURCE_SHA: ${{ inputs.server_source_sha }}
+          INPUT_RELEASE_CUT: ${{ inputs.release_cut }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tier="${INPUT_TIER:-pr}"
+          [[ "${EVENT_NAME}" == schedule ]] && tier=nightly
+          [[ "${EVENT_NAME}" == pull_request ]] && tier=pr
+          if [[ "${tier}" == release ]]; then
+            [[ -n "${INPUT_IMAGE}" && -n "${INPUT_SOURCE_SHA}" && -n "${INPUT_RELEASE_CUT}" ]] || {
+              echo '::error::release requires server_image, server_source_sha, and release_cut'; exit 1;
+            }
+          fi
+          image="${INPUT_IMAGE:-${PINNED_SERVER_IMAGE}}"
+          source_sha="${INPUT_SOURCE_SHA:-${PINNED_SERVER_SOURCE_SHA}}"
+          [[ "${image}" =~ @sha256:[0-9a-f]{64}$ ]]
+          [[ "${source_sha}" =~ ^[0-9a-f]{40}$ ]]
+          echo "${GH_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin >/dev/null
+          metadata="$(docker buildx imagetools inspect "${image}" --format '{{json .}}')"
+          resolved_digest="$(jq -er '.manifest.digest' <<< "${metadata}")"
+          [[ "${image##*@}" == "${resolved_digest}" ]] || { echo '::error::image digest did not resolve exactly'; exit 1; }
+          image_created="$(jq -er '.image["linux/amd64"].created // .image.created // .image["linux/amd64"].config.created // .image.config.created' <<< "${metadata}")"
+          gh attestation verify "oci://${image}" --repo honua-io/honua-server \
+            --source-digest "${source_sha}" --deny-self-hosted-runners --format json > server-attestation.json
+          {
+            echo "tier=${tier}"
+            echo "image=${image}"
+            echo "source_sha=${source_sha}"
+            echo "candidate_cut=${INPUT_RELEASE_CUT:-${image_created}}"
+            echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Verify fragment builder
+        run: python3 -m unittest tests/test_protocol_certification_fragment.py -v
+
+      - name: Materialize honest defaults for every client lane
+        run: |
+          mkdir -p artifacts
+          jq -n '{runner_lane:"grpc-dotnet",unexecuted_reason:"Promoted Geospatial.Grpc 0.2.0-alpha.1 did not reach live execution in this run.",operations:{}}' > artifacts/grpc-dotnet.json
+          jq -n '{runner_lane:"grpc-python",unexecuted_reason:"No promoted generated Python package exists for geospatial-grpc@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c; source generation is not release evidence.",operations:{}}' > artifacts/grpc-python.json
+          jq -n '{runner_lane:"grpc-typescript",unexecuted_reason:"No promoted generated TypeScript package exists for geospatial-grpc@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c; source generation is not release evidence.",operations:{}}' > artifacts/grpc-typescript.json
+
+      - name: Fetch verified versioned fixture artifact
+        run: conformance/fetch-fixtures.sh --version 0.2.0-alpha.1 --dest .certification-fixtures
+
+      - name: Seed exact server fixtures
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
+          PGPASSWORD: honua
+        run: |
+          mkdir -p artifacts
+          gh api "repos/honua-io/honua-server/contents/tests/seed/base-schema.sql?ref=${SERVER_SOURCE_SHA}" \
+            -H "Accept: application/vnd.github.raw" > artifacts/base-schema.sql
+          psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -f artifacts/base-schema.sql
+
+      - name: Start exact Honua Server image
+        env:
+          SERVER_IMAGE: ${{ steps.identity.outputs.image }}
+        run: |
+          key="$(head -c 32 /dev/urandom | base64)"
+          salt="$(head -c 16 /dev/urandom | base64)"
+          docker run -d --name honua-server --network host \
+            -e ASPNETCORE_ENVIRONMENT=Development \
+            -e ConnectionStrings__DefaultConnection="Host=localhost;Database=honua_test;Username=honua;Password=honua" \
+            -e Security__ConnectionEncryption__MasterKey="${key}" \
+            -e Security__ConnectionEncryption__Salt="${salt}" \
+            -e HONUA_ADMIN_PASSWORD="ci-protocol-api-key" \
+            -e Kestrel__Endpoints__Http__Url="http://+:8080" \
+            -e Kestrel__Endpoints__Http__Protocols="Http1" \
+            -e Kestrel__Endpoints__Grpc__Url="http://+:8081" \
+            -e Kestrel__Endpoints__Grpc__Protocols="Http2" \
+            "${SERVER_IMAGE}"
+          for _ in $(seq 1 60); do
+            [[ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/healthz/ready || true)" == 200 ]] && exit 0
+            sleep 3
+          done
+          docker logs honua-server || true
+          exit 1
+
+      - name: Authenticate the promoted-package feed
+        # Geospatial.Grpc is published to the org GitHub Packages feed, not nuget.org.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          dotnet nuget add source --name github-honua
+          --username "${GITHUB_ACTOR}" --password "${GH_TOKEN}" --store-password-in-clear-text
+          "https://nuget.pkg.github.com/honua-io/index.json"
+
+      - name: Execute promoted .NET client fixtures
+        env:
+          HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
+        run: >-
+          dotnet run --project certification/dotnet/GrpcCertificationRunner.csproj
+          --configuration Release --no-self-contained --
+          "${GRPC_TARGET}" .certification-fixtures/fixtures artifacts/grpc-dotnet.json
+
+      - name: Emit normalized certification fragment
+        if: always()
+        env:
+          SERVER_IMAGE: ${{ steps.identity.outputs.image }}
+          SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
+          PRODUCER_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CANDIDATE_CUT: ${{ steps.identity.outputs.candidate_cut }}
+          STARTED_AT: ${{ steps.identity.outputs.started_at }}
+        run: >-
+          python3 scripts/build_protocol_certification_fragment.py
+          --report artifacts/grpc-dotnet.json
+          --report artifacts/grpc-python.json
+          --report artifacts/grpc-typescript.json
+          --output artifacts/protocol-certification-fragment.json
+          --channel-target "${GRPC_TARGET}"
+          --server-image "${SERVER_IMAGE}"
+          --server-source-sha "${SERVER_SOURCE_SHA}"
+          --image-source-revision "${SERVER_SOURCE_SHA}"
+          --producer-source-sha "${PRODUCER_SOURCE_SHA}"
+          --candidate-cut "${CANDIDATE_CUT}"
+          --started-at "${STARTED_AT}"
+
+      - name: Upload governed evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: grpc-protocol-certification-${{ steps.identity.outputs.tier }}-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: ${{ steps.identity.outputs.tier == 'release' && 180 || steps.identity.outputs.tier == 'nightly' && 30 || 14 }}
