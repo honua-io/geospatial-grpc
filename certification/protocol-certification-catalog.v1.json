@@ -1,0 +1,907 @@
+{
+  "schema": "honua.grpc-protocol-certification-catalog/v1",
+  "contract_revision": "geospatial-grpc@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c",
+  "fixture_revision": "geospatial-grpc-conformance@0.2.0-alpha.1+73fc882b1ae00d0a4a348aeadfba9f48b1a0317c",
+  "clients": [
+    {
+      "canonical_client": "Generated gRPC .NET client",
+      "client_lane": "grpc-dotnet",
+      "client_version": "source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c",
+      "deployment_target": "local-docker"
+    },
+    {
+      "canonical_client": "Generated gRPC Python client",
+      "client_lane": "grpc-python",
+      "client_version": "source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c",
+      "deployment_target": "local-docker"
+    },
+    {
+      "canonical_client": "Generated gRPC TypeScript client",
+      "client_lane": "grpc-typescript",
+      "client_version": "source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c",
+      "deployment_target": "local-docker"
+    }
+  ],
+  "operations": [
+    {
+      "capability_key": "grpc.artifactservice",
+      "surface": "grpc",
+      "operation": "ArtifactService/GetArtifact",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "surface": "grpc",
+      "operation": "ArtifactService/GetRetentionPolicy",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "surface": "grpc",
+      "operation": "ArtifactService/InspectArtifact",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "surface": "grpc",
+      "operation": "ArtifactService/ListArtifacts",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "surface": "grpc",
+      "operation": "ArtifactService/ListRetentionPolicies",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "surface": "grpc",
+      "operation": "ArtifactService/PublishArtifact",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "surface": "grpc",
+      "operation": "ArtifactService/ReadArtifact",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "surface": "grpc",
+      "operation": "ArtifactService/ReleaseArtifact",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "surface": "grpc",
+      "operation": "ArtifactService/RetainArtifact",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "surface": "grpc",
+      "operation": "BuilderService/CancelBuildJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "surface": "grpc",
+      "operation": "BuilderService/DryRunBuild",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "surface": "grpc",
+      "operation": "BuilderService/ExecuteBuild",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "surface": "grpc",
+      "operation": "BuilderService/ExecuteBuildStream",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "surface": "grpc",
+      "operation": "BuilderService/GetBuildJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "surface": "grpc",
+      "operation": "BuilderService/GetBuildJobResult",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "surface": "grpc",
+      "operation": "BuilderService/SubmitBuildJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "surface": "grpc",
+      "operation": "BuilderService/ValidateBuild",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "surface": "grpc",
+      "operation": "DeploymentService/CancelDeploymentJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "surface": "grpc",
+      "operation": "DeploymentService/DryRunDeployment",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "surface": "grpc",
+      "operation": "DeploymentService/ExecuteDeployment",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "surface": "grpc",
+      "operation": "DeploymentService/ExecuteDeploymentStream",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "surface": "grpc",
+      "operation": "DeploymentService/GetDeploymentHealth",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "surface": "grpc",
+      "operation": "DeploymentService/GetDeploymentJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "surface": "grpc",
+      "operation": "DeploymentService/GetDeploymentJobResult",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "surface": "grpc",
+      "operation": "DeploymentService/RollbackDeployment",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "surface": "grpc",
+      "operation": "DeploymentService/StreamDeploymentHealth",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "surface": "grpc",
+      "operation": "DeploymentService/SubmitDeploymentJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "surface": "grpc",
+      "operation": "DeploymentService/ValidateDeployment",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.elevationservice",
+      "surface": "grpc",
+      "operation": "ElevationService/GetElevation",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.elevationservice",
+      "surface": "grpc",
+      "operation": "ElevationService/GetElevationProfile",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.featureservice",
+      "surface": "grpc",
+      "operation": "FeatureService/ApplyEdits",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.featureservice",
+      "surface": "grpc",
+      "operation": "FeatureService/QueryFeatures",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.featureservice",
+      "surface": "grpc",
+      "operation": "FeatureService/QueryFeaturesStream",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.formservice",
+      "surface": "grpc",
+      "operation": "FormService/GetFormDefinition",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.formservice",
+      "surface": "grpc",
+      "operation": "FormService/GetFormMetadata",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.formservice",
+      "surface": "grpc",
+      "operation": "FormService/StreamFormUpdates",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.formservice",
+      "surface": "grpc",
+      "operation": "FormService/SubmitFormData",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.formservice",
+      "surface": "grpc",
+      "operation": "FormService/ValidateFormData",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "surface": "grpc",
+      "operation": "PipelineService/CancelPipelineJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "surface": "grpc",
+      "operation": "PipelineService/DryRunPipeline",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "surface": "grpc",
+      "operation": "PipelineService/ExecutePipeline",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "surface": "grpc",
+      "operation": "PipelineService/ExecutePipelineStream",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "surface": "grpc",
+      "operation": "PipelineService/GetPipelineJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "surface": "grpc",
+      "operation": "PipelineService/GetPipelineJobResult",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "surface": "grpc",
+      "operation": "PipelineService/SubmitPipelineJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "surface": "grpc",
+      "operation": "PipelineService/ValidatePipeline",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.processservice",
+      "surface": "grpc",
+      "operation": "ProcessService/CancelJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.processservice",
+      "surface": "grpc",
+      "operation": "ProcessService/DryRunPlan",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.processservice",
+      "surface": "grpc",
+      "operation": "ProcessService/ExecutePlan",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.processservice",
+      "surface": "grpc",
+      "operation": "ProcessService/ExecutePlanStream",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.processservice",
+      "surface": "grpc",
+      "operation": "ProcessService/GetJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.processservice",
+      "surface": "grpc",
+      "operation": "ProcessService/GetJobResult",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.processservice",
+      "surface": "grpc",
+      "operation": "ProcessService/SubmitJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.processservice",
+      "surface": "grpc",
+      "operation": "ProcessService/ValidatePlan",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "surface": "grpc",
+      "operation": "RenderService/CancelRenderJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "surface": "grpc",
+      "operation": "RenderService/DryRunRender",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "surface": "grpc",
+      "operation": "RenderService/ExecuteRender",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "surface": "grpc",
+      "operation": "RenderService/ExecuteRenderStream",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "surface": "grpc",
+      "operation": "RenderService/GetRenderJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "surface": "grpc",
+      "operation": "RenderService/GetRenderJobResult",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "surface": "grpc",
+      "operation": "RenderService/SubmitRenderJob",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "surface": "grpc",
+      "operation": "RenderService/ValidateRender",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.sceneservice",
+      "surface": "grpc",
+      "operation": "SceneService/GetScene",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.sceneservice",
+      "surface": "grpc",
+      "operation": "SceneService/ListScenes",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.specservice",
+      "surface": "grpc",
+      "operation": "SpecService/ApplySpec",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.specservice",
+      "surface": "grpc",
+      "operation": "SpecService/CancelApply",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.specservice",
+      "surface": "grpc",
+      "operation": "SpecService/PlanSpec",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.styleservice",
+      "surface": "grpc",
+      "operation": "StyleService/GetStyle",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.styleservice",
+      "surface": "grpc",
+      "operation": "StyleService/ListStyles",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.tileservice",
+      "surface": "grpc",
+      "operation": "TileService/GetTile",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.tileservice",
+      "surface": "grpc",
+      "operation": "TileService/StreamTiles",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.workspaceservice",
+      "surface": "grpc",
+      "operation": "WorkspaceService/CreateWorkspace",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.workspaceservice",
+      "surface": "grpc",
+      "operation": "WorkspaceService/GetQuotaUsage",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.workspaceservice",
+      "surface": "grpc",
+      "operation": "WorkspaceService/GetWorkspace",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.workspaceservice",
+      "surface": "grpc",
+      "operation": "WorkspaceService/ListWorkspaces",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.workspaceservice",
+      "surface": "grpc",
+      "operation": "WorkspaceService/OpenWorkspace",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.workspaceservice",
+      "surface": "grpc",
+      "operation": "WorkspaceService/PromoteWorkspace",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.workspaceservice",
+      "surface": "grpc",
+      "operation": "WorkspaceService/ReleaseWorkspace",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.workspaceservice",
+      "surface": "grpc",
+      "operation": "WorkspaceService/RetainWorkspace",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    },
+    {
+      "capability_key": "grpc.workspaceservice",
+      "surface": "grpc",
+      "operation": "WorkspaceService/UpdateWorkspace",
+      "scenario_facets": [
+        "positive",
+        "negative",
+        "media-schema"
+      ],
+      "auth_policy_revision": "anonymous-public-v1"
+    }
+  ]
+}
