@@ -68,16 +68,49 @@ def build_fragment(args: argparse.Namespace) -> dict:
             result = outcome.get("result") if outcome else "skip"
             if result not in {"pass", "fail", "skip"}:
                 raise ValueError(f"unsupported result for {lane}/{operation['operation']}: {result}")
-            reason = None if result != "skip" else (
+            unexecuted_reason = None if result != "skip" else (
                 (outcome or {}).get("reason")
                 or report.get("unexecuted_reason")
                 or f"No canonical published-client execution result; owner: {OWNER}"
             )
             facets = operation["scenario_facets"]
-            receipt_facets = {facet: result for facet in facets}
+            facet_results = None
+            observation_result = result
+            skip_reason = unexecuted_reason
+            exercised_capabilities = []
+            if outcome and result != "skip":
+                positive = {"result": result}
+                if result == "fail" and outcome.get("reason"):
+                    positive["reason"] = outcome["reason"]
+                # media-schema is equivalent to the canonical response comparison:
+                # a matching typed protobuf JSON response proves both facets.
+                media_schema = {"result": "pass"} if result == "pass" else {
+                    "result": "skip", "reason": "canonical response comparison did not pass"
+                }
+                negative = {"result": "skip", "reason": "negative-scenario fixture not yet executed"}
+                facet_results = {
+                    "positive": positive,
+                    "negative": negative,
+                    "media-schema": media_schema,
+                }
+                exercised_capabilities = [
+                    facet for facet in facets if facet_results[facet]["result"] == "pass"
+                ]
+                if any(value["result"] == "fail" for value in facet_results.values()):
+                    observation_result = "fail"
+                    skip_reason = None
+                elif all(value["result"] == "pass" for value in facet_results.values()):
+                    observation_result = "pass"
+                    skip_reason = None
+                else:
+                    observation_result = "skip"
+                    skip_reason = "missing facet: negative — negative-scenario fixture not yet executed"
+            receipt_facets = None if facet_results is None else {
+                facet: value["result"] for facet, value in facet_results.items()
+            }
             receipt = None
             digest = None
-            if result != "skip":
+            if facet_results is not None:
                 receipt = {
                     "schema": "honua.certification-evidence-receipt/v1",
                     "identity": {
@@ -96,7 +129,7 @@ def build_fragment(args: argparse.Namespace) -> dict:
                         "started_at": args.started_at,
                         "completed_at": now,
                     },
-                    "result": result,
+                    "result": observation_result,
                     "facets": receipt_facets,
                     "payload_base64": payload_base64,
                 }
@@ -114,11 +147,11 @@ def build_fragment(args: argparse.Namespace) -> dict:
                 "protocol_profile": catalog["fixture_revision"],
                 "performed_by": client["canonical_client"],
                 "request_url": target + method_path,
-                "exercised_capabilities": facets if result == "pass" else [],
+                "exercised_capabilities": exercised_capabilities,
                 "client_version": client["client_version"],
                 "deployment_target": client["deployment_target"],
-                "result": result,
-                "skip_reason": reason,
+                "result": observation_result,
+                "skip_reason": skip_reason,
                 "source_sha": args.server_source_sha,
                 "producer_source_sha": args.producer_source_sha,
                 "image_digest": image_digest,
@@ -129,7 +162,8 @@ def build_fragment(args: argparse.Namespace) -> dict:
                 "evidence_digest": digest,
                 "evidence_receipt": receipt,
                 "facet_results": None if digest is None else {
-                    facet: {"result": result, "evidence_digest": digest} for facet in facets
+                    facet: {**value, "evidence_digest": digest}
+                    for facet, value in facet_results.items()
                 },
                 "started_at": args.started_at,
                 "completed_at": now,

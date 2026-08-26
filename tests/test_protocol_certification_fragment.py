@@ -40,7 +40,7 @@ class FragmentTests(unittest.TestCase):
             self.assertEqual("localhost:8081", parsed.netloc)
             self.assertTrue(parsed.path.startswith("/geospatial.v1."))
 
-    def test_executed_result_has_digest_bound_receipt(self):
+    def test_executed_positive_result_skips_observation_until_every_facet_passes(self):
         with tempfile.TemporaryDirectory() as directory:
             report = Path(directory) / "dotnet.json"
             report.write_text(json.dumps({
@@ -51,10 +51,37 @@ class FragmentTests(unittest.TestCase):
         observation = next(o for o in fragment["observations"] if o["runner_lane"] == "grpc-dotnet" and o["operation"] == "FeatureService/QueryFeatures")
         receipt = observation["evidence_receipt"]
         expected = "sha256:" + hashlib.sha256(MODULE.canonical_bytes(receipt)).hexdigest()
-        self.assertEqual("pass", observation["result"])
-        self.assertEqual(observation["scenario_facets"], observation["exercised_capabilities"])
+        self.assertEqual("skip", observation["result"])
+        self.assertIn("negative", observation["skip_reason"])
+        self.assertEqual(["positive", "media-schema"], observation["exercised_capabilities"])
         self.assertEqual(expected, observation["evidence_digest"])
         self.assertTrue(all(v["evidence_digest"] == expected for v in observation["facet_results"].values()))
+        self.assertEqual("pass", observation["facet_results"]["positive"]["result"])
+        self.assertEqual("pass", observation["facet_results"]["media-schema"]["result"])
+        self.assertEqual("skip", observation["facet_results"]["negative"]["result"])
+        self.assertEqual(
+            "negative-scenario fixture not yet executed",
+            observation["facet_results"]["negative"]["reason"],
+        )
+        self.assertFalse(any(o["result"] == "pass" for o in fragment["observations"]))
+
+    def test_failed_response_comparison_fails_positive_and_observation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "dotnet.json"
+            report.write_text(json.dumps({
+                "runner_lane": "grpc-dotnet",
+                "operations": {"FeatureService/QueryFeatures": {
+                    "result": "fail", "reason": "Canonical response mismatch at $.features[0].id",
+                }},
+            }))
+            fragment = self.build([report])
+        observation = next(o for o in fragment["observations"] if o["runner_lane"] == "grpc-dotnet" and o["operation"] == "FeatureService/QueryFeatures")
+        self.assertEqual("fail", observation["result"])
+        self.assertEqual("fail", observation["facet_results"]["positive"]["result"])
+        self.assertIn("$.features[0].id", observation["facet_results"]["positive"]["reason"])
+        self.assertEqual("skip", observation["facet_results"]["media-schema"]["result"])
+        self.assertEqual("skip", observation["facet_results"]["negative"]["result"])
+        self.assertEqual([], observation["exercised_capabilities"])
 
     def test_rejects_placeholder_or_floating_identity(self):
         with self.assertRaisesRegex(ValueError, "absolute HTTP"):
