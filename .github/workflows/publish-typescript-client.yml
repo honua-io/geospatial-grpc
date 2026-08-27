@@ -67,10 +67,13 @@ jobs:
           npm pack --dry-run
       - name: Smoke install packed artifact
         shell: bash
+        env:
+          VERSION: ${{ steps.contract.outputs.version }}
         run: |
           smoke_dir="$(mktemp -d)"
           trap 'rm -rf "${smoke_dir}"' EXIT
-          npm install --prefix "${smoke_dir}" "${GITHUB_WORKSPACE}"/dist/typescript/*.tgz
+          npm install --prefix "${smoke_dir}" \
+            "${GITHUB_WORKSPACE}/dist/typescript/honua-geospatial-grpc-${VERSION}.tgz"
           cd "${smoke_dir}"
           node --input-type=module -e \
             'import("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js").then(m => { if (!m.FeatureService) process.exit(1); })'
@@ -153,7 +156,7 @@ jobs:
         run: |
           smoke_dir="$(mktemp -d)"
           npm install --prefix "${smoke_dir}" --registry https://registry.npmjs.org \
-            "@honua/geospatial-grpc@${VERSION}"
+            "${GITHUB_WORKSPACE}/public/honua-geospatial-grpc-${VERSION}.tgz"
           cd "${smoke_dir}"
           node --input-type=module -e \
             'import("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js").then(m => { if (!m.FeatureService) process.exit(1); })'
