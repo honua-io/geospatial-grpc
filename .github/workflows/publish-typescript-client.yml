@@ -1,0 +1,159 @@
+name: Publish TypeScript Generated Client
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  BUF_VERSION: "1.66.0"
+  BUF_LINUX_X86_64_SHA256: "32e8e7b236e1b9da4eb20ad3c7701a404f7909b18d60f6d00837c63b31d4e6cf"
+  NODE_VERSION: "24"
+
+jobs:
+  build-and-smoke:
+    name: Build Once and Smoke
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.contract.outputs.version }}
+      tag: ${{ steps.contract.outputs.tag }}
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: packages/typescript/package-lock.json
+      - name: Install verified Buf CLI
+        run: |
+          curl -fsSL -o "${RUNNER_TEMP}/buf" \
+            "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          printf '%s  %s\n' "${BUF_LINUX_X86_64_SHA256}" "${RUNNER_TEMP}/buf" | sha256sum --check --strict
+          chmod +x "${RUNNER_TEMP}/buf"
+          echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
+      - name: Derive and validate stable release contract
+        id: contract
+        shell: bash
+        run: |
+          contract="$(python3 scripts/release_contract.py --require-stable --json)"
+          version="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' <<<"${contract}")"
+          tag="v${version}"
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            python3 scripts/release_contract.py --require-stable --tag "${GITHUB_REF_NAME}"
+            test "$(git rev-parse "${GITHUB_REF_NAME}^{commit}")" = "${GITHUB_SHA}"
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+      - name: Generate TypeScript client from tagged schema
+        run: |
+          mkdir -p packages/typescript/src
+          buf generate --template buf.gen.typescript-package.yaml --output packages/typescript/src
+          cp LICENSE packages/typescript/LICENSE
+      - name: Build, pack, and inspect
+        working-directory: packages/typescript
+        run: |
+          npm ci
+          mkdir -p ../../dist/typescript
+          npm pack --pack-destination ../../dist/typescript
+          npm pack --dry-run
+      - name: Smoke install packed artifact
+        shell: bash
+        run: |
+          smoke_dir="$(mktemp -d)"
+          trap 'rm -rf "${smoke_dir}"' EXIT
+          npm install --prefix "${smoke_dir}" "${GITHUB_WORKSPACE}"/dist/typescript/*.tgz
+          cd "${smoke_dir}"
+          node --input-type=module -e \
+            'import("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js").then(m => { if (!m.FeatureService) process.exit(1); })'
+      - name: Record checksum
+        run: (cd dist/typescript && sha256sum *.tgz > SHA256SUMS && sha256sum --check SHA256SUMS)
+      - name: Upload immutable package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: geospatial-grpc-typescript-${{ steps.contract.outputs.version }}
+          path: dist/typescript/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Validation-only summary
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "Validation only; only the exact ${{ steps.contract.outputs.tag }} tag publishes." >> "${GITHUB_STEP_SUMMARY}"
+
+  publish:
+    name: Publish to npm
+    needs: build-and-smoke
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Setup Node.js registry authentication
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+      - name: Download immutable package
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: geospatial-grpc-typescript-${{ needs.build-and-smoke.outputs.version }}
+          path: dist/typescript
+      - name: Require npm credential and unused coordinate
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+        run: |
+          test -n "${NODE_AUTH_TOKEN}" || { echo "NPM_TOKEN is required." >&2; exit 1; }
+          status="$(curl -sS -o /dev/null -w '%{http_code}' \
+            "https://registry.npmjs.org/@honua%2fgeospatial-grpc/${VERSION}")"
+          test "${status}" = "404" || { echo "npm coordinate is already occupied or unavailable (HTTP ${status})." >&2; exit 1; }
+      - name: Publish exact build artifact
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish dist/typescript/*.tgz --access public --provenance
+
+  prove-public-consumption:
+    name: Prove Clean Public Consumption
+    needs: [build-and-smoke, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+      - name: Download immutable package
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: geospatial-grpc-typescript-${{ needs.build-and-smoke.outputs.version }}
+          path: local
+      - name: Download and compare public artifact
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+        run: |
+          mkdir public
+          for attempt in {1..24}; do
+            npm pack "@honua/geospatial-grpc@${VERSION}" --pack-destination public && break
+            test "${attempt}" -lt 24 || exit 1
+            sleep 10
+          done
+          test "$(sha256sum local/*.tgz | cut -d' ' -f1)" = "$(sha256sum public/*.tgz | cut -d' ' -f1)"
+      - name: Install anonymously from npm
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+        run: |
+          smoke_dir="$(mktemp -d)"
+          npm install --prefix "${smoke_dir}" --registry https://registry.npmjs.org \
+            "@honua/geospatial-grpc@${VERSION}"
+          cd "${smoke_dir}"
+          node --input-type=module -e \
+            'import("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js").then(m => { if (!m.FeatureService) process.exit(1); })'

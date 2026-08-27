@@ -38,12 +38,22 @@ class ReleaseContractTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         (self.root / "src" / "Geospatial.Grpc").mkdir(parents=True)
         (self.root / "conformance").mkdir()
+        (self.root / "packages" / "python").mkdir(parents=True)
+        (self.root / "packages" / "typescript").mkdir(parents=True)
         (self.root / "geospatial" / "v1").mkdir(parents=True)
         (self.root / "src" / "Geospatial.Grpc" / "Geospatial.Grpc.csproj").write_text(
             "<Project><PropertyGroup><Version>1.0.0</Version></PropertyGroup></Project>",
             encoding="utf-8",
         )
         (self.root / "conformance" / "VERSION").write_text("1.0.0\n", encoding="utf-8")
+        (self.root / "packages" / "python" / "pyproject.toml").write_text(
+            '[project]\nname = "geospatial-grpc"\nversion = "1.0.0"\n',
+            encoding="utf-8",
+        )
+        (self.root / "packages" / "typescript" / "package.json").write_text(
+            '{"name":"@honua/geospatial-grpc","version":"1.0.0"}\n',
+            encoding="utf-8",
+        )
         (self.root / "geospatial" / "v1" / "test.proto").write_text(
             'syntax = "proto3";\npackage geospatial.v1;\n', encoding="utf-8"
         )
@@ -62,6 +72,14 @@ class ReleaseContractTests(unittest.TestCase):
         with self.assertRaisesRegex(release_contract.ContractError, "version drift"):
             release_contract.read_contract(self.root)
 
+    def test_generated_client_package_drift_fails(self) -> None:
+        (self.root / "packages" / "typescript" / "package.json").write_text(
+            '{"name":"@honua/geospatial-grpc","version":"1.0.1"}\n',
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(release_contract.ContractError, "version drift"):
+            release_contract.read_contract(self.root)
+
     def test_stable_major_must_match_proto_package(self) -> None:
         project = self.root / "src" / "Geospatial.Grpc" / "Geospatial.Grpc.csproj"
         project.write_text(
@@ -69,6 +87,12 @@ class ReleaseContractTests(unittest.TestCase):
             encoding="utf-8",
         )
         (self.root / "conformance" / "VERSION").write_text("2.0.0\n", encoding="utf-8")
+        (self.root / "packages" / "python" / "pyproject.toml").write_text(
+            '[project]\nname = "geospatial-grpc"\nversion = "2.0.0"\n', encoding="utf-8"
+        )
+        (self.root / "packages" / "typescript" / "package.json").write_text(
+            '{"name":"@honua/geospatial-grpc","version":"2.0.0"}\n', encoding="utf-8"
+        )
         (self.root / "CHANGELOG.md").write_text("## v2.0.0\n", encoding="utf-8")
         with self.assertRaisesRegex(release_contract.ContractError, "does not match"):
             release_contract.read_contract(self.root)
@@ -81,6 +105,14 @@ class ReleaseContractTests(unittest.TestCase):
         )
         (self.root / "conformance" / "VERSION").write_text(
             "1.0.0+local\n", encoding="utf-8"
+        )
+        (self.root / "packages" / "python" / "pyproject.toml").write_text(
+            '[project]\nname = "geospatial-grpc"\nversion = "1.0.0+local"\n',
+            encoding="utf-8",
+        )
+        (self.root / "packages" / "typescript" / "package.json").write_text(
+            '{"name":"@honua/geospatial-grpc","version":"1.0.0+local"}\n',
+            encoding="utf-8",
         )
         (self.root / "CHANGELOG.md").write_text(
             "## v1.0.0+local\n", encoding="utf-8"
@@ -225,12 +257,20 @@ class ReleaseReceiptTests(unittest.TestCase):
         (self.root / "src" / "Geospatial.Grpc").mkdir(parents=True)
         (self.root / "conformance").mkdir()
         (self.root / "geospatial" / "v1").mkdir(parents=True)
+        (self.root / "packages" / "python").mkdir(parents=True)
+        (self.root / "packages" / "typescript").mkdir(parents=True)
         (self.root / "assets").mkdir()
         (self.root / "src" / "Geospatial.Grpc" / "Geospatial.Grpc.csproj").write_text(
             "<Project><PropertyGroup><Version>1.0.0</Version></PropertyGroup></Project>",
             encoding="utf-8",
         )
         (self.root / "conformance" / "VERSION").write_text("1.0.0\n", encoding="utf-8")
+        (self.root / "packages" / "python" / "pyproject.toml").write_text(
+            '[project]\nname = "geospatial-grpc"\nversion = "1.0.0"\n', encoding="utf-8"
+        )
+        (self.root / "packages" / "typescript" / "package.json").write_text(
+            '{"name":"@honua/geospatial-grpc","version":"1.0.0"}\n', encoding="utf-8"
+        )
         (self.root / "CHANGELOG.md").write_text("## v1.0.0\n", encoding="utf-8")
         (self.root / "LICENSE").write_bytes(b"license\n")
         (self.root / "README.md").write_bytes(b"readme")
@@ -364,16 +404,23 @@ class PublicRegistryProbeTests(unittest.TestCase):
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
     def test_release_actions_are_pinned_to_annotated_commit_shas(self) -> None:
-        workflow = (ROOT / ".github/workflows/publish-dotnet-protocol.yml").read_text(
-            encoding="utf-8"
-        )
-        uses = re.findall(r"^\s*uses:\s+(\S+)(?:\s+#\s+(\S+))?\s*$", workflow, re.MULTILINE)
+        for filename in (
+            "publish-dotnet-protocol.yml",
+            "publish-python-client.yml",
+            "publish-typescript-client.yml",
+        ):
+            workflow = (ROOT / ".github/workflows" / filename).read_text(
+                encoding="utf-8"
+            )
+            uses = re.findall(
+                r"^\s*uses:\s+(\S+)(?:\s+#\s+(\S+))?\s*$", workflow, re.MULTILINE
+            )
 
-        self.assertGreater(len(uses), 0)
-        for action, version in uses:
-            with self.subTest(action=action):
-                self.assertRegex(action, r"^[^@]+@[0-9a-f]{40}$")
-                self.assertRegex(version or "", r"^v\d+\.\d+\.\d+$")
+            self.assertGreater(len(uses), 0)
+            for action, version in uses:
+                with self.subTest(workflow=filename, action=action):
+                    self.assertRegex(action, r"^[^@]+@[0-9a-f]{40}$")
+                    self.assertRegex(version or "", r"^v\d+\.\d+\.\d+$")
 
     def test_publication_is_single_tag_driven_fail_closed_transaction(self) -> None:
         workflow = (ROOT / ".github/workflows/publish-dotnet-protocol.yml").read_text(

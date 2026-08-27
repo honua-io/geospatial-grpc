@@ -50,6 +50,32 @@ def read_contract(root: Path) -> dict[str, object]:
             f"{project_version}, but conformance/VERSION is {fixture_version}"
         )
 
+    python_project = root / "packages" / "python" / "pyproject.toml"
+    typescript_package = root / "packages" / "typescript" / "package.json"
+    try:
+        import tomllib
+
+        python_version = tomllib.loads(
+            python_project.read_text(encoding="utf-8")
+        )["project"]["version"]
+        typescript_version = json.loads(
+            typescript_package.read_text(encoding="utf-8")
+        )["version"]
+    except (KeyError, json.JSONDecodeError, OSError, ValueError) as exc:
+        raise ContractError(f"cannot read generated-client package versions: {exc}") from exc
+
+    package_versions = {
+        "Geospatial.Grpc": project_version,
+        "geospatial-grpc": str(python_version),
+        "@honua/geospatial-grpc": str(typescript_version),
+        "conformance fixtures": fixture_version,
+    }
+    if len(set(package_versions.values())) != 1:
+        detail = ", ".join(
+            f"{name}={version}" for name, version in package_versions.items()
+        )
+        raise ContractError(f"version drift: {detail}")
+
     match = SEMVER_RE.fullmatch(project_version)
     if not match:
         raise ContractError(f"{project_version!r} is not canonical SemVer")

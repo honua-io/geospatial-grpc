@@ -153,6 +153,73 @@ jobs:
           path: generated/all/
           retention-days: 30
 
+  python-client-package:
+    name: Pack Python Generated Client
+    runs-on: ubuntu-latest
+    needs: lint-and-validate
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install Buf CLI
+        run: |
+          curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          chmod +x "${RUNNER_TEMP}/buf"
+          echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
+      - name: Generate and pack client
+        run: |
+          mkdir -p packages/python/src
+          buf generate --template buf.gen.python.yaml --output packages/python/src
+          touch packages/python/src/geospatial/__init__.py
+          touch packages/python/src/geospatial/v1/__init__.py
+          touch packages/python/src/geospatial/v1/py.typed
+          cp LICENSE packages/python/LICENSE
+          python -m pip install --disable-pip-version-check build==1.3.0 twine==6.2.0
+          python -m build packages/python --outdir dist/python
+          python -m twine check dist/python/*
+          python -m pip install --disable-pip-version-check --target "${RUNNER_TEMP}/python-client" dist/python/*.whl
+          PYTHONPATH="${RUNNER_TEMP}/python-client" python -c \
+            'from geospatial.v1 import feature_service_pb2_grpc; assert feature_service_pb2_grpc.FeatureServiceStub'
+
+  typescript-client-package:
+    name: Pack TypeScript Generated Client
+    runs-on: ubuntu-latest
+    needs: lint-and-validate
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: packages/typescript/package-lock.json
+      - name: Install Buf CLI
+        run: |
+          curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          chmod +x "${RUNNER_TEMP}/buf"
+          echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
+      - name: Generate, compile, and pack client
+        run: |
+          mkdir -p packages/typescript/src dist/typescript
+          buf generate --template buf.gen.typescript-package.yaml --output packages/typescript/src
+          cp LICENSE packages/typescript/LICENSE
+          npm ci --prefix packages/typescript
+          npm run build --prefix packages/typescript
+          (cd packages/typescript && npm pack --pack-destination ../../dist/typescript)
+      - name: Smoke install packed client
+        run: |
+          smoke_dir="$(mktemp -d)"
+          npm install --prefix "${smoke_dir}" "${GITHUB_WORKSPACE}"/dist/typescript/*.tgz
+          cd "${smoke_dir}"
+          node --input-type=module -e \
+            'import("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js").then(m => { if (!m.FeatureService) process.exit(1); })'
+
   examples-javascript:
     name: Build JavaScript Example
     runs-on: ubuntu-latest
