@@ -178,9 +178,8 @@ jobs:
           touch packages/python/src/geospatial/v1/__init__.py
           touch packages/python/src/geospatial/v1/py.typed
           cp LICENSE packages/python/LICENSE
-          python -m pip install --disable-pip-version-check \
-            build==1.3.0 \
-            twine==6.2.0
+          python -m pip install --disable-pip-version-check --require-hashes \
+            -r .github/requirements/python-release-tools.txt
           python -m build packages/python --outdir dist/python
           python -m twine check dist/python/*
           python -m pip install --disable-pip-version-check --target "${RUNNER_TEMP}/python-client" dist/python/*.whl

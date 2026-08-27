@@ -80,6 +80,28 @@ class ReleaseContractTests(unittest.TestCase):
         with self.assertRaisesRegex(release_contract.ContractError, "version drift"):
             release_contract.read_contract(self.root)
 
+    def test_python_package_name_mismatch_fails_with_coordinates(self) -> None:
+        (self.root / "packages" / "python" / "pyproject.toml").write_text(
+            '[project]\nname = "wrong-python-name"\nversion = "1.0.0"\n',
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(
+            release_contract.ContractError,
+            "expected 'geospatial-grpc', actual 'wrong-python-name'",
+        ):
+            release_contract.read_contract(self.root)
+
+    def test_typescript_package_name_mismatch_fails_with_coordinates(self) -> None:
+        (self.root / "packages" / "typescript" / "package.json").write_text(
+            '{"name":"@wrong/geospatial-grpc","version":"1.0.0"}\n',
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(
+            release_contract.ContractError,
+            "expected '@honua/geospatial-grpc', actual '@wrong/geospatial-grpc'",
+        ):
+            release_contract.read_contract(self.root)
+
     def test_stable_major_must_match_proto_package(self) -> None:
         project = self.root / "src" / "Geospatial.Grpc" / "Geospatial.Grpc.csproj"
         project.write_text(
