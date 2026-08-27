@@ -20,6 +20,8 @@ SEMVER_RE = re.compile(
     r"(?P<build>\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
 )
 PACKAGE_RE = re.compile(r"^\s*package\s+geospatial\.v(?P<major>\d+)\s*;", re.MULTILINE)
+PYTHON_PACKAGE_NAME = "geospatial-grpc"
+TYPESCRIPT_PACKAGE_NAME = "@honua/geospatial-grpc"
 
 
 class ContractError(ValueError):
@@ -49,6 +51,46 @@ def read_contract(root: Path) -> dict[str, object]:
             "version drift: Geospatial.Grpc is "
             f"{project_version}, but conformance/VERSION is {fixture_version}"
         )
+
+    python_project = root / "packages" / "python" / "pyproject.toml"
+    typescript_package = root / "packages" / "typescript" / "package.json"
+    try:
+        import tomllib
+
+        python_metadata = tomllib.loads(python_project.read_text(encoding="utf-8"))[
+            "project"
+        ]
+        typescript_metadata = json.loads(
+            typescript_package.read_text(encoding="utf-8")
+        )
+        python_name = python_metadata["name"]
+        python_version = python_metadata["version"]
+        typescript_name = typescript_metadata["name"]
+        typescript_version = typescript_metadata["version"]
+    except (KeyError, json.JSONDecodeError, OSError, ValueError) as exc:
+        raise ContractError(f"cannot read generated-client package versions: {exc}") from exc
+
+    package_names = {
+        python_project: (PYTHON_PACKAGE_NAME, str(python_name)),
+        typescript_package: (TYPESCRIPT_PACKAGE_NAME, str(typescript_name)),
+    }
+    for manifest, (expected, actual) in package_names.items():
+        if actual != expected:
+            raise ContractError(
+                f"package name mismatch in {manifest}: expected {expected!r}, actual {actual!r}"
+            )
+
+    package_versions = {
+        "Geospatial.Grpc": project_version,
+        "geospatial-grpc": str(python_version),
+        "@honua/geospatial-grpc": str(typescript_version),
+        "conformance fixtures": fixture_version,
+    }
+    if len(set(package_versions.values())) != 1:
+        detail = ", ".join(
+            f"{name}={version}" for name, version in package_versions.items()
+        )
+        raise ContractError(f"version drift: {detail}")
 
     match = SEMVER_RE.fullmatch(project_version)
     if not match:

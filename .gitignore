@@ -4,6 +4,14 @@
 /generated/
 /descriptors/
 /nupkgs/
+/packages/python/src/
+/packages/python/dist/
+/packages/python/*.egg-info/
+/packages/typescript/src/
+/packages/typescript/dist/
+/packages/typescript/*.tgz
+/packages/typescript/LICENSE
+/packages/typescript/node_modules/
 
 # Python release-tooling caches
 __pycache__/

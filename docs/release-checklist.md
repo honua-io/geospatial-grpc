@@ -41,10 +41,11 @@ These are the standing expectations for what a proto change must produce.
    for every configured language in `buf.gen.yaml` (C#, Go, TypeScript, Java,
    Python, Rust, Swift, plus API docs). CI runs `buf generate`; a target that
    no longer generates is a release blocker, not a follow-up.
-4. **The .NET package is the reference SDK.** `src/Geospatial.Grpc/` packs the
-   `Geospatial.Grpc` NuGet package and must build warning-clean under
-   `TreatWarningsAsErrors=true`. Its `<Version>` is bumped in the same PR as the
-   proto change (see the per-change steps below).
+4. **Published generated clients share one version.** `Geospatial.Grpc`,
+   `geospatial-grpc` on PyPI, and `@honua/geospatial-grpc` on npm are built from
+   the same tagged schema. Their manifest versions and `conformance/VERSION`
+   move together. See the
+   [generated-client publication runbook](generated-client-publication.md).
 5. **Examples and docs move with the surface.** When a change alters or adds
    observable behavior, update the affected entries under `examples/` and the
    relevant `docs/` (`specification.md`, `features/README.md`, generated
@@ -70,8 +71,9 @@ Run before requesting review / merging the proto PR.
   - [ ] `buf generate` (all `buf.gen.yaml` targets regenerate cleanly)
 - [ ] **.NET package** packs and builds warning-clean:
   `dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj --configuration Release -o ./nupkgs /p:TreatWarningsAsErrors=true`
-- [ ] **Bump the package version** in `src/Geospatial.Grpc/Geospatial.Grpc.csproj`
-  (`<Version>`) following the minor/patch rules in
+- [ ] **Bump the release version** in `src/Geospatial.Grpc/Geospatial.Grpc.csproj`,
+  `packages/python/pyproject.toml`, `packages/typescript/package.json`, and
+  `conformance/VERSION` following the minor/patch rules in
   [VERSIONING.md](../VERSIONING.md#version-numbering). The release tag must match
   this value exactly (`v<Version>`), as enforced by the publish
   workflow.
@@ -103,6 +105,10 @@ Run before requesting review / merging the proto PR.
     the new `Geospatial.Grpc` ID.
   - Both are Actions secrets available to the `production` environment. The
     workflow fails before publishing either registry when one is absent.
+  - `PYPI_API_TOKEN` can create/publish `geospatial-grpc`, and `NPM_TOKEN` can
+    publish public packages under `@honua`. These are also Actions secrets
+    available to the `production` environment; see the generated-client
+    [operator checklist](generated-client-publication.md#first-publish-operator-checklist).
 - [ ] **Run validation-only** with `workflow_dispatch`. A manual run never
   publishes; inspect the packed `.nupkg`, `.snupkg`, conformance artifact, and
   local install smoke result.

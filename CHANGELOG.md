@@ -1,9 +1,9 @@
 # Changelog
 
-All notable changes to the `geospatial.v1` proto surface and the
-`Geospatial.Grpc` package are recorded here. A single git release tag
-(`v<version>`) identifies the matching NuGet package, BSR commit/label, and
-`conformance/VERSION` fixture set.
+All notable changes to the `geospatial.v1` proto surface and its generated
+client packages are recorded here. A single git release tag (`v<version>`)
+identifies the matching NuGet, PyPI, npm, BSR, and `conformance/VERSION`
+coordinates.
 
 ## v1.0.0
 
@@ -16,6 +16,10 @@ alpha baseline.
 
 - `Geospatial.Grpc 1.0.0` is built once, smoke-tested from the packed artifact,
   and published with its `.snupkg` to nuget.org from the same `v1.0.0` tag.
+- Generated `geospatial-grpc==1.0.0` Python and
+  `@honua/geospatial-grpc@1.0.0` TypeScript clients are built once from that
+  tag, smoke-tested locally, and published through independent fail-closed
+  PyPI/npm workflows with anonymous public-consumption proof.
 - `buf.build/honua-io/geospatial-grpc:v1.0.0` resolves to an immutable BSR
   commit. The public archive is compared byte-for-byte with the canonical local
   README, license, and proto files before the release is declared complete.
