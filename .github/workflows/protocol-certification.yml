@@ -110,12 +110,16 @@ jobs:
       - name: Materialize honest defaults for every client lane
         run: |
           mkdir -p artifacts
-          jq -n '{runner_lane:"grpc-dotnet",unexecuted_reason:"Promoted Geospatial.Grpc 0.2.0-alpha.1 did not reach live execution in this run.",operations:{}}' > artifacts/grpc-dotnet.json
-          jq -n '{runner_lane:"grpc-python",unexecuted_reason:"No promoted generated Python package exists for geospatial-grpc@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c; source generation is not release evidence.",operations:{}}' > artifacts/grpc-python.json
-          jq -n '{runner_lane:"grpc-typescript",unexecuted_reason:"No promoted generated TypeScript package exists for geospatial-grpc@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c; source generation is not release evidence.",operations:{}}' > artifacts/grpc-typescript.json
+          jq -n '{runner_lane:"grpc-dotnet",unexecuted_reason:"Published Geospatial.Grpc 1.0.0 did not reach live execution in this run.",operations:{}}' > artifacts/grpc-dotnet.json
+          jq -n '{runner_lane:"grpc-python",unexecuted_reason:"No promoted Python package exists for geospatial-grpc v1.0.0; the public BSR schema coordinate is not installed-package evidence.",operations:{}}' > artifacts/grpc-python.json
+          jq -n '{runner_lane:"grpc-typescript",unexecuted_reason:"No promoted TypeScript package exists for geospatial-grpc v1.0.0; the public BSR schema coordinate is not installed-package evidence.",operations:{}}' > artifacts/grpc-typescript.json
 
-      - name: Fetch verified versioned fixture artifact
-        run: conformance/fetch-fixtures.sh --version 0.2.0-alpha.1 --dest .certification-fixtures
+      - name: Checkout v1.0.0 certification fixtures by immutable source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 0f701ecc6b0c41a5ea43e2dff3c46ce654312576
+          path: .certification-source
+          persist-credentials: false
 
       - name: Seed exact server fixtures
         env:
@@ -152,22 +156,13 @@ jobs:
           docker logs honua-server || true
           exit 1
 
-      - name: Authenticate the promoted-package feed
-        # Geospatial.Grpc is published to the org GitHub Packages feed, not nuget.org.
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >-
-          dotnet nuget add source --name github-honua
-          --username "${GITHUB_ACTOR}" --password "${GH_TOKEN}" --store-password-in-clear-text
-          "https://nuget.pkg.github.com/honua-io/index.json"
-
       - name: Execute promoted .NET client fixtures
         env:
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
         run: >-
           dotnet run --project certification/dotnet/GrpcCertificationRunner.csproj
           --configuration Release --no-self-contained --
-          "${GRPC_TARGET}" .certification-fixtures/fixtures artifacts/grpc-dotnet.json
+          "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-dotnet.json
 
       - name: Emit normalized certification fragment
         if: always()
