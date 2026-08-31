@@ -29,4 +29,4 @@ jobs:
       actions: read # scorecard inspects workflow runs
       security-events: write # upload SARIF
       id-token: write # publish results to OpenSSF
-    uses: honua-io/.github/.github/workflows/reusable-scorecard.yml@024e410fbbe63768af68604a5dd07f361590f26d # main
+    uses: honua-io/.github/.github/workflows/reusable-scorecard.yml@e26b67e904f2c23796fe677d267d73188a764545 # main
