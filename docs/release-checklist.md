@@ -97,14 +97,21 @@ Run before requesting review / merging the proto PR.
   checks that tag, checkout, and `GITHUB_SHA` resolve to one commit are the
   accepted authority boundary.
 - [ ] **Provision production credentials before tagging**:
-  - Create the BSR organization `honua-io` first (the CLI can create the module
-    but not a missing owner organization), then issue a `BUF_TOKEN` that can
-    create/push the public `buf.build/honua-io/geospatial-grpc` module.
-  - `NUGET_API_KEY` can push `Geospatial.Grpc` and its symbol package to
-    nuget.org. For the first publish, its package glob must permit creation of
-    the new `Geospatial.Grpc` ID.
-  - Both are Actions secrets available to the `production` environment. The
-    workflow fails before publishing either registry when one is absent.
+  - Ensure the BSR owner `honua-io` exists (an organization, or a user account
+    holding that name — the module path is identical either way; the CLI can
+    create the module but not a missing owner), then issue a `BUF_TOKEN` that
+    can create/push the public `buf.build/honua-io/geospatial-grpc` module.
+    `BUF_TOKEN` is an Actions secret on the `production` environment.
+  - nuget.org uses **Trusted Publishing — no long-lived `NUGET_API_KEY` secret
+    exists or may be created.** On nuget.org, configure (or when rotating
+    ownership, re-create) a Trusted Publishing policy for publisher
+    GitHubActions, repository `honua-io/geospatial-grpc`, workflow
+    `publish-dotnet-protocol.yml`, environment `production`, package glob
+    `Geospatial.Grpc*`. The publish job exchanges its OIDC identity for a
+    short-lived key via `NuGet/login`; the policy's `user:` on the login step
+    must match the nuget.org account holding the policy.
+  - The workflow fails before publishing either registry when the `BUF_TOKEN`
+    secret is absent or the Trusted Publishing exchange yields no key.
   - `PYPI_API_TOKEN` can create/publish `geospatial-grpc`, and `NPM_TOKEN` can
     publish public packages under `@honua`. These are also Actions secrets
     available to the `production` environment; see the generated-client
