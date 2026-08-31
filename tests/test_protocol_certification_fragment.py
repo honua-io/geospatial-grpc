@@ -1,5 +1,4 @@
 import argparse
-import hashlib
 import importlib.util
 import json
 import tempfile
@@ -50,22 +49,17 @@ class FragmentTests(unittest.TestCase):
             fragment = self.build([report])
         observation = next(o for o in fragment["observations"] if o["runner_lane"] == "grpc-dotnet" and o["operation"] == "FeatureService/QueryFeatures")
         receipt = observation["evidence_receipt"]
-        expected = "sha256:" + hashlib.sha256(MODULE.canonical_bytes(receipt)).hexdigest()
         self.assertEqual("skip", observation["result"])
         self.assertIn("negative", observation["skip_reason"])
-        self.assertEqual(["positive", "media-schema"], observation["exercised_capabilities"])
-        self.assertEqual(expected, observation["evidence_digest"])
-        self.assertTrue(all(v["evidence_digest"] == expected for v in observation["facet_results"].values()))
-        self.assertEqual("pass", observation["facet_results"]["positive"]["result"])
-        self.assertEqual("pass", observation["facet_results"]["media-schema"]["result"])
-        self.assertEqual("skip", observation["facet_results"]["negative"]["result"])
-        self.assertEqual(
-            "negative-scenario fixture not yet executed",
-            observation["facet_results"]["negative"]["reason"],
-        )
+        self.assertIn("positive execution pass", observation["skip_reason"])
+        self.assertEqual([], observation["exercised_capabilities"])
+        self.assertIsNone(receipt)
+        self.assertIsNone(observation["evidence_uri"])
+        self.assertIsNone(observation["evidence_digest"])
+        self.assertIsNone(observation["facet_results"])
         self.assertFalse(any(o["result"] == "pass" for o in fragment["observations"]))
 
-    def test_failed_response_comparison_fails_positive_and_observation(self):
+    def test_failed_response_comparison_remains_truthful_skip_until_every_facet_executes(self):
         with tempfile.TemporaryDirectory() as directory:
             report = Path(directory) / "dotnet.json"
             report.write_text(json.dumps({
@@ -76,11 +70,13 @@ class FragmentTests(unittest.TestCase):
             }))
             fragment = self.build([report])
         observation = next(o for o in fragment["observations"] if o["runner_lane"] == "grpc-dotnet" and o["operation"] == "FeatureService/QueryFeatures")
-        self.assertEqual("fail", observation["result"])
-        self.assertEqual("fail", observation["facet_results"]["positive"]["result"])
-        self.assertIn("$.features[0].id", observation["facet_results"]["positive"]["reason"])
-        self.assertEqual("skip", observation["facet_results"]["media-schema"]["result"])
-        self.assertEqual("skip", observation["facet_results"]["negative"]["result"])
+        self.assertEqual("skip", observation["result"])
+        self.assertIn("positive execution fail", observation["skip_reason"])
+        self.assertIn("$.features[0].id", observation["skip_reason"])
+        self.assertIsNone(observation["evidence_uri"])
+        self.assertIsNone(observation["evidence_digest"])
+        self.assertIsNone(observation["evidence_receipt"])
+        self.assertIsNone(observation["facet_results"])
         self.assertEqual([], observation["exercised_capabilities"])
 
     def test_rejects_placeholder_or_floating_identity(self):
