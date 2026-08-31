@@ -44,6 +44,9 @@ class FragmentTests(unittest.TestCase):
             report = Path(directory) / "dotnet.json"
             report.write_text(json.dumps({
                 "runner_lane": "grpc-dotnet",
+                "package": "Geospatial.Grpc",
+                "package_version": "1.0.0",
+                "package_source": "https://api.nuget.org/v3/index.json",
                 "operations": {"FeatureService/QueryFeatures": {"result": "pass"}},
             }))
             fragment = self.build([report])
@@ -64,6 +67,9 @@ class FragmentTests(unittest.TestCase):
             report = Path(directory) / "dotnet.json"
             report.write_text(json.dumps({
                 "runner_lane": "grpc-dotnet",
+                "package": "Geospatial.Grpc",
+                "package_version": "1.0.0",
+                "package_source": "https://api.nuget.org/v3/index.json",
                 "operations": {"FeatureService/QueryFeatures": {
                     "result": "fail", "reason": "Canonical response mismatch at $.features[0].id",
                 }},
@@ -78,6 +84,63 @@ class FragmentTests(unittest.TestCase):
         self.assertIsNone(observation["evidence_receipt"])
         self.assertIsNone(observation["facet_results"])
         self.assertEqual([], observation["exercised_capabilities"])
+
+    def test_complete_facets_emit_a_v2_receipt_bound_to_the_federation_revision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "dotnet.json"
+            report.write_text(json.dumps({
+                "runner_lane": "grpc-dotnet",
+                "package": "Geospatial.Grpc",
+                "package_version": "1.0.0",
+                "package_source": "https://api.nuget.org/v3/index.json",
+                "operations": {"FeatureService/QueryFeatures": {
+                    "result": "pass",
+                    "facet_results": {
+                        "positive": "pass", "negative": "pass", "media-schema": "pass",
+                    },
+                }},
+            }))
+            fragment = self.build([report])
+        observation = next(o for o in fragment["observations"] if o["runner_lane"] == "grpc-dotnet" and o["operation"] == "FeatureService/QueryFeatures")
+        self.assertEqual("pass", observation["result"])
+        self.assertIsNone(observation["skip_reason"])
+        receipt = observation["evidence_receipt"]
+        self.assertEqual("honua.certification-evidence-receipt/v2", receipt["schema"])
+        self.assertEqual("supported", receipt["identity"]["maturity"])
+        self.assertEqual("nightly", receipt["identity"]["required_tier"])
+        self.assertEqual("2026-08-29-complete.11", receipt["identity"]["requirements_revision"])
+        self.assertEqual(
+            {"positive", "negative", "media-schema"},
+            set(observation["exercised_capabilities"]),
+        )
+
+    def test_rejects_partial_reported_facets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "dotnet.json"
+            report.write_text(json.dumps({
+                "runner_lane": "grpc-dotnet",
+                "package": "Geospatial.Grpc",
+                "package_version": "1.0.0",
+                "package_source": "https://api.nuget.org/v3/index.json",
+                "operations": {"FeatureService/QueryFeatures": {
+                    "result": "pass", "facet_results": {"positive": "pass"},
+                }},
+            }))
+            with self.assertRaisesRegex(ValueError, "must cover every governed facet"):
+                self.build([report])
+
+    def test_rejects_non_public_or_wrong_package_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "dotnet.json"
+            report.write_text(json.dumps({
+                "runner_lane": "grpc-dotnet",
+                "package": "Geospatial.Grpc",
+                "package_version": "1.0.0",
+                "package_source": "https://nuget.pkg.github.com/honua-io/index.json",
+                "operations": {"FeatureService/QueryFeatures": {"result": "pass"}},
+            }))
+            with self.assertRaisesRegex(ValueError, "published package identity mismatch"):
+                self.build([report])
 
     def test_rejects_placeholder_or_floating_identity(self):
         with self.assertRaisesRegex(ValueError, "absolute HTTP"):

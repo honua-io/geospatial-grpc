@@ -63,6 +63,20 @@ def build_fragment(args: argparse.Namespace) -> dict:
         lane = client["client_lane"]
         report = reports.get(lane, {})
         outcomes = report.get("operations", {})
+        if outcomes and "package" in client:
+            expected_package_identity = {
+                "package": client["package"],
+                "package_version": client["client_version"],
+                "package_source": client["package_source"],
+            }
+            actual_package_identity = {
+                field: report.get(field) for field in expected_package_identity
+            }
+            if actual_package_identity != expected_package_identity:
+                raise ValueError(
+                    f"published package identity mismatch for {lane}: "
+                    f"expected {expected_package_identity}, got {actual_package_identity}"
+                )
         for operation in catalog["operations"]:
             outcome = outcomes.get(operation["operation"])
             result = outcome.get("result") if outcome else "skip"
@@ -79,14 +93,39 @@ def build_fragment(args: argparse.Namespace) -> dict:
             skip_reason = unexecuted_reason
             exercised_capabilities = []
             if outcome and result != "skip":
-                detail = outcome.get("reason")
-                positive_detail = f"; positive execution {result}"
-                if detail:
-                    positive_detail += f": {detail}"
-                skip_reason = (
-                    "missing required facet: negative — negative-scenario fixture not yet executed"
-                    + positive_detail
-                )
+                reported_facets = outcome.get("facet_results")
+                if reported_facets is not None:
+                    if set(reported_facets) != set(facets) or any(
+                        value not in {"pass", "fail"} for value in reported_facets.values()
+                    ):
+                        raise ValueError(
+                            f"facet results for {lane}/{operation['operation']} must cover every "
+                            "governed facet with pass or fail"
+                        )
+                    facet_results = {
+                        facet: {"result": facet_result}
+                        for facet, facet_result in reported_facets.items()
+                    }
+                    observation_result = (
+                        "pass" if all(value == "pass" for value in reported_facets.values()) else "fail"
+                    )
+                    if result != observation_result:
+                        raise ValueError(
+                            f"result for {lane}/{operation['operation']} disagrees with facet results"
+                        )
+                    skip_reason = None
+                    exercised_capabilities = [
+                        facet for facet, value in reported_facets.items() if value == "pass"
+                    ]
+                else:
+                    detail = outcome.get("reason")
+                    positive_detail = f"; positive execution {result}"
+                    if detail:
+                        positive_detail += f": {detail}"
+                    skip_reason = (
+                        "missing required facet: negative — negative-scenario fixture not yet executed"
+                        + positive_detail
+                    )
             receipt_facets = None if facet_results is None else {
                 facet: value["result"] for facet, value in facet_results.items()
             }
@@ -94,7 +133,7 @@ def build_fragment(args: argparse.Namespace) -> dict:
             digest = None
             if facet_results is not None:
                 receipt = {
-                    "schema": "honua.certification-evidence-receipt/v1",
+                    "schema": "honua.certification-evidence-receipt/v2",
                     "identity": {
                         "capability_key": operation["capability_key"],
                         "surface": operation["surface"],
@@ -102,6 +141,9 @@ def build_fragment(args: argparse.Namespace) -> dict:
                         "canonical_client": client["canonical_client"],
                         "client_version": client["client_version"],
                         "deployment_target": client["deployment_target"],
+                        "maturity": catalog["maturity"],
+                        "required_tier": catalog["required_tier"],
+                        "requirements_revision": catalog["requirements_revision"],
                         "source_sha": args.server_source_sha,
                         "producer_source_sha": args.producer_source_sha,
                         "image_digest": image_digest,
