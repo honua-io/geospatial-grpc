@@ -75,36 +75,18 @@ def build_fragment(args: argparse.Namespace) -> dict:
             )
             facets = operation["scenario_facets"]
             facet_results = None
-            observation_result = result
+            observation_result = "skip"
             skip_reason = unexecuted_reason
             exercised_capabilities = []
             if outcome and result != "skip":
-                positive = {"result": result}
-                if result == "fail" and outcome.get("reason"):
-                    positive["reason"] = outcome["reason"]
-                # media-schema is equivalent to the canonical response comparison:
-                # a matching typed protobuf JSON response proves both facets.
-                media_schema = {"result": "pass"} if result == "pass" else {
-                    "result": "skip", "reason": "canonical response comparison did not pass"
-                }
-                negative = {"result": "skip", "reason": "negative-scenario fixture not yet executed"}
-                facet_results = {
-                    "positive": positive,
-                    "negative": negative,
-                    "media-schema": media_schema,
-                }
-                exercised_capabilities = [
-                    facet for facet in facets if facet_results[facet]["result"] == "pass"
-                ]
-                if any(value["result"] == "fail" for value in facet_results.values()):
-                    observation_result = "fail"
-                    skip_reason = None
-                elif all(value["result"] == "pass" for value in facet_results.values()):
-                    observation_result = "pass"
-                    skip_reason = None
-                else:
-                    observation_result = "skip"
-                    skip_reason = "missing facet: negative — negative-scenario fixture not yet executed"
+                detail = outcome.get("reason")
+                positive_detail = f"; positive execution {result}"
+                if detail:
+                    positive_detail += f": {detail}"
+                skip_reason = (
+                    "missing required facet: negative — negative-scenario fixture not yet executed"
+                    + positive_detail
+                )
             receipt_facets = None if facet_results is None else {
                 facet: value["result"] for facet, value in facet_results.items()
             }
