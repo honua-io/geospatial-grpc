@@ -111,8 +111,8 @@ jobs:
         run: |
           mkdir -p artifacts
           jq -n '{runner_lane:"grpc-dotnet",unexecuted_reason:"Published Geospatial.Grpc 1.0.0 did not reach live execution in this run.",operations:{}}' > artifacts/grpc-dotnet.json
-          jq -n '{runner_lane:"grpc-python",unexecuted_reason:"No promoted Python package exists for geospatial-grpc v1.0.0; the public BSR schema coordinate is not installed-package evidence.",operations:{}}' > artifacts/grpc-python.json
-          jq -n '{runner_lane:"grpc-typescript",unexecuted_reason:"No promoted TypeScript package exists for geospatial-grpc v1.0.0; the public BSR schema coordinate is not installed-package evidence.",operations:{}}' > artifacts/grpc-typescript.json
+          jq -n '{runner_lane:"grpc-python",publication_state:"unpublished",unexecuted_reason:"No promoted Python package exists for geospatial-grpc v1.0.0; the public BSR schema coordinate is not installed-package evidence.",operations:{}}' > artifacts/grpc-python.json
+          jq -n '{runner_lane:"grpc-typescript",publication_state:"unpublished",unexecuted_reason:"No promoted TypeScript package exists for geospatial-grpc v1.0.0; the public BSR schema coordinate is not installed-package evidence.",operations:{}}' > artifacts/grpc-typescript.json
 
       - name: Checkout v1.0.0 certification fixtures by immutable source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
