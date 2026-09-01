@@ -38,6 +38,14 @@ class FragmentTests(unittest.TestCase):
             self.assertEqual("http", parsed.scheme)
             self.assertEqual("localhost:8081", parsed.netloc)
             self.assertTrue(parsed.path.startswith("/geospatial.v1."))
+        self.assertEqual("red", fragment["client_rollup"]["state"])
+        self.assertEqual("incomplete", fragment["client_rollup"]["client_states"]["grpc-dotnet"])
+        self.assertEqual("unpublished", fragment["client_rollup"]["client_states"]["grpc-python"])
+        self.assertEqual("unpublished", fragment["client_rollup"]["client_states"]["grpc-typescript"])
+        self.assertIsNone(fragment["client_rollup"]["claim_narrowing_decision"])
+        python = next(o for o in fragment["observations"] if o["runner_lane"] == "grpc-python")
+        self.assertEqual("unpublished", python["publication_state"])
+        self.assertEqual("skip", python["result"])
 
     def test_executed_positive_result_skips_observation_until_every_facet_passes(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -149,6 +157,20 @@ class FragmentTests(unittest.TestCase):
                 server_source_sha="b"*40, image_source_revision="b"*40, producer_source_sha="a"*40,
                 candidate_cut="x", started_at="x", completed_at="x"))})
             MODULE.build_fragment(args)
+
+    def test_rejects_unrecorded_claim_narrowing(self):
+        original = MODULE.CATALOG
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = json.loads(original.read_text())
+            catalog["claim_narrowing_decision"] = "https://example.invalid/decision"
+            path = Path(directory) / "catalog.json"
+            path.write_text(json.dumps(catalog))
+            MODULE.CATALOG = path
+            try:
+                with self.assertRaisesRegex(ValueError, "recorded issue #88"):
+                    self.build()
+            finally:
+                MODULE.CATALOG = original
 
 
 if __name__ == "__main__":
