@@ -15,6 +15,8 @@ plugins:
   # published NuGet package.
   - remote: buf.build/protocolbuffers/csharp:v35.1
     out: gen/csharp
+  - remote: buf.build/grpc/csharp:v1.81.1
+    out: gen/csharp
 
   # Go
   - remote: buf.build/protocolbuffers/go:v1.36.11
