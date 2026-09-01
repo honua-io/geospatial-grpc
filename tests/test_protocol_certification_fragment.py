@@ -42,6 +42,8 @@ class FragmentTests(unittest.TestCase):
         self.assertEqual("incomplete", fragment["client_rollup"]["client_states"]["grpc-dotnet"])
         self.assertEqual("unpublished", fragment["client_rollup"]["client_states"]["grpc-python"])
         self.assertEqual("unpublished", fragment["client_rollup"]["client_states"]["grpc-typescript"])
+        self.assertFalse(fragment["client_rollup"]["all_claimed_clients_executed"])
+        self.assertFalse(fragment["client_rollup"]["all_claimed_cells_passed"])
         self.assertIsNone(fragment["client_rollup"]["claim_narrowing_decision"])
         python = next(o for o in fragment["observations"] if o["runner_lane"] == "grpc-python")
         self.assertEqual("unpublished", python["publication_state"])

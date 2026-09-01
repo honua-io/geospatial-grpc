@@ -122,7 +122,6 @@ def build_fragment(args: argparse.Namespace) -> dict:
                     exercised_capabilities = [
                         facet for facet, value in reported_facets.items() if value == "pass"
                     ]
-                    lane_states[lane] = "executed"
                 else:
                     detail = outcome.get("reason")
                     positive_detail = f"; positive execution {result}"
@@ -200,6 +199,12 @@ def build_fragment(args: argparse.Namespace) -> dict:
                 "completed_at": now,
             }
             observations.append(observation)
+    for lane, state in tuple(lane_states.items()):
+        lane_observations = [item for item in observations if item["runner_lane"] == lane]
+        if state != "unpublished" and all(
+            item["evidence_receipt"] is not None for item in lane_observations
+        ):
+            lane_states[lane] = "executed"
     narrowing_decision = catalog.get("claim_narrowing_decision")
     if narrowing_decision is not None and not re.fullmatch(
         r"https://github\.com/honua-io/geospatial-grpc/issues/88#issuecomment-[0-9]+",
@@ -207,7 +212,8 @@ def build_fragment(args: argparse.Namespace) -> dict:
     ):
         raise ValueError("claim narrowing decision must be a recorded issue #88 comment URL")
     all_claimed_clients_executed = all(state == "executed" for state in lane_states.values())
-    rollup_passes = all_claimed_clients_executed or narrowing_decision is not None
+    all_claimed_cells_passed = all(item["result"] == "pass" for item in observations)
+    rollup_passes = all_claimed_cells_passed or narrowing_decision is not None
     return {
         "schema": "honua.protocol-certification-fragment/v1",
         "producer": PRODUCER,
@@ -222,6 +228,7 @@ def build_fragment(args: argparse.Namespace) -> dict:
             "state": "pass" if rollup_passes else "red",
             "client_states": lane_states,
             "all_claimed_clients_executed": all_claimed_clients_executed,
+            "all_claimed_cells_passed": all_claimed_cells_passed,
             "claim_narrowing_decision": narrowing_decision,
         },
         "observations": observations,
