@@ -193,6 +193,7 @@ class NugetPackageTests(unittest.TestCase):
         signed: bool = False,
         symbols: bool = False,
         pdb: bytes = b"BSJBportable-pdb",
+        license: bytes = b"license",
         readme: bytes = b"readme",
         proto: bytes = b"schema",
     ) -> None:
@@ -210,6 +211,7 @@ class NugetPackageTests(unittest.TestCase):
             if symbols:
                 package.writestr("lib/netstandard2.0/Geospatial.Grpc.pdb", pdb)
             else:
+                package.writestr("LICENSE", license)
                 package.writestr("README.md", readme)
                 package.writestr("lib/netstandard2.0/Geospatial.Grpc.dll", dll)
                 package.writestr("proto/geospatial/v1/test.proto", proto)
@@ -229,6 +231,19 @@ class NugetPackageTests(unittest.TestCase):
         self.write_package(self.remote, dll=b"different", signed=True)
         with self.assertRaisesRegex(verify_nuget_package.PackageError, "payload drift"):
             verify_nuget_package.compare(self.local, self.remote)
+
+    def test_license_text_is_required(self) -> None:
+        with zipfile.ZipFile(self.local, "w") as package:
+            package.writestr(
+                "Geospatial.Grpc.nuspec",
+                "<package><metadata><id>Geospatial.Grpc</id>"
+                "<version>1.0.0</version></metadata></package>",
+            )
+            package.writestr("README.md", b"readme")
+            package.writestr("lib/netstandard2.0/Geospatial.Grpc.dll", b"assembly")
+            package.writestr("proto/geospatial/v1/test.proto", b"schema")
+        with self.assertRaisesRegex(verify_nuget_package.PackageError, "LICENSE"):
+            verify_nuget_package.validate(self.local, "Geospatial.Grpc", "1.0.0")
 
     def test_symbol_package_identity_and_portable_pdb_are_required(self) -> None:
         symbols = Path(self.temp.name) / "Geospatial.Grpc.1.0.0.snupkg"
