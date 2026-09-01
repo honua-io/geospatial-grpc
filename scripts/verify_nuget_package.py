@@ -99,6 +99,7 @@ def validate(
         )
 
     required = {
+        "LICENSE",
         "README.md",
         "lib/netstandard2.0/Geospatial.Grpc.dll",
     }
