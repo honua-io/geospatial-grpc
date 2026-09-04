@@ -19,13 +19,13 @@
   "author": "Geospatial gRPC Contributors",
   "license": "Apache-2.0",
   "dependencies": {
-    "@bufbuild/protobuf": "^2.2.0",
+    "@bufbuild/protobuf": "^2.14.1",
     "@connectrpc/connect": "^2.0.0",
     "@connectrpc/connect-node": "^2.0.0"
   },
   "devDependencies": {
-    "@types/node": "^26.0.0",
+    "@types/node": "^26.4.1",
     "typescript": "^6.0.3",
-    "tsx": "^4.0.0"
+    "tsx": "^4.23.13"
   }
 }
