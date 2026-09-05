@@ -88,7 +88,10 @@ gRPC remains **supported for 2026.1**. The `Geospatial.Grpc` NuGet package
 Historical versions remain on [nuget.org](https://www.nuget.org/packages/Geospatial.Grpc).
 Downstream .NET projects should pin a published version instead of copying protos.
 
-Add this `nuget.config` beside the consumer project. The mapping resolves
+For a new consumer project, add this minimal `nuget.config` beside the project.
+For an existing project, merge the `github` source and `Geospatial.Grpc` mapping
+into its configuration, preserving other sources and mappings: `<clear />` in
+this standalone example removes inherited feeds. The mapping resolves
 `Geospatial.Grpc` from GitHub Packages and other dependencies from nuget.org:
 
 ```xml
@@ -115,6 +118,16 @@ Never commit credentials to `nuget.config` or print them in logs.
 In GitHub Actions, use `GITHUB_TOKEN` with `packages: read` and grant the consumer
 repository read access under the package's **Manage Actions access** settings.
 See [GitHub NuGet authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry).
+
+After checkout and .NET SDK setup, bind the token to NuGet in the consumer's
+restore step (`packages: read` alone does not supply registry credentials):
+
+```yaml
+- name: Restore authenticated GitHub Packages dependencies
+  env:
+    NuGetPackageSourceCredentials_github: Username=${{ github.actor }};Password=${{ secrets.GITHUB_TOKEN }};ValidAuthenticationTypes=Basic
+  run: dotnet restore
+```
 
 Replace `X.Y.Z` with an exact version listed in GitHub Packages:
 
