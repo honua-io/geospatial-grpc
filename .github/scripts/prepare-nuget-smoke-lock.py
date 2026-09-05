@@ -14,6 +14,10 @@ def prepare(package: Path, version: str, output: Path) -> None:
     lock = json.loads(template.read_text(encoding="utf-8"))
     release = lock["dependencies"]["net10.0"]["Geospatial.Grpc"]
     with ZipFile(package) as archive:
+        # NuGet locks use the unsigned content hash even after repository
+        # signing. Always derive it from the verified unsigned build artifact.
+        if ".signature.p7s" in archive.namelist():
+            raise ValueError("Use the unsigned build artifact for NuGet's content hash")
         nuspecs = [name for name in archive.namelist() if name.endswith(".nuspec")]
         if len(nuspecs) != 1:
             raise ValueError("Expected exactly one package manifest")

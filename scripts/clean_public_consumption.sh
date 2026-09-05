@@ -104,9 +104,10 @@ export DOTNET_CLI_HOME="${CONSUMER_DIR}/dotnet-cli"
 export NUGET_PACKAGES="${CONSUMER_DIR}/packages"
 export NUGET_HTTP_CACHE_PATH="${CONSUMER_DIR}/http-cache"
 # Keep the public-only restore fresh, with reviewed third-party hashes and the
-# hash of the repository-signed payload verified by check_public_registry.py.
+# unsigned content hash of the build compared by check_public_registry.py.
+# NuGet preserves that content hash when it repository-signs the public package.
 python3 "${REPO_ROOT}/.github/scripts/prepare-nuget-smoke-lock.py" \
-  --package "${REPO_ROOT}/public-registry/Geospatial.Grpc.${VERSION}.public.nupkg" \
+  --package "${REPO_ROOT}/release-inputs/Geospatial.Grpc.${VERSION}.nupkg" \
   --version "${VERSION}" --output "${APP_DIR}/packages.lock.json"
 dotnet restore "${APP_DIR}/PublicConsumer.csproj" \
   --configfile "${APP_DIR}/NuGet.config" --no-cache --locked-mode
