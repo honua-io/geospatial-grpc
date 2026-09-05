@@ -223,8 +223,9 @@ jobs:
         run: |
           smoke_dir="$(mktemp -d)"
           package_version="$(node -p "require('./packages/typescript/package.json').version")"
-          npm install --ignore-scripts --prefix "${smoke_dir}" "@bufbuild/protobuf@2.14.0" \
-            "${GITHUB_WORKSPACE}/dist/typescript/honua-geospatial-grpc-${package_version}.tgz"
+          node .github/scripts/prepare-typescript-smoke.mjs "${smoke_dir}" \
+            "${GITHUB_WORKSPACE}/dist/typescript/honua-geospatial-grpc-${package_version}.tgz" "${package_version}"
+          npm ci --ignore-scripts --prefix "${smoke_dir}"
           cd "${smoke_dir}"
           node --input-type=module -e \
             'import("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js").then(m => { if (!m.FeatureService) process.exit(1); })'

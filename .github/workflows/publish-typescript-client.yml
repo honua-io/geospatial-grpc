@@ -72,8 +72,9 @@ jobs:
         run: |
           smoke_dir="$(mktemp -d)"
           trap 'rm -rf "${smoke_dir}"' EXIT
-          npm install --ignore-scripts --prefix "${smoke_dir}" "@bufbuild/protobuf@2.14.0" \
-            "${GITHUB_WORKSPACE}/dist/typescript/honua-geospatial-grpc-${VERSION}.tgz"
+          node .github/scripts/prepare-typescript-smoke.mjs "${smoke_dir}" \
+            "${GITHUB_WORKSPACE}/dist/typescript/honua-geospatial-grpc-${VERSION}.tgz" "${VERSION}"
+          npm ci --ignore-scripts --prefix "${smoke_dir}"
           cd "${smoke_dir}"
           node --input-type=module -e \
             'import("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js").then(m => { if (!m.FeatureService) process.exit(1); })'
@@ -129,6 +130,11 @@ jobs:
     needs: [build-and-smoke, publish]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout trusted installation lock
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -155,8 +161,9 @@ jobs:
           VERSION: ${{ needs.build-and-smoke.outputs.version }}
         run: |
           smoke_dir="$(mktemp -d)"
-          npm install --ignore-scripts --prefix "${smoke_dir}" "@bufbuild/protobuf@2.14.0" --registry https://registry.npmjs.org \
-            "${GITHUB_WORKSPACE}/public/honua-geospatial-grpc-${VERSION}.tgz"
+          node .github/scripts/prepare-typescript-smoke.mjs "${smoke_dir}" \
+            "${GITHUB_WORKSPACE}/public/honua-geospatial-grpc-${VERSION}.tgz" "${VERSION}"
+          npm ci --ignore-scripts --prefix "${smoke_dir}" --registry https://registry.npmjs.org
           cd "${smoke_dir}"
           node --input-type=module -e \
             'import("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js").then(m => { if (!m.FeatureService) process.exit(1); })'
