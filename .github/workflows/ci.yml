@@ -385,7 +385,7 @@ jobs:
     steps:
       - name: Success Notification
         run: |
-          echo "âœ… Geospatial gRPC protocol validation completed successfully"
+          echo "✅ Geospatial gRPC protocol validation completed successfully"
           echo "  - Protobuf files validated and formatted"
           echo "  - Multi-language code generation verified"
           echo "  - Schema descriptors exported"
