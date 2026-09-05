@@ -103,10 +103,13 @@ EOF
 export DOTNET_CLI_HOME="${CONSUMER_DIR}/dotnet-cli"
 export NUGET_PACKAGES="${CONSUMER_DIR}/packages"
 export NUGET_HTTP_CACHE_PATH="${CONSUMER_DIR}/http-cache"
-# This is intentionally a fresh public-only resolution; see
-# docs/release-checklist.md#why-release-consumer-restores-are-intentionally-unlocked.
+# Keep the public-only restore fresh, with reviewed third-party hashes and the
+# hash of the repository-signed payload verified by check_public_registry.py.
+python3 "${REPO_ROOT}/.github/scripts/prepare-nuget-smoke-lock.py" \
+  --package "${REPO_ROOT}/public-registry/Geospatial.Grpc.${VERSION}.public.nupkg" \
+  --version "${VERSION}" --output "${APP_DIR}/packages.lock.json"
 dotnet restore "${APP_DIR}/PublicConsumer.csproj" \
-  --configfile "${APP_DIR}/NuGet.config" --no-cache --force-evaluate
+  --configfile "${APP_DIR}/NuGet.config" --no-cache --locked-mode
 dotnet build "${APP_DIR}/PublicConsumer.csproj" \
   --configuration Release --no-restore /p:TreatWarningsAsErrors=true
 
