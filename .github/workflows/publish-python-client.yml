@@ -63,7 +63,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check --require-hashes \
             -r .github/requirements/python-release-tools.txt
-          python -m build packages/python --outdir dist/python
+          python -m build --no-isolation packages/python --outdir dist/python
           python -m twine check dist/python/*
       - name: Smoke install built wheel
         shell: bash

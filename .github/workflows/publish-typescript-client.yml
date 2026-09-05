@@ -72,7 +72,7 @@ jobs:
         run: |
           smoke_dir="$(mktemp -d)"
           trap 'rm -rf "${smoke_dir}"' EXIT
-          npm install --prefix "${smoke_dir}" \
+          npm install --ignore-scripts --prefix "${smoke_dir}" "@bufbuild/protobuf@2.14.0" \
             "${GITHUB_WORKSPACE}/dist/typescript/honua-geospatial-grpc-${VERSION}.tgz"
           cd "${smoke_dir}"
           node --input-type=module -e \
@@ -155,7 +155,7 @@ jobs:
           VERSION: ${{ needs.build-and-smoke.outputs.version }}
         run: |
           smoke_dir="$(mktemp -d)"
-          npm install --prefix "${smoke_dir}" --registry https://registry.npmjs.org \
+          npm install --ignore-scripts --prefix "${smoke_dir}" "@bufbuild/protobuf@2.14.0" --registry https://registry.npmjs.org \
             "${GITHUB_WORKSPACE}/public/honua-geospatial-grpc-${VERSION}.tgz"
           cd "${smoke_dir}"
           node --input-type=module -e \

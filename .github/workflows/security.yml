@@ -19,7 +19,7 @@ jobs:
     permissions:
       contents: read
       security-events: write # upload SARIF
-    uses: honua-io/.github/.github/workflows/reusable-trivy.yml@024e410fbbe63768af68604a5dd07f361590f26d # main
+    uses: honua-io/.github/.github/workflows/reusable-trivy.yml@024e410fbbe63768af68604a5dd07f361590f26d # v0.36.0 Trivy workflow snapshot
     with:
       scan-type: fs
 
@@ -29,4 +29,4 @@ jobs:
       actions: read # scorecard inspects workflow runs
       security-events: write # upload SARIF
       id-token: write # publish results to OpenSSF
-    uses: honua-io/.github/.github/workflows/reusable-scorecard.yml@e26b67e904f2c23796fe677d267d73188a764545 # main
+    uses: honua-io/.github/.github/workflows/reusable-scorecard.yml@e26b67e904f2c23796fe677d267d73188a764545 # v2.4.4 Scorecard workflow snapshot

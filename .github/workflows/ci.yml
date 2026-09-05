@@ -12,6 +12,7 @@ permissions:
 
 env:
   BUF_VERSION: "1.66.0"
+  BUF_LINUX_X86_64_SHA256: "32e8e7b236e1b9da4eb20ad3c7701a404f7909b18d60f6d00837c63b31d4e6cf"
   DOTNET_VERSION: "10.0.x"
 
 jobs:
@@ -21,11 +22,12 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Buf CLI
         run: |
           curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          printf '%s  %s\n' "${BUF_LINUX_X86_64_SHA256}" "${RUNNER_TEMP}/buf" | sha256sum --check --strict
           chmod +x "${RUNNER_TEMP}/buf"
           echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
 
@@ -87,11 +89,12 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Buf CLI
         run: |
           curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          printf '%s  %s\n' "${BUF_LINUX_X86_64_SHA256}" "${RUNNER_TEMP}/buf" | sha256sum --check --strict
           chmod +x "${RUNNER_TEMP}/buf"
           echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
 
@@ -117,7 +120,7 @@ jobs:
           esac
 
       - name: Upload Generated Artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: generated-${{ matrix.language }}-code
           path: generated/${{ matrix.language }}/
@@ -130,11 +133,12 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Buf CLI
         run: |
           curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          printf '%s  %s\n' "${BUF_LINUX_X86_64_SHA256}" "${RUNNER_TEMP}/buf" | sha256sum --check --strict
           chmod +x "${RUNNER_TEMP}/buf"
           echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
 
@@ -147,7 +151,7 @@ jobs:
         run: buf generate --template buf.gen.yaml --output generated/all
 
       - name: Upload Aggregate Artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: generated-all-code
           path: generated/all/
@@ -168,6 +172,7 @@ jobs:
       - name: Install Buf CLI
         run: |
           curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          printf '%s  %s\n' "${BUF_LINUX_X86_64_SHA256}" "${RUNNER_TEMP}/buf" | sha256sum --check --strict
           chmod +x "${RUNNER_TEMP}/buf"
           echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
       - name: Generate and pack client
@@ -180,9 +185,9 @@ jobs:
           cp LICENSE packages/python/LICENSE
           python -m pip install --disable-pip-version-check --require-hashes \
             -r .github/requirements/python-release-tools.txt
-          python -m build packages/python --outdir dist/python
+          python -m build --no-isolation packages/python --outdir dist/python
           python -m twine check dist/python/*
-          python -m pip install --disable-pip-version-check --target "${RUNNER_TEMP}/python-client" dist/python/*.whl
+          python -m pip install --disable-pip-version-check --no-deps --target "${RUNNER_TEMP}/python-client" dist/python/*.whl
           PYTHONPATH="${RUNNER_TEMP}/python-client" python -c \
             'from geospatial.v1 import feature_service_pb2_grpc; assert feature_service_pb2_grpc.FeatureServiceStub'
 
@@ -203,6 +208,7 @@ jobs:
       - name: Install Buf CLI
         run: |
           curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          printf '%s  %s\n' "${BUF_LINUX_X86_64_SHA256}" "${RUNNER_TEMP}/buf" | sha256sum --check --strict
           chmod +x "${RUNNER_TEMP}/buf"
           echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
       - name: Generate, compile, and pack client
@@ -217,7 +223,7 @@ jobs:
         run: |
           smoke_dir="$(mktemp -d)"
           package_version="$(node -p "require('./packages/typescript/package.json').version")"
-          npm install --prefix "${smoke_dir}" \
+          npm install --ignore-scripts --prefix "${smoke_dir}" "@bufbuild/protobuf@2.14.0" \
             "${GITHUB_WORKSPACE}/dist/typescript/honua-geospatial-grpc-${package_version}.tgz"
           cd "${smoke_dir}"
           node --input-type=module -e \
@@ -230,16 +236,17 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Buf CLI
         run: |
           curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          printf '%s  %s\n' "${BUF_LINUX_X86_64_SHA256}" "${RUNNER_TEMP}/buf" | sha256sum --check --strict
           chmod +x "${RUNNER_TEMP}/buf"
           echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
 
@@ -266,11 +273,12 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Buf CLI
         run: |
           curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          printf '%s  %s\n' "${BUF_LINUX_X86_64_SHA256}" "${RUNNER_TEMP}/buf" | sha256sum --check --strict
           chmod +x "${RUNNER_TEMP}/buf"
           echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
 
@@ -281,7 +289,7 @@ jobs:
           buf build -o descriptors/image.json
 
       - name: Upload Schema Descriptors
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: protocol-descriptors
           path: descriptors/
@@ -294,11 +302,12 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Buf CLI
         run: |
           curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
+          printf '%s  %s\n' "${BUF_LINUX_X86_64_SHA256}" "${RUNNER_TEMP}/buf" | sha256sum --check --strict
           chmod +x "${RUNNER_TEMP}/buf"
           echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
 
@@ -324,7 +333,7 @@ jobs:
             "${RUNNER_TEMP}/bundle/conformance-fixtures-${version}/run.sh"
 
       - name: Upload Conformance Fixtures Artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: conformance-fixtures
           path: dist/conformance-fixtures-*
@@ -337,10 +346,10 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -352,7 +361,7 @@ jobs:
             /p:TreatWarningsAsErrors=true
 
       - name: Upload .NET package artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: geospatial-grpc-dotnet-package
           path: nupkgs/
@@ -375,7 +384,7 @@ jobs:
     steps:
       - name: Success Notification
         run: |
-          echo "✅ Geospatial gRPC protocol validation completed successfully"
+          echo "âœ… Geospatial gRPC protocol validation completed successfully"
           echo "  - Protobuf files validated and formatted"
           echo "  - Multi-language code generation verified"
           echo "  - Schema descriptors exported"
