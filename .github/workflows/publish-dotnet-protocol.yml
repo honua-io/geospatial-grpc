@@ -149,10 +149,13 @@ jobs:
               OutSr = new SpatialReference { Wkid = 4326 }
           };
           EOF
-          # This is intentionally a fresh resolution of the just-built package;
-          # see docs/release-checklist.md#why-release-consumer-restores-are-intentionally-unlocked.
+          # Pin third-party dependencies and bind only the release package hash
+          # to the artifact whose identity and payload were verified above.
+          python3 .github/scripts/prepare-nuget-smoke-lock.py \
+            --package "nupkgs/Geospatial.Grpc.${VERSION}.nupkg" \
+            --version "${VERSION}" --output "${smoke_dir}/packages.lock.json"
           dotnet restore "${smoke_dir}/Smoke.csproj" \
-            --configfile "${smoke_dir}/NuGet.config" --no-cache --force-evaluate
+            --configfile "${smoke_dir}/NuGet.config" --no-cache --locked-mode
           dotnet build "${smoke_dir}/Smoke.csproj" \
             --configuration Release --no-restore /p:TreatWarningsAsErrors=true
 
