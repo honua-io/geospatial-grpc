@@ -65,6 +65,12 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Verify installed client failure signaling against independent wire fixture
+        run: |
+          python3 -m pip install grpcio==1.81.1
+          dotnet build certification/dotnet/GrpcCertificationRunner.csproj --configuration Release
+          python3 -m unittest discover -s certification/tests -v
+
       - name: Resolve and verify immutable candidate
         id: identity
         env:
