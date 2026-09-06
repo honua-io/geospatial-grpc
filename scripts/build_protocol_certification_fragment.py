@@ -8,7 +8,8 @@ import base64
 import hashlib
 import json
 import re
-from datetime import datetime, timezone
+import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -26,9 +27,47 @@ def canonical_bytes(value: object) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
 
+def timestamp(value: str, name: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.utcoffset() is not None:
+            return parsed
+    except (ValueError, AttributeError):
+        pass
+    raise ValueError(f"{name} must be a timezone-aware ISO-8601 timestamp")
+
+
+def validate_times(started_at: str, completed_at: str, cut_at: str, tier: str) -> None:
+    started = timestamp(started_at, "started_at")
+    completed = timestamp(completed_at, "completed_at")
+    cut = timestamp(cut_at, "candidate_cut")
+    now = datetime.now(timezone.utc)
+    if started < cut:
+        raise ValueError("stale evidence: execution predates candidate cut")
+    if completed < started:
+        raise ValueError("completed_at precedes started_at")
+    if completed > now + timedelta(minutes=5):
+        raise ValueError("completed_at is in the future")
+    if tier in {"nightly", "release"} and now - completed > timedelta(hours=24):
+        raise ValueError("stale evidence: execution is older than 24 hours")
+
+
+def certification_errors(fragment: dict, tier: str) -> list[str]:
+    errors = [
+        f"{failure['runner_lane']}/{failure['operation']}: {failure['reason']}"
+        for failure in fragment["execution_failures"]
+    ]
+    if tier in {"nightly", "release"} and fragment["client_rollup"]["state"] != "pass":
+        missing = sum(item["result"] != "pass" for item in fragment["observations"])
+        errors.append(f"{tier} certification has {missing} non-passing required cells")
+    return errors
+
+
 def validate_identity(args: argparse.Namespace) -> tuple[str, str]:
     parsed = urlsplit(args.channel_target)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.path not in {"", "/"}:
+    if (parsed.scheme not in {"http", "https"} or not parsed.netloc
+            or parsed.path not in {"", "/"} or parsed.username or parsed.password
+            or parsed.query or parsed.fragment):
         raise ValueError("channel target must be an absolute HTTP(S) origin")
     if not re.fullmatch(r"[0-9a-f]{40}", args.server_source_sha):
         raise ValueError("server source SHA must be a full lowercase commit")
@@ -45,6 +84,9 @@ def validate_identity(args: argparse.Namespace) -> tuple[str, str]:
 def build_fragment(args: argparse.Namespace) -> dict:
     target, image_digest = validate_identity(args)
     catalog = json.loads(CATALOG.read_text())
+    tier = getattr(args, "tier", "pr")
+    now = args.completed_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    validate_times(args.started_at, now, args.candidate_cut, tier)
     reports = {}
     payloads = []
     for report_path in args.report:
@@ -53,13 +95,29 @@ def build_fragment(args: argparse.Namespace) -> dict:
         lane = report["runner_lane"]
         if lane not in CLIENT_IDS or lane in reports:
             raise ValueError(f"invalid or duplicate runner lane: {lane}")
+        unknown = set(report.get("operations", {})) - {op["operation"] for op in catalog["operations"]}
+        if unknown:
+            raise ValueError(f"unknown operations for {lane}: {sorted(unknown)}")
+        if report.get("operations") and tier in {"nightly", "release"}:
+            expected_identity = {
+                "channel_target": target,
+                "server_image": args.server_image,
+                "server_source_sha": args.server_source_sha,
+                "fixture_revision": catalog["fixture_revision"],
+            }
+            if report.get("execution_identity") != expected_identity:
+                raise ValueError(f"execution identity mismatch for {lane}")
+            validate_times(report.get("started_at"), report.get("completed_at"), args.candidate_cut, tier)
+            if (timestamp(report["started_at"], "report started_at") < timestamp(args.started_at, "started_at")
+                    or timestamp(report["completed_at"], "report completed_at") > timestamp(now, "completed_at")):
+                raise ValueError(f"execution report for {lane} is outside this run")
         reports[lane] = report
         payloads.append({"name": report_path.name, "content_base64": base64.b64encode(raw).decode()})
 
-    now = args.completed_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     payload_base64 = base64.b64encode(canonical_bytes(payloads)).decode()
     observations = []
     lane_states = {}
+    execution_failures = []
     for client in catalog["clients"]:
         lane = client["client_lane"]
         publication_state = client.get("publication_state")
@@ -87,6 +145,13 @@ def build_fragment(args: argparse.Namespace) -> dict:
             result = outcome.get("result") if outcome else "skip"
             if result not in {"pass", "fail", "skip"}:
                 raise ValueError(f"unsupported result for {lane}/{operation['operation']}: {result}")
+            if result == "pass" and publication_state != "published":
+                raise ValueError(f"unpublished client cannot claim a pass: {lane}")
+            if result == "fail":
+                execution_failures.append({
+                    "runner_lane": lane, "operation": operation["operation"],
+                    "reason": outcome.get("reason") or "executed client failed",
+                })
             unexecuted_reason = None if result != "skip" else (
                 (outcome or {}).get("reason")
                 or report.get("unexecuted_reason")
@@ -213,10 +278,13 @@ def build_fragment(args: argparse.Namespace) -> dict:
         raise ValueError("claim narrowing decision must be a recorded issue #88 comment URL")
     all_claimed_clients_executed = all(state == "executed" for state in lane_states.values())
     all_claimed_cells_passed = all(item["result"] == "pass" for item in observations)
-    rollup_passes = all_claimed_cells_passed or narrowing_decision is not None
+    # A comment URL is provenance for a decision, not a waiver for failed cells.
+    # An adopted support change must update the governed denominator itself.
+    rollup_passes = all_claimed_clients_executed and all_claimed_cells_passed
     return {
         "schema": "honua.protocol-certification-fragment/v1",
         "producer": PRODUCER,
+        "execution_failures": execution_failures,
         "generated_at": now,
         "candidate": {"source_sha": args.server_source_sha, "image_digest": image_digest, "cut_at": args.candidate_cut},
         "operation_scope": {
@@ -247,11 +315,15 @@ def main() -> int:
     parser.add_argument("--candidate-cut", required=True)
     parser.add_argument("--started-at", required=True)
     parser.add_argument("--completed-at")
+    parser.add_argument("--tier", choices=("pr", "nightly", "release"), default="pr")
     args = parser.parse_args()
     fragment = build_fragment(args)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(fragment, indent=2) + "\n")
-    return 0
+    errors = certification_errors(fragment, args.tier)
+    for error in errors:
+        print(error, file=sys.stderr)
+    return 1 if errors else 0
 
 
 if __name__ == "__main__":

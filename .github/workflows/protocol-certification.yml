@@ -159,6 +159,9 @@ jobs:
       - name: Execute promoted .NET client fixtures
         env:
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
+          SERVER_IMAGE: ${{ steps.identity.outputs.image }}
+          SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
+          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.0+0f701ecc6b0c41a5ea43e2dff3c46ce654312576
         run: >-
           dotnet run --project certification/dotnet/GrpcCertificationRunner.csproj
           --configuration Release --no-self-contained --
@@ -172,6 +175,7 @@ jobs:
           PRODUCER_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           CANDIDATE_CUT: ${{ steps.identity.outputs.candidate_cut }}
           STARTED_AT: ${{ steps.identity.outputs.started_at }}
+          CERTIFICATION_TIER: ${{ steps.identity.outputs.tier }}
         run: >-
           python3 scripts/build_protocol_certification_fragment.py
           --report artifacts/grpc-dotnet.json
@@ -185,6 +189,7 @@ jobs:
           --producer-source-sha "${PRODUCER_SOURCE_SHA}"
           --candidate-cut "${CANDIDATE_CUT}"
           --started-at "${STARTED_AT}"
+          --tier "${CERTIFICATION_TIER}"
 
       - name: Upload governed evidence
         if: always()
