@@ -18,6 +18,8 @@ var apiKey = Environment.GetEnvironmentVariable("HONUA_PROTOCOL_API_KEY")
 var headers = new Metadata { { "x-api-key", apiKey } };
 using var channel = GrpcChannel.ForAddress(target);
 var outcomes = new Dictionary<string, object>();
+var failures = 0;
+var startedAt = DateTimeOffset.UtcNow;
 
 async Task Execute<TRequest, TResponse>(
     string operation,
@@ -39,6 +41,7 @@ async Task Execute<TRequest, TResponse>(
         var divergence = FirstDivergence(expectedDocument.RootElement, actualDocument.RootElement, "$");
         if (divergence is not null)
         {
+            failures++;
             outcomes[operation] = new
             {
                 result = "fail",
@@ -50,6 +53,7 @@ async Task Execute<TRequest, TResponse>(
     }
     catch (Exception exception)
     {
+        failures++;
         outcomes[operation] = new
         {
             result = "fail",
@@ -128,8 +132,17 @@ await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(new
 {
     runner_lane = "grpc-dotnet",
     package = "Geospatial.Grpc",
-    package_version = "0.2.0-alpha.1",
-    package_source = "https://nuget.pkg.github.com/honua-io/index.json",
+    package_version = "1.0.0",
+    package_source = "https://api.nuget.org/v3/index.json",
+    started_at = startedAt,
+    completed_at = DateTimeOffset.UtcNow,
+    execution_identity = new
+    {
+        channel_target = target.GetLeftPart(UriPartial.Authority),
+        server_image = Environment.GetEnvironmentVariable("SERVER_IMAGE"),
+        server_source_sha = Environment.GetEnvironmentVariable("SERVER_SOURCE_SHA"),
+        fixture_revision = Environment.GetEnvironmentVariable("FIXTURE_REVISION"),
+    },
     operations = outcomes,
 }, new JsonSerializerOptions { WriteIndented = true }));
-return 0;
+return failures == 0 ? 0 : 1;

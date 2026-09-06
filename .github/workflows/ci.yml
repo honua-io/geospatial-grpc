@@ -344,12 +344,10 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Pack Geospatial.Grpc
+      - name: Dry-run tag-derived Geospatial.Grpc release pack
         run: |
-          dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj \
-            --configuration Release \
-            -o nupkgs \
-            /p:TreatWarningsAsErrors=true
+          python3 scripts/pack_dotnet_release.py \
+            --tag "v1.0.0-pr.${GITHUB_RUN_ID}" --output nupkgs
 
       - name: Upload .NET package artifact
         uses: actions/upload-artifact@v7

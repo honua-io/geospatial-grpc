@@ -425,6 +425,23 @@ class PublicRegistryProbeTests(unittest.TestCase):
 
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
+    def test_generated_client_publication_credentials_and_provenance(self) -> None:
+        python = (ROOT / ".github/workflows/publish-python-client.yml").read_text(
+            encoding="utf-8"
+        )
+        typescript = (ROOT / ".github/workflows/publish-typescript-client.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("environment: production", python)
+        self.assertIn("id-token: write", python)
+        self.assertIn("uses: pypa/gh-action-pypi-publish@", python)
+        self.assertNotIn("PYPI_API_TOKEN", python)
+        self.assertIn("environment: production", typescript)
+        self.assertIn("id-token: write", typescript)
+        self.assertIn("secrets.NPM_TOKEN", typescript)
+        self.assertIn("npm publish dist/typescript/*.tgz --access public --provenance", typescript)
+
     def test_release_actions_are_pinned_to_annotated_commit_shas(self) -> None:
         for filename in (
             "publish-dotnet-protocol.yml",

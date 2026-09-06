@@ -82,19 +82,78 @@ buf generate --template buf.gen.go.yaml --output generated/go
 
 ### .NET: use the published protocol package
 
-The stable `Geospatial.Grpc` NuGet package (netstandard2.0, protos compiled via
-`Grpc.Tools`) is available from [nuget.org](https://www.nuget.org/packages/Geospatial.Grpc).
-Downstream .NET projects should reference the exact package version rather than
-copying `.proto` files:
+gRPC remains **supported for 2026.1**. The `Geospatial.Grpc` NuGet package
+(netstandard2.0, protos compiled via `Grpc.Tools`) releases through
+[GitHub Packages](https://github.com/orgs/honua-io/packages?repo_name=geospatial-grpc).
+Historical versions remain on [nuget.org](https://www.nuget.org/packages/Geospatial.Grpc).
+Downstream .NET projects should pin a published version instead of copying protos.
+
+For a new consumer project, add this minimal `nuget.config` beside the project.
+For an existing project, merge the `github` source and `Geospatial.Grpc` mapping
+into its configuration, preserving other sources and mappings: `<clear />` in
+this standalone example removes inherited feeds. The mapping resolves
+`Geospatial.Grpc` from GitHub Packages and other dependencies from nuget.org:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="github" value="https://nuget.pkg.github.com/honua-io/index.json" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+  <packageSourceMapping>
+    <packageSource key="github"><package pattern="Geospatial.Grpc" /></packageSource>
+    <packageSource key="nuget.org"><package pattern="*" /></packageSource>
+  </packageSourceMapping>
+</configuration>
+```
+
+GitHub's NuGet registry requires authentication even for public packages.
+For local restores, have the operator supply a personal access token (classic)
+with `read:packages` and package access through a credential provider or the
+`NuGetPackageSourceCredentials_github` environment variable, whose format is
+`Username=GITHUB_LOGIN;Password=TOKEN;ValidAuthenticationTypes=Basic`.
+Never commit credentials to `nuget.config` or print them in logs.
+In GitHub Actions, use `GITHUB_TOKEN` with `packages: read` and grant the consumer
+repository read access under the package's **Manage Actions access** settings.
+See [GitHub NuGet authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry).
+
+After checkout and .NET SDK setup, bind the token to NuGet in the consumer's
+restore step (`packages: read` alone does not supply registry credentials):
+
+```yaml
+- name: Restore authenticated GitHub Packages dependencies
+  env:
+    NuGetPackageSourceCredentials_github: Username=${{ github.actor }};Password=${{ secrets.GITHUB_TOKEN }};ValidAuthenticationTypes=Basic
+  run: dotnet restore
+```
+
+Replace `X.Y.Z` with an exact version listed in GitHub Packages:
 
 ```bash
-dotnet add package Geospatial.Grpc --version 1.0.0
+dotnet add package Geospatial.Grpc --version X.Y.Z
 ```
 
 You can also pack it locally:
 
 ```bash
 dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj --configuration Release -o ./nupkgs
+```
+
+The [.NET GitHub Packages workflow](.github/workflows/publish-dotnet-github-packages.yml)
+packs and verifies a synthetic prerelease on every PR to `trunk`; manual runs
+also only pack. Pushing a `vMAJOR.MINOR.PATCH[-PRERELEASE]` tag packs that SemVer,
+attests the runtime and symbol archives, then pushes the exact runtime archive
+using only `GITHUB_TOKEN` with `packages: write`. Build metadata (`+...`) is
+rejected because NuGet strips it from package identity. An occupied version
+fails publication; choose a new version instead of overwriting a release.
+The workflow is independent of the legacy BSR/nuget.org release credentials.
+Symbol archives remain in the workflow artifact; GitHub Packages does not serve
+`.snupkg` symbols. Verify a downloaded archive's provenance with:
+
+```text
+gh attestation verify Geospatial.Grpc.X.Y.Z.nupkg --repo honua-io/geospatial-grpc
 ```
 
 ### First query
