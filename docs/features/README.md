@@ -1,4 +1,15 @@
+---
+type: index
+title: "Protocol surfaces"
+description: "What geospatial.v1 defines and what it deliberately does not: the implemented service surfaces, and the line between a typed contract and a server that implements it."
+resource: "https://buf.build/honua-io/geospatial-grpc"
+tags: [protocol, grpc, surfaces]
+---
 # Geospatial gRPC Feature Map
+
+Start at [Getting started](../getting-started.md) to generate a client, or read the
+[protocol specification](../specification.md) for the wire contract. Ownership and
+downstream-sync rules are in [protocol ownership](../proto-ownership.md).
 
 This repository owns deterministic, typed protocol contracts. It does not own server implementations.
 
