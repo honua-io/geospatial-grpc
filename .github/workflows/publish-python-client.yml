@@ -92,7 +92,15 @@ jobs:
     needs: build-and-smoke
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    environment: production
+    environment:
+      name: production
+      url: https://pypi.org/project/geospatial-grpc/
+    permissions:
+      contents: read
+      # Trusted Publishing exchanges this job's OIDC identity for a short-lived
+      # PyPI credential. No PYPI_API_TOKEN exists.
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -101,22 +109,17 @@ jobs:
         with:
           name: geospatial-grpc-python-${{ needs.build-and-smoke.outputs.version }}
           path: dist/python
-      - name: Require PyPI credential and unused coordinate
+      - name: Require an unused coordinate
         env:
-          PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
           VERSION: ${{ needs.build-and-smoke.outputs.version }}
         run: |
-          test -n "${PYPI_API_TOKEN}" || { echo "PYPI_API_TOKEN is required." >&2; exit 1; }
           status="$(curl -sS -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/geospatial-grpc/${VERSION}/json")"
           test "${status}" = "404" || { echo "PyPI coordinate is already occupied (HTTP ${status})." >&2; exit 1; }
       - name: Publish exact build artifact
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          python -m pip install --disable-pip-version-check --require-hashes \
-            -r .github/requirements/python-release-tools.txt
-          python -m twine upload --non-interactive dist/python/*.whl dist/python/*.tar.gz
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1 (2026-08-20)
+        with:
+          attestations: true
+          packages-dir: dist/python
 
   prove-public-consumption:
     name: Prove Clean Public Consumption

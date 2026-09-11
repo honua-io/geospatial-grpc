@@ -95,9 +95,13 @@ jobs:
     needs: build-and-smoke
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    environment: production
+    environment:
+      name: production
+      url: https://www.npmjs.com/package/@honua/geospatial-grpc
     permissions:
       contents: read
+      # npm Trusted Publishing mints a short-lived credential from this OIDC
+      # identity, and the same token carries provenance. No NPM_TOKEN exists.
       id-token: write
     steps:
       - name: Setup Node.js registry authentication
@@ -110,18 +114,20 @@ jobs:
         with:
           name: geospatial-grpc-typescript-${{ needs.build-and-smoke.outputs.version }}
           path: dist/typescript
-      - name: Require npm credential and unused coordinate
+      - name: Require an unused coordinate
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ needs.build-and-smoke.outputs.version }}
         run: |
-          test -n "${NODE_AUTH_TOKEN}" || { echo "NPM_TOKEN is required." >&2; exit 1; }
           status="$(curl -sS -o /dev/null -w '%{http_code}' \
             "https://registry.npmjs.org/@honua%2fgeospatial-grpc/${VERSION}")"
           test "${status}" = "404" || { echo "npm coordinate is already occupied or unavailable (HTTP ${status})." >&2; exit 1; }
+      - name: Use an npm that supports Trusted Publishing
+        run: |
+          # Trusted Publishing landed in npm 11.5.1; the bundled npm on the
+          # runner's Node is older, and would fall back to asking for a token.
+          npm install -g npm@11.5.1
+          npm --version
       - name: Publish exact build artifact
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish dist/typescript/*.tgz --access public --provenance
 
   prove-public-consumption:
