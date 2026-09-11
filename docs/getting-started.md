@@ -1,3 +1,10 @@
+---
+type: guide
+title: "Generate a client and make your first call"
+description: "Install buf, generate bindings for C#, TypeScript or Python from the shared protos, and run a first QueryFeatures call. Needs a server that speaks the protocol; this repository does not ship one."
+resource: "https://www.nuget.org/packages/Geospatial.Grpc"
+tags: [quickstart, codegen, csharp, typescript, python]
+---
 # Getting Started with Geospatial gRPC
 
 This guide will help you quickly get up and running with the Geospatial gRPC protocols.

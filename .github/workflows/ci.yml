@@ -32,6 +32,14 @@ jobs:
       - name: Lint Protobuf Files
         run: buf lint
 
+      # OKF bundle gate. docs/okf-bundle.v1.json declares which markdown is
+      # product documentation; every page inside that boundary must carry
+      # valid Open Knowledge Format v0.2 frontmatter. Without this the
+      # bundle drifts back within a release - a new page lands untyped and
+      # nothing notices. See agent-delivery-spec WS9.
+      - name: Validate OKF documentation bundle
+        run: python3 scripts/check-okf-bundle.py
+
       # Breaking-change gate (WIRE_JSON ruleset from buf.yaml). Runs on PRs
       # against the target branch AND on direct push to trunk against the most
       # recent release tag, so a wire/JSON-breaking proto edit fails CI on

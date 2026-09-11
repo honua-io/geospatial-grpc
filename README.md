@@ -249,6 +249,8 @@ Known implementations and clients:
 
 ## Documentation
 
+- **[Full documentation index](docs/SUMMARY.md)** — every published page, generated from the documentation bundle so it cannot drift.
+
 | Document | Contents |
 |----------|----------|
 | [Protocol specification](docs/specification.md) | Design principles and per-service protocol detail |
