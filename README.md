@@ -97,6 +97,30 @@ You can also pack it locally:
 dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj --configuration Release -o ./nupkgs
 ```
 
+### JavaScript and TypeScript: use the published client
+
+`@honua/geospatial-grpc` carries the generated protobuf-es messages and service
+descriptors, so a JS or TS project does not need buf at all:
+
+```bash
+npm install @honua/geospatial-grpc@1.0.0 @connectrpc/connect @connectrpc/connect-node
+```
+
+Generate locally instead only when you are working against an unreleased `.proto`
+change. Note that the TypeScript target lives in the all-language `buf.gen.yaml`
+(`target=ts`); `buf.gen.javascript.yaml` is `target=js` and emits no `.d.ts`.
+
+### Python: generate from the protos
+
+There is no published Python client yet — generate one:
+
+```bash
+buf generate --template buf.gen.python.yaml --output generated/python
+```
+
+Publication is tracked in [#107](https://github.com/honua-io/geospatial-grpc/pull/107);
+this section changes to an install command when it lands.
+
 ### First query
 
 .NET:
