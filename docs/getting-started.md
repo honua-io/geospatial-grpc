@@ -73,28 +73,43 @@ gen/
 
 ### Generate for Specific Language
 
-Use the single-language templates the repository ships. Do **not** reach for `--output` to
-narrow the languages: it sets the base directory that each plugin's `out:` is resolved
-against rather than replacing it, so `--output gen/csharp` against `buf.gen.yaml` writes
-`gen/csharp/gen/csharp/`, `gen/csharp/gen/go/`, and one directory per remaining language.
+Pair `--output` with a **single-language template**. This is what this repository's own CI
+does:
 
 ```bash
 # Only C# (messages *and* service stubs)
-buf generate --template buf.gen.csharp.yaml
+buf generate --template buf.gen.csharp.yaml --output generated/csharp
 
-# Only TypeScript / JavaScript
-buf generate --template buf.gen.javascript.yaml
+# Only JavaScript (protoc-gen-es target=js, no .d.ts)
+buf generate --template buf.gen.javascript.yaml --output generated/javascript
 
 # Also available: buf.gen.go.yaml, buf.gen.java.yaml, buf.gen.python.yaml
 ```
 
-`buf.gen.csharp.yaml` runs `buf.build/grpc/csharp` in addition to the message plugin, so it
-emits the `*.Client` service stubs. The all-language `buf.gen.yaml` runs only
-`buf.build/protocolbuffers/csharp`, which gives you messages and no client — worth knowing if
-you generated with `buf generate` and cannot find `FeatureServiceClient`.
+Run these from the repository root. Each writes a flat tree under the directory you name.
 
-These templates write to the current directory, so run them from the repository root and
-copy out of the paths shown below.
+**TypeScript is the exception.** `buf.gen.javascript.yaml` is `target=js` and emits `*_pb.js`
+with no `.d.ts`, so a TypeScript project gets no types from it. For TypeScript use the
+all-language template, whose `connectrpc/es` plugin is `target=ts`, and take the
+`gen/typescript/` tree it writes:
+
+```bash
+buf generate --template buf.gen.yaml --path geospatial/v1
+# -> gen/typescript/geospatial/v1/*_pb.ts
+```
+
+> **Do not pass `--output` to `buf.gen.yaml`.** `--output` sets the base directory that each
+> plugin's `out:` resolves against; it does not replace it. `buf.gen.yaml` declares `out:
+> gen/csharp`, `out: gen/go` and five more, so
+> `buf generate --template buf.gen.yaml --output gen/csharp` writes
+> `gen/csharp/gen/csharp/`, `gen/csharp/gen/go/`, `gen/csharp/gen/java/` and one directory per
+> remaining language — every language, nested one level deeper than you asked for. The
+> single-language templates use `out: .`, which is why `--output` behaves there.
+
+`buf.gen.csharp.yaml` also runs `buf.build/grpc/csharp`, so it emits the `*Grpc.cs` service
+stubs. The all-language `buf.gen.yaml` runs only `buf.build/protocolbuffers/csharp`, which
+gives you messages and **no client** — worth knowing if you ran plain `buf generate` and
+cannot find `FeatureServiceClient`.
 
 ## Step 4: Set Up Your Development Environment
 
@@ -136,8 +151,8 @@ mkdir -p gen
 cp -r ../geospatial-grpc/gen/typescript/geospatial ./gen/
 ```
 
-The `buf.build/connectrpc/es` plugin writes `gen/typescript/geospatial/v1/*_pb.ts` — there is
-no `src/` directory to copy.
+The `connectrpc/es` plugin writes `gen/typescript/geospatial/v1/*_pb.ts` — there is no
+`src/` directory to copy.
 
 ### Python
 
@@ -157,7 +172,7 @@ pip install grpcio grpcio-tools
 3. **Copy generated files**:
 ```bash
 # from the venv directory, with the repo checked out alongside it
-cp -r ../geospatial-grpc/gen/python/* .
+cp -r ../geospatial-grpc/generated/python/* .
 ```
 
 ## Step 5: Your First Query
