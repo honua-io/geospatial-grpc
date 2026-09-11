@@ -2,6 +2,13 @@ name: Publish TypeScript Generated Client
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Existing v<Version> tag to publish (e.g. v1.0.0). Leave empty to
+          validate the current ref without publishing.
+        required: false
+        type: string
   push:
     tags:
       - "v*"
@@ -25,6 +32,7 @@ jobs:
       - name: Checkout tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.tag) || github.ref }}
           fetch-depth: 0
           fetch-tags: true
       - name: Setup Node.js
@@ -43,13 +51,20 @@ jobs:
       - name: Derive and validate stable release contract
         id: contract
         shell: bash
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
         run: |
           contract="$(python3 scripts/release_contract.py --require-stable --json)"
           version="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' <<<"${contract}")"
           tag="v${version}"
           if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
-            python3 scripts/release_contract.py --require-stable --tag "${GITHUB_REF_NAME}"
-            test "$(git rev-parse "${GITHUB_REF_NAME}^{commit}")" = "${GITHUB_SHA}"
+            target_tag="${GITHUB_REF_NAME}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${DISPATCH_TAG}" ]]; then
+            target_tag="${DISPATCH_TAG}"
+          fi
+          if [[ -n "${target_tag:-}" ]]; then
+            python3 scripts/release_contract.py --require-stable --tag "${target_tag}"
+            test "$(git rev-parse "${target_tag}^{commit}")" = "$(git rev-parse HEAD)"
           fi
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
@@ -87,17 +102,21 @@ jobs:
           if-no-files-found: error
           retention-days: 90
       - name: Validation-only summary
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.tag == ''
         run: echo "Validation only; only the exact ${{ steps.contract.outputs.tag }} tag publishes." >> "${GITHUB_STEP_SUMMARY}"
 
   publish:
     name: Publish to npm
     needs: build-and-smoke
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
     runs-on: ubuntu-latest
-    environment: production
+    environment:
+      name: production
+      url: https://www.npmjs.com/package/@honua/geospatial-grpc
     permissions:
       contents: read
+      # npm Trusted Publishing mints a short-lived credential from this OIDC
+      # identity, and the same token carries provenance. No NPM_TOKEN exists.
       id-token: write
     steps:
       - name: Setup Node.js registry authentication
@@ -110,18 +129,20 @@ jobs:
         with:
           name: geospatial-grpc-typescript-${{ needs.build-and-smoke.outputs.version }}
           path: dist/typescript
-      - name: Require npm credential and unused coordinate
+      - name: Require an unused coordinate
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ needs.build-and-smoke.outputs.version }}
         run: |
-          test -n "${NODE_AUTH_TOKEN}" || { echo "NPM_TOKEN is required." >&2; exit 1; }
           status="$(curl -sS -o /dev/null -w '%{http_code}' \
             "https://registry.npmjs.org/@honua%2fgeospatial-grpc/${VERSION}")"
           test "${status}" = "404" || { echo "npm coordinate is already occupied or unavailable (HTTP ${status})." >&2; exit 1; }
+      - name: Use an npm that supports Trusted Publishing
+        run: |
+          # Trusted Publishing landed in npm 11.5.1; the bundled npm on the
+          # runner's Node is older, and would fall back to asking for a token.
+          npm install -g npm@11.5.1
+          npm --version
       - name: Publish exact build artifact
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish dist/typescript/*.tgz --access public --provenance
 
   prove-public-consumption:
