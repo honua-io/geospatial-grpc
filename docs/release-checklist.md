@@ -111,10 +111,11 @@ Run before requesting review / merging the proto PR.
     short-lived key via `NuGet/login`; the policy's `user:` on the login step
     must match the nuget.org account holding the policy.
   - The workflow fails before publishing either registry when the `BUF_TOKEN`
-    secret is absent or the Trusted Publishing exchange yields no key.
-  - `PYPI_API_TOKEN` can create/publish `geospatial-grpc`, and `NPM_TOKEN` can
-    publish public packages under `@honua`. These are also Actions secrets
-    available to the `production` environment; see the generated-client
+    secret is absent or a Trusted Publishing exchange yields no key.
+  - pypi.org also uses **Trusted Publishing — no long-lived `PYPI_API_TOKEN`
+    secret exists or may be created.** `NPM_TOKEN` can publish public packages
+    under `@honua` and remains an Actions secret on the `production`
+    environment; see the generated-client
     [operator checklist](generated-client-publication.md#first-publish-operator-checklist).
 - [ ] **Run validation-only** with `workflow_dispatch`. A manual run never
   publishes; inspect the packed `.nupkg`, `.snupkg`, conformance artifact, and

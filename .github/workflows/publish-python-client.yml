@@ -2,6 +2,13 @@ name: Publish Python Generated Client
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Existing v<Version> tag to publish (e.g. v1.0.0). Leave empty to
+          validate the current ref without publishing.
+        required: false
+        type: string
   push:
     tags:
       - "v*"
@@ -25,6 +32,7 @@ jobs:
       - name: Checkout tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.tag) || github.ref }}
           fetch-depth: 0
           fetch-tags: true
       - name: Setup Python
@@ -41,13 +49,20 @@ jobs:
       - name: Derive and validate stable release contract
         id: contract
         shell: bash
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
         run: |
           contract="$(python3 scripts/release_contract.py --require-stable --json)"
           version="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' <<<"${contract}")"
           tag="v${version}"
           if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
-            python3 scripts/release_contract.py --require-stable --tag "${GITHUB_REF_NAME}"
-            test "$(git rev-parse "${GITHUB_REF_NAME}^{commit}")" = "${GITHUB_SHA}"
+            target_tag="${GITHUB_REF_NAME}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${DISPATCH_TAG}" ]]; then
+            target_tag="${DISPATCH_TAG}"
+          fi
+          if [[ -n "${target_tag:-}" ]]; then
+            python3 scripts/release_contract.py --require-stable --tag "${target_tag}"
+            test "$(git rev-parse "${target_tag}^{commit}")" = "$(git rev-parse HEAD)"
           fi
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
@@ -84,39 +99,34 @@ jobs:
           if-no-files-found: error
           retention-days: 90
       - name: Validation-only summary
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.tag == ''
         run: echo "Validation only; only the exact ${{ steps.contract.outputs.tag }} tag publishes." >> "${GITHUB_STEP_SUMMARY}"
 
   publish:
     name: Publish to PyPI
     needs: build-and-smoke
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - name: Checkout tagged source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Download immutable distributions
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: geospatial-grpc-python-${{ needs.build-and-smoke.outputs.version }}
           path: dist/python
-      - name: Require PyPI credential and unused coordinate
+      - name: Require unused PyPI coordinate
         env:
-          PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
           VERSION: ${{ needs.build-and-smoke.outputs.version }}
         run: |
-          test -n "${PYPI_API_TOKEN}" || { echo "PYPI_API_TOKEN is required." >&2; exit 1; }
           status="$(curl -sS -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/geospatial-grpc/${VERSION}/json")"
           test "${status}" = "404" || { echo "PyPI coordinate is already occupied (HTTP ${status})." >&2; exit 1; }
-      - name: Publish exact build artifact
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          python -m pip install --disable-pip-version-check --require-hashes \
-            -r .github/requirements/python-release-tools.txt
-          python -m twine upload --non-interactive dist/python/*.whl dist/python/*.tar.gz
+      - name: Publish exact build artifact with Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: dist/python/
 
   prove-public-consumption:
     name: Prove Clean Public Consumption

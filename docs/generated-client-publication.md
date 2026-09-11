@@ -11,23 +11,39 @@ tag as the schema, conformance fixtures, BSR coordinate, and .NET package:
 Generated files remain build outputs and are never committed. Each workflow
 generates from the tagged `.proto` files, builds once, installs the exact local
 artifact as a smoke test, and uploads it as an immutable Actions artifact.
-Manual dispatch stops there and cannot publish. An exact `v<Version>` tag is the
-only publication trigger; its version must match the .NET package, both client
-manifests, `conformance/VERSION`, the protocol major, and `CHANGELOG.md`.
+A `workflow_dispatch` run with no `tag` input stops there and cannot publish.
+An exact `v<Version>` tag pushed to the repository is the primary publication
+trigger; its version must match the .NET package, both client manifests,
+`conformance/VERSION`, the protocol major, and `CHANGELOG.md`.
+
+`publish-python-client.yml` also accepts a `tag` input on `workflow_dispatch`
+to re-run publication for an already-created, already-built `v<Version>` tag
+(for example, recovering from a credential or configuration failure on the
+original tag-push run) without creating a new tag. It checks out that tag,
+re-validates the release contract against it, and publishes exactly as the
+tag-push trigger would.
 
 ## First-publish operator checklist
 
 Before creating the stable tag:
 
 - Configure the `production` environment to admit only protected `v*` tags.
-- Add the organization/environment Actions secret `PYPI_API_TOKEN`, scoped to
-  create and upload the `geospatial-grpc` PyPI project.
+- PyPI uses **Trusted Publishing — no long-lived `PYPI_API_TOKEN` secret exists
+  or may be created.** On pypi.org, configure (or when rotating ownership,
+  re-create) a Trusted Publisher for the `geospatial-grpc` project: publisher
+  GitHub, repository `honua-io/geospatial-grpc`, workflow
+  `publish-python-client.yml`, environment `production`. The publish job
+  exchanges its OIDC identity for a short-lived upload token via
+  `pypa/gh-action-pypi-publish`; the trusted publisher's repository, workflow
+  filename, and environment must match this workflow exactly or the exchange
+  is rejected.
 - Add the organization/environment Actions secret `NPM_TOKEN`, scoped to
   publish the public `@honua/geospatial-grpc` npm package in the `@honua` org.
 - Confirm the package coordinates are unoccupied. The workflows repeat this
   check and fail closed rather than overwriting or skipping an existing release.
-- Run both workflows with `workflow_dispatch` from the intended release commit.
-  Inspect the generated wheel/sdist and npm tarball artifacts and smoke results.
+- Run both workflows with `workflow_dispatch` (no `tag` input) from the intended
+  release commit. Inspect the generated wheel/sdist and npm tarball artifacts
+  and smoke results.
 - Confirm all repository CI checks are green on the release commit.
 
 Then create and push the single protected `v<Version>` tag. Do not create a
