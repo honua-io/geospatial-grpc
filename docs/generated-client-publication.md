@@ -10,7 +10,10 @@ tag as the schema, conformance fixtures, BSR coordinate, and .NET package:
 
 Generated files remain build outputs and are never committed. Each workflow
 generates from the tagged `.proto` files, builds once, installs the exact local
-artifact as a smoke test, and uploads it as an immutable Actions artifact.
+artifact as a smoke test, and uploads it as an immutable Actions artifact. The
+Python workflow records a `SHA256SUMS` file alongside the wheel and sdist as
+part of that artifact; it is a run record only and is never passed to the
+publish step, which sees just the wheel and sdist.
 A `workflow_dispatch` run with no `tag` input stops there and cannot publish.
 An exact `v<Version>` tag pushed to the repository is the primary publication
 trigger; its version must match the .NET package, both client manifests,
@@ -43,7 +46,11 @@ Before creating the stable tag:
   - In both cases the trusted publisher's repository, workflow filename, and
     environment must match the workflow exactly or the exchange is rejected.
 - Confirm the package coordinates are unoccupied. The workflows repeat this
-  check and fail closed rather than overwriting or skipping an existing release.
+  check before publishing: an unoccupied coordinate publishes, an occupied
+  coordinate is compared byte-for-byte (PyPI file digest, npm `dist.integrity`)
+  against the freshly built artifact — identical skips the publish step with a
+  green job, and any difference fails closed with both digests logged. They
+  never overwrite a published version.
 - Run both workflows with `workflow_dispatch` (no `tag` input) from the intended
   release commit. Inspect the generated wheel/sdist and npm tarball artifacts
   and smoke results.

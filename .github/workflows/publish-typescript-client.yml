@@ -129,20 +129,41 @@ jobs:
         with:
           name: geospatial-grpc-typescript-${{ needs.build-and-smoke.outputs.version }}
           path: dist/typescript
-      - name: Require an unused coordinate
+      - name: Require an unused or identical coordinate
+        id: guard
         env:
           VERSION: ${{ needs.build-and-smoke.outputs.version }}
         run: |
-          status="$(curl -sS -o /dev/null -w '%{http_code}' \
+          response="$(curl -sS -w '\n%{http_code}' \
             "https://registry.npmjs.org/@honua%2fgeospatial-grpc/${VERSION}")"
-          test "${status}" = "404" || { echo "npm coordinate is already occupied or unavailable (HTTP ${status})." >&2; exit 1; }
+          status="${response##*$'\n'}"
+          body="${response%$'\n'*}"
+          if [[ "${status}" == "404" ]]; then
+            echo "skip=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [[ "${status}" != "200" ]]; then
+            echo "npm coordinate check failed (HTTP ${status})." >&2
+            exit 1
+          fi
+          tgz="$(ls dist/typescript/*.tgz)"
+          local_integrity="sha512-$(openssl dgst -sha512 -binary "${tgz}" | openssl base64 -A)"
+          remote_integrity="$(jq -r '.dist.integrity' <<<"${body}")"
+          if [[ "${remote_integrity}" != "${local_integrity}" ]]; then
+            echo "Integrity mismatch for @honua/geospatial-grpc@${VERSION}: local=${local_integrity} published=${remote_integrity}" >&2
+            exit 1
+          fi
+          echo "already published, verified identical: @honua/geospatial-grpc@${VERSION} integrity=${local_integrity}"
+          echo "skip=true" >> "${GITHUB_OUTPUT}"
       - name: Use an npm that supports Trusted Publishing
+        if: steps.guard.outputs.skip != 'true'
         run: |
           # Trusted Publishing landed in npm 11.5.1; the bundled npm on the
           # runner's Node is older, and would fall back to asking for a token.
           npm install -g npm@11.5.1
           npm --version
       - name: Publish exact build artifact
+        if: steps.guard.outputs.skip != 'true'
         run: npm publish dist/typescript/*.tgz --access public --provenance
 
   prove-public-consumption:
