@@ -171,7 +171,10 @@ def validate_symbols(
 
 def verify_source_payload(package_path: Path, root: Path) -> dict[str, object]:
     files = package_files(package_path)
-    expected: dict[str, bytes] = {"README.md": (root / "README.md").read_bytes()}
+    expected: dict[str, bytes] = {
+        "LICENSE": (root / "LICENSE").read_bytes(),
+        "README.md": (root / "README.md").read_bytes(),
+    }
     expected.update(
         {
             f"proto/{path.relative_to(root).as_posix()}": path.read_bytes()
@@ -181,7 +184,8 @@ def verify_source_payload(package_path: Path, root: Path) -> dict[str, object]:
     actual = {
         name: content
         for name, content in files.items()
-        if name == "README.md" or name.startswith("proto/geospatial/v1/")
+        if name in {"LICENSE", "README.md"}
+        or name.startswith("proto/geospatial/v1/")
     }
     if set(actual) != set(expected):
         missing = sorted(set(expected) - set(actual))
