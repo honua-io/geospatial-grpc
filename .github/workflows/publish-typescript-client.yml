@@ -32,7 +32,7 @@ jobs:
       - name: Checkout tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.tag) || github.ref }}
+          ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.tag != '' && format('refs/tags/{0}', inputs.tag)) || github.ref }}
           fetch-depth: 0
           fetch-tags: true
       - name: Setup Node.js
@@ -60,10 +60,14 @@ jobs:
           if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
             target_tag="${GITHUB_REF_NAME}"
           elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${DISPATCH_TAG}" ]]; then
-            target_tag="${DISPATCH_TAG}"
+            target_tag="refs/tags/${DISPATCH_TAG}"
           fi
           if [[ -n "${target_tag:-}" ]]; then
-            python3 scripts/release_contract.py --require-stable --tag "${target_tag}"
+            if [[ "${target_tag}" != refs/tags/v* ]]; then
+              echo "tag input must target a tag ref (e.g. v1.2.3)." >&2
+              exit 1
+            fi
+            python3 scripts/release_contract.py --require-stable --tag "${target_tag#refs/tags/}"
             test "$(git rev-parse "${target_tag}^{commit}")" = "$(git rev-parse HEAD)"
           fi
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
