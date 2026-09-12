@@ -117,9 +117,10 @@ Run before requesting review / merging the proto PR.
     publish jobs exchange an OIDC identity for a short-lived credential; see
     the generated-client
     [operator checklist](generated-client-publication.md#first-publish-operator-checklist).
-- [ ] **Run validation-only** with `workflow_dispatch`. A manual run never
-  publishes; inspect the packed `.nupkg`, `.snupkg`, conformance artifact, and
-  local install smoke result.
+- [ ] **Run validation-only** with `workflow_dispatch` and no `tag` input. This
+  validation-only mode never publishes, but a workflow_dispatch with `tag` set
+  to an existing `v*` tag does publish. Inspect the packed `.nupkg`,
+  `.snupkg`, conformance artifact, and local install smoke result.
 - [ ] **Tag the release once**: `v<Version>`, where `<Version>` matches both the
   `.csproj` and `conformance/VERSION`. Pushing this exact tag triggers
   `publish-dotnet-protocol.yml`; do not create a `geospatial-grpc-v*` tag.
