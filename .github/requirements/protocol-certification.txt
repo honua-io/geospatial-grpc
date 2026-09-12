@@ -1,0 +1,9 @@
+# The certification transport oracle runs on the x86_64 GitHub-hosted Linux
+# runner. Keep every currently supported CPython wheel hash so the runner's
+# preinstalled Python minor version cannot select an unverified artifact.
+grpcio==1.81.1 \
+    --hash=sha256:ca1cc11d82677b9662082e5478b7528e2b7db7beaa6bdff42bd62789d81be399 \
+    --hash=sha256:0a37165cc80b1a368384b383e63a4c38116a10467ae44c904d2d7468c4470ec2 \
+    --hash=sha256:766bc7c9a9c340342f4c864ccbda8e78111e4751f13b895812b9c148fb79e9d0 \
+    --hash=sha256:e64dd101d380a115cc5a0c7856788adb535f1a4e21fc543775602f8be95180ae \
+    --hash=sha256:410482da976329fe5f4067270401b12cf2bd552ff8020f054ecfaddb5475f9d6

@@ -67,7 +67,8 @@ jobs:
 
       - name: Verify installed client failure signaling against independent wire fixture
         run: |
-          python3 -m pip install grpcio==1.81.1
+          python3 -m pip install --require-hashes --only-binary=:all: \
+            --requirement .github/requirements/protocol-certification.txt
           dotnet build certification/dotnet/GrpcCertificationRunner.csproj --configuration Release
           python3 -m unittest discover -s certification/tests -v
 
