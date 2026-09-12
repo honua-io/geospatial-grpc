@@ -19,6 +19,10 @@
   "excludedDirs": [],
   "excludedFiles": [
     {
+      "path": "docs/SUMMARY.md",
+      "why": "GitBook's table of contents, generated from this bundle by scripts/generate-summary.py. It is navigation OVER the bundle, not a concept in it - the same reason honua-server excludes its own SUMMARY.md."
+    },
+    {
       "path": "docs/release-checklist.md",
       "why": "The release-coordination contract between maintainers of this repo and the downstream SDKs. It describes how a change gets cut, not what the protocol is or how to consume it. A client reading the bundle should never need it."
     },

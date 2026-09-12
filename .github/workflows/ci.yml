@@ -40,6 +40,13 @@ jobs:
       - name: Validate OKF documentation bundle
         run: python3 scripts/check-okf-bundle.py
 
+      # SUMMARY.md is GitBook's table of contents, derived from the same
+      # boundary the gate above checks. A page added to the bundle and not the
+      # TOC - or the reverse - fails here rather than shipping a contents page
+      # that disagrees with the bundle.
+      - name: Verify the GitBook table of contents is derived
+        run: python3 scripts/generate-summary.py --check
+
       # Breaking-change gate (WIRE_JSON ruleset from buf.yaml). Runs on PRs
       # against the target branch AND on direct push to trunk against the most
       # recent release tag, so a wire/JSON-breaking proto edit fails CI on
