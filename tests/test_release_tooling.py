@@ -433,13 +433,13 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn("environment: production", python)
+        self.assertIn("environment:\n      name: production", python)
         self.assertIn("id-token: write", python)
         self.assertIn("uses: pypa/gh-action-pypi-publish@", python)
-        self.assertNotIn("PYPI_API_TOKEN", python)
-        self.assertIn("environment: production", typescript)
+        self.assertNotIn("secrets.PYPI_API_TOKEN", python)
+        self.assertIn("environment:\n      name: production", typescript)
         self.assertIn("id-token: write", typescript)
-        self.assertIn("secrets.NPM_TOKEN", typescript)
+        self.assertNotIn("secrets.NPM_TOKEN", typescript)
         self.assertIn("npm publish dist/typescript/*.tgz --access public --provenance", typescript)
 
     def test_release_actions_are_pinned_to_annotated_commit_shas(self) -> None:
