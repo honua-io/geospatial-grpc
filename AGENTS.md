@@ -112,7 +112,10 @@ Shared type modules: `common.proto`, `spatial_types.proto`,
 
 Generation flow: `buf.gen.yaml` (v2) drives multi-language output to `gen/`
 with managed-mode package prefixes (`github.com/geospatial-grpc/proto-go`,
-`io.grpc.geospatial`, C# base namespace `GeospatialGrpc`). The .NET package
+`io.grpc.geospatial`). C# uses no `base_namespace` override: managed mode
+derives the namespace from the proto package (`geospatial.v1` -> `Geospatial.V1`),
+and a `base_namespace` that is not a prefix of that namespace makes the C#
+plugin hard-fail (so `GeospatialGrpc` must not be set). The .NET package
 instead compiles the protos directly via `Grpc.Tools` (`GrpcServices=Both`).
 
 ## Directory Layout
