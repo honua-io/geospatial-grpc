@@ -1,8 +1,22 @@
+---
+type: guide
+title: "Generate a client and make your first call"
+description: "Install buf, generate bindings for C#, TypeScript or Python from the shared protos, and run a first QueryFeatures call. Needs a server that speaks the protocol; this repository does not ship one."
+resource: "https://www.nuget.org/packages/Geospatial.Grpc"
+tags: [quickstart, codegen, csharp, typescript, python]
+---
 # Getting Started with Geospatial gRPC
 
 This guide will help you quickly get up and running with the Geospatial gRPC protocols.
 
 ## Prerequisites
+
+> **This repository ships the protocol, not a server.** There is no reference
+> implementation, container image, or compose file here, and every example below targets a
+> placeholder host (`api.example.com`). To run any of them end to end you need a server that
+> speaks this protocol — see the
+> [Honua Server quickstart](https://github.com/honua-io/honua-server/blob/trunk/docs/get-started/quickstart.md),
+> and note that its gRPC listener is h2c on port **8081**, separate from the HTTP port.
 
 - **Buf CLI**: [Install Buf](https://buf.build/docs/installation) for protocol buffer management
 - **Development Environment**: Your preferred language with gRPC support
@@ -66,13 +80,43 @@ gen/
 
 ### Generate for Specific Language
 
-```bash
-# Only C#
-buf generate --template buf.gen.yaml --include-imports --path geospatial/v1 --output gen/csharp
+Pair `--output` with a **single-language template**. This is what this repository's own CI
+does:
 
-# Only TypeScript
-buf generate --template buf.gen.yaml --include-imports --path geospatial/v1 --output gen/typescript
+```bash
+# Only C# (messages *and* service stubs)
+buf generate --template buf.gen.csharp.yaml --output generated/csharp
+
+# Only JavaScript (protoc-gen-es target=js, no .d.ts)
+buf generate --template buf.gen.javascript.yaml --output generated/javascript
+
+# Also available: buf.gen.go.yaml, buf.gen.java.yaml, buf.gen.python.yaml
 ```
+
+Run these from the repository root. Each writes a flat tree under the directory you name.
+
+**TypeScript is the exception.** `buf.gen.javascript.yaml` is `target=js` and emits `*_pb.js`
+with no `.d.ts`, so a TypeScript project gets no types from it. For TypeScript use the
+all-language template, whose `connectrpc/es` plugin is `target=ts`, and take the
+`gen/typescript/` tree it writes:
+
+```bash
+buf generate --template buf.gen.yaml --path geospatial/v1
+# -> gen/typescript/geospatial/v1/*_pb.ts
+```
+
+> **Do not pass `--output` to `buf.gen.yaml`.** `--output` sets the base directory that each
+> plugin's `out:` resolves against; it does not replace it. `buf.gen.yaml` declares `out:
+> gen/csharp`, `out: gen/go` and five more, so
+> `buf generate --template buf.gen.yaml --output gen/csharp` writes
+> `gen/csharp/gen/csharp/`, `gen/csharp/gen/go/`, `gen/csharp/gen/java/` and one directory per
+> remaining language — every language, nested one level deeper than you asked for. The
+> single-language templates use `out: .`, which is why `--output` behaves there.
+
+`buf.gen.csharp.yaml` also runs `buf.build/grpc/csharp`, so it emits the `*Grpc.cs` service
+stubs. The all-language `buf.gen.yaml` runs only `buf.build/protocolbuffers/csharp`, which
+gives you messages and **no client** — worth knowing if you ran plain `buf generate` and
+cannot find `FeatureServiceClient`.
 
 ## Step 4: Set Up Your Development Environment
 
@@ -97,14 +141,25 @@ required.
 
 1. **Create a new Node.js project**:
 ```bash
+mkdir geospatial-grpc-example && cd geospatial-grpc-example
 npm init -y
+npm pkg set type=module
 npm install @bufbuild/protobuf @connectrpc/connect @connectrpc/connect-node
+npm install --save-dev typescript tsx
 ```
+
+`npm pkg set type=module` is required. The generated code is ESM and the examples below use
+top-level `await`; neither works under the CommonJS default that `npm init -y` writes.
 
 2. **Copy generated files**:
 ```bash
-cp -r ../gen/typescript/src .
+# from geospatial-grpc-example/, with the repo checked out alongside it
+mkdir -p gen
+cp -r ../geospatial-grpc/gen/typescript/geospatial ./gen/
 ```
+
+The `connectrpc/es` plugin writes `gen/typescript/geospatial/v1/*_pb.ts` — there is no
+`src/` directory to copy.
 
 ### Python
 
@@ -123,7 +178,8 @@ pip install grpcio grpcio-tools
 
 3. **Copy generated files**:
 ```bash
-cp -r ../gen/python/* .
+# from the venv directory, with the repo checked out alongside it
+cp -r ../geospatial-grpc/generated/python/* .
 ```
 
 ## Step 5: Your First Query
@@ -167,7 +223,7 @@ foreach (var feature in response.Features)
 ### TypeScript Example
 
 ```typescript
-import { FeatureService } from './gen/geospatial/v1/feature_service_pb';
+import { FeatureService } from './gen/geospatial/v1/feature_service_pb.js';
 import { createClient } from '@connectrpc/connect';
 import { createGrpcTransport } from '@connectrpc/connect-node';
 
@@ -191,8 +247,12 @@ const response = await client.queryFeatures({
 console.log(`Found ${response.features.length} features`);
 response.features.forEach(feature => {
   console.log(`Feature ID: ${feature.id}`);
-  if (feature.geometry?.point) {
-    const { x, y } = feature.geometry.point;
+  // `shape` is a proto3 oneof. protobuf-es v2 renders it as a tagged union
+  // ({ case, value }), not as sibling properties - `geometry.point` is always
+  // undefined.
+  const shape = feature.geometry?.shape;
+  if (shape?.case === 'point') {
+    const { x, y } = shape.value;
     console.log(`Location: ${x}, ${y}`);
   }
 });
@@ -376,6 +436,10 @@ catch (RpcException ex)
 ### Connection Configuration
 
 ```csharp
+using Grpc.Core;                        // StatusCode, CallCredentials
+using Grpc.Net.Client;                  // GrpcChannel, GrpcChannelOptions
+using Grpc.Net.Client.Configuration;    // ServiceConfig, MethodConfig, MethodName, RetryPolicy
+
 var channel = GrpcChannel.ForAddress("https://api.production.com", new GrpcChannelOptions
 {
     // Connection settings
@@ -443,6 +507,15 @@ var channel = GrpcChannel.ForAddress("https://api.production.com", new GrpcChann
 ```
 
 ## Step 10: Workspace, Artifact, Process, Pipeline, Render, Build, and Deployment Workflows
+
+> **`ExecutionContext` is ambiguous in C#.** `dotnet new console` enables implicit usings,
+> which bring in `System.Threading.ExecutionContext`, so the generated
+> `Geospatial.V1.ExecutionContext` used throughout this step fails to compile with `CS0104`.
+> Add an alias beside your other usings:
+>
+> ```csharp
+> using ExecutionContext = Geospatial.V1.ExecutionContext;
+> ```
 
 The protocol includes seven services for server-side workflows:
 

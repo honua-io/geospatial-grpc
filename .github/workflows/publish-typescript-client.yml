@@ -2,6 +2,13 @@ name: Publish TypeScript Generated Client
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Existing v<Version> tag to publish (e.g. v1.0.0). Leave empty to
+          validate the current ref without publishing.
+        required: false
+        type: string
   push:
     tags:
       - "v*"
@@ -25,6 +32,7 @@ jobs:
       - name: Checkout tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.tag) || github.ref }}
           fetch-depth: 0
           fetch-tags: true
       - name: Setup Node.js
@@ -43,13 +51,20 @@ jobs:
       - name: Derive and validate stable release contract
         id: contract
         shell: bash
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
         run: |
           contract="$(python3 scripts/release_contract.py --require-stable --json)"
           version="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' <<<"${contract}")"
           tag="v${version}"
           if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
-            python3 scripts/release_contract.py --require-stable --tag "${GITHUB_REF_NAME}"
-            test "$(git rev-parse "${GITHUB_REF_NAME}^{commit}")" = "${GITHUB_SHA}"
+            target_tag="${GITHUB_REF_NAME}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${DISPATCH_TAG}" ]]; then
+            target_tag="${DISPATCH_TAG}"
+          fi
+          if [[ -n "${target_tag:-}" ]]; then
+            python3 scripts/release_contract.py --require-stable --tag "${target_tag}"
+            test "$(git rev-parse "${target_tag}^{commit}")" = "$(git rev-parse HEAD)"
           fi
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
@@ -72,8 +87,9 @@ jobs:
         run: |
           smoke_dir="$(mktemp -d)"
           trap 'rm -rf "${smoke_dir}"' EXIT
-          npm install --prefix "${smoke_dir}" \
-            "${GITHUB_WORKSPACE}/dist/typescript/honua-geospatial-grpc-${VERSION}.tgz"
+          node .github/scripts/prepare-typescript-smoke.mjs "${smoke_dir}" \
+            "${GITHUB_WORKSPACE}/dist/typescript/honua-geospatial-grpc-${VERSION}.tgz" "${VERSION}"
+          npm ci --ignore-scripts --prefix "${smoke_dir}"
           cd "${smoke_dir}"
           node --input-type=module -e \
             'import("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js").then(m => { if (!m.FeatureService) process.exit(1); })'
@@ -87,17 +103,21 @@ jobs:
           if-no-files-found: error
           retention-days: 90
       - name: Validation-only summary
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.tag == ''
         run: echo "Validation only; only the exact ${{ steps.contract.outputs.tag }} tag publishes." >> "${GITHUB_STEP_SUMMARY}"
 
   publish:
     name: Publish to npm
     needs: build-and-smoke
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
     runs-on: ubuntu-latest
-    environment: production
+    environment:
+      name: production
+      url: https://www.npmjs.com/package/@honua/geospatial-grpc
     permissions:
       contents: read
+      # npm Trusted Publishing mints a short-lived credential from this OIDC
+      # identity, and the same token carries provenance. No NPM_TOKEN exists.
       id-token: write
     steps:
       - name: Setup Node.js registry authentication
@@ -110,18 +130,41 @@ jobs:
         with:
           name: geospatial-grpc-typescript-${{ needs.build-and-smoke.outputs.version }}
           path: dist/typescript
-      - name: Require npm credential and unused coordinate
+      - name: Require an unused or identical coordinate
+        id: guard
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ needs.build-and-smoke.outputs.version }}
         run: |
-          test -n "${NODE_AUTH_TOKEN}" || { echo "NPM_TOKEN is required." >&2; exit 1; }
-          status="$(curl -sS -o /dev/null -w '%{http_code}' \
+          response="$(curl -sS -w '\n%{http_code}' \
             "https://registry.npmjs.org/@honua%2fgeospatial-grpc/${VERSION}")"
-          test "${status}" = "404" || { echo "npm coordinate is already occupied or unavailable (HTTP ${status})." >&2; exit 1; }
+          status="${response##*$'\n'}"
+          body="${response%$'\n'*}"
+          if [[ "${status}" == "404" ]]; then
+            echo "skip=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [[ "${status}" != "200" ]]; then
+            echo "npm coordinate check failed (HTTP ${status})." >&2
+            exit 1
+          fi
+          tgz="$(ls dist/typescript/*.tgz)"
+          local_integrity="sha512-$(openssl dgst -sha512 -binary "${tgz}" | openssl base64 -A)"
+          remote_integrity="$(jq -r '.dist.integrity' <<<"${body}")"
+          if [[ "${remote_integrity}" != "${local_integrity}" ]]; then
+            echo "Integrity mismatch for @honua/geospatial-grpc@${VERSION}: local=${local_integrity} published=${remote_integrity}" >&2
+            exit 1
+          fi
+          echo "already published, verified identical: @honua/geospatial-grpc@${VERSION} integrity=${local_integrity}"
+          echo "skip=true" >> "${GITHUB_OUTPUT}"
+      - name: Use an npm that supports Trusted Publishing
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          # Trusted Publishing landed in npm 11.5.1; the bundled npm on the
+          # runner's Node is older, and would fall back to asking for a token.
+          npm install -g npm@11.5.1
+          npm --version
       - name: Publish exact build artifact
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        if: steps.guard.outputs.skip != 'true'
         run: npm publish dist/typescript/*.tgz --access public --provenance
 
   prove-public-consumption:
@@ -129,6 +172,11 @@ jobs:
     needs: [build-and-smoke, publish]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout trusted installation lock
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -155,8 +203,9 @@ jobs:
           VERSION: ${{ needs.build-and-smoke.outputs.version }}
         run: |
           smoke_dir="$(mktemp -d)"
-          npm install --prefix "${smoke_dir}" --registry https://registry.npmjs.org \
-            "${GITHUB_WORKSPACE}/public/honua-geospatial-grpc-${VERSION}.tgz"
+          node .github/scripts/prepare-typescript-smoke.mjs "${smoke_dir}" \
+            "${GITHUB_WORKSPACE}/public/honua-geospatial-grpc-${VERSION}.tgz" "${VERSION}"
+          npm ci --ignore-scripts --prefix "${smoke_dir}" --registry https://registry.npmjs.org
           cd "${smoke_dir}"
           node --input-type=module -e \
             'import("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js").then(m => { if (!m.FeatureService) process.exit(1); })'

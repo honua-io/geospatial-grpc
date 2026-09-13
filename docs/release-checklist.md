@@ -111,10 +111,11 @@ Run before requesting review / merging the proto PR.
     short-lived key via `NuGet/login`; the policy's `user:` on the login step
     must match the nuget.org account holding the policy.
   - The workflow fails before publishing either registry when the `BUF_TOKEN`
-    secret is absent or the Trusted Publishing exchange yields no key.
-  - `PYPI_API_TOKEN` can create/publish `geospatial-grpc`, and `NPM_TOKEN` can
-    publish public packages under `@honua`. These are also Actions secrets
-    available to the `production` environment; see the generated-client
+    secret is absent or a Trusted Publishing exchange yields no key.
+  - pypi.org and npmjs.com also use **Trusted Publishing — no long-lived
+    `PYPI_API_TOKEN` or `NPM_TOKEN` secret exists or may be created.** Both
+    publish jobs exchange an OIDC identity for a short-lived credential; see
+    the generated-client
     [operator checklist](generated-client-publication.md#first-publish-operator-checklist).
 - [ ] **Run validation-only** with `workflow_dispatch`. A manual run never
   publishes; inspect the packed `.nupkg`, `.snupkg`, conformance artifact, and
@@ -143,27 +144,24 @@ Run before requesting review / merging the proto PR.
   version, Git commit, immutable BSR commit, release receipt URL, and downstream
   pins.
 
-### Why release-consumer restores are intentionally unlocked
+### How release-consumer restores are hash-locked
 
-The two release acceptance restores deliberately resolve a fresh dependency
-graph instead of using `packages.lock.json` and `--locked-mode`. The first
-consumes the package built for the current `GITHUB_SHA`, so its content hash is
-not knowable before that build. The second consumes the newly published
-nuget.org package, whose repository signature changes the archive hash. A lock
-file generated earlier would therefore describe a different artifact, while a
-lock file generated in the same run would only record the initial resolution
-after it had already happened and would not constrain it.
+Both release acceptance restores use `--locked-mode` with the reviewed
+third-party dependency versions and hashes in
+`.github/requirements/dotnet-smoke.lock.json`. Before the first restore,
+`.github/scripts/prepare-nuget-smoke-lock.py` verifies that the release package's
+identity and dependency declarations match that contract, then binds only its
+version and hash to the already verified artifact. Dependency changes require
+an explicit lock update; the workflow never learns third-party hashes from a
+fresh resolution during the release.
 
-This does not weaken the release transaction. The local smoke adds a dedicated
-mapping for `Geospatial.Grpc` to the just-built source, uses exact direct
-versions, isolated temporary state, and empty caches, and runs before that
-version exists publicly. Before the public smoke,
-the workflow verifies the repository-signed nuget.org payload against that
-build, checks the immutable BSR commit, removes registry credentials, and gives
-the consumer only nuget.org plus fresh package and HTTP caches. NuGet package
-versions are immutable, and the public payload comparison fails closed on any
-non-signature drift. Revisit locked restore only if an independently known lock
-can name the repository-signed public artifact before the first resolution.
+The local smoke consumes the just-built package through a dedicated source
+mapping. Before the public smoke, the workflow compares the repository-signed
+nuget.org payload against that build and checks the immutable BSR commit. The
+public lock uses NuGet's unsigned content hash from the retained build artifact;
+repository signing preserves that content identity. The consumer still has
+only nuget.org, no registry credentials, and fresh package and HTTP caches;
+different package contents or dependency hashes fail the locked restore.
 
 ## Downstream Coordination Checklist (per affected SDK)
 
