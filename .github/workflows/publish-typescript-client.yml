@@ -58,7 +58,7 @@ jobs:
           version="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' <<<"${contract}")"
           tag="v${version}"
           if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
-            target_tag="${GITHUB_REF_NAME}"
+            target_tag="refs/tags/${GITHUB_REF_NAME}"
           elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${DISPATCH_TAG}" ]]; then
             target_tag="refs/tags/${DISPATCH_TAG}"
           fi
