@@ -13,7 +13,7 @@
 # schema release.
 #
 # Usage:
-#   conformance/fetch-fixtures.sh --version 0.1.0-alpha.1 [--dest DIR] [--repo OWNER/REPO]
+#   conformance/fetch-fixtures.sh --version 1.0.0 [--dest DIR] [--repo OWNER/REPO]
 #
 # Pin a specific version (never "latest") so CI is deterministic. The version
 # string maps 1:1 to a geospatial-grpc release tag (see conformance/README.md

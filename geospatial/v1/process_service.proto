@@ -35,10 +35,10 @@ import "geospatial/v1/execution_types.proto";
 // arrive as gRPC-level codes from client deadlines or transport cancellation.
 service ProcessService {
   // ValidatePlan checks a plan for structural and capability issues.
-  rpc ValidatePlan(ValidatePlanRequest) returns (ValidatePlanResponse);
+  rpc ValidatePlan(ValidatePlanRequest) returns (ValidateResponse);
 
   // DryRunPlan estimates the cost and impact of executing a plan without side effects.
-  rpc DryRunPlan(DryRunPlanRequest) returns (DryRunPlanResponse);
+  rpc DryRunPlan(DryRunPlanRequest) returns (DryRunResponse);
 
   // ExecutePlan runs a plan synchronously and returns the result.
   rpc ExecutePlan(ExecutePlanRequest) returns (ExecutePlanResponse);
@@ -64,22 +64,9 @@ message ValidatePlanRequest {
   ExecutionPlan plan = 1;
 }
 
-// ValidatePlanResponse returns the validation outcome.
-message ValidatePlanResponse {
-  bool valid = 1;
-  repeated PlanValidationIssue issues = 2;
-}
-
 // DryRunPlanRequest asks the server to estimate the impact of executing a plan.
 message DryRunPlanRequest {
   ExecutionPlan plan = 1;
-}
-
-// DryRunPlanResponse contains the validation outcome and dry-run estimation.
-message DryRunPlanResponse {
-  bool valid = 1;
-  repeated PlanValidationIssue issues = 2;
-  DryRunResult result = 3;
 }
 
 // ExecutePlanRequest submits a plan for synchronous or streaming execution.
@@ -136,29 +123,6 @@ message SubmitJobRequest {
   string idempotency_key = 3;
 }
 
-// SubmitJobResponse confirms job submission and returns the job identifier.
-message SubmitJobResponse {
-  string job_id = 1;
-  JobState state = 2;
-}
-
-// GetJobRequest retrieves the current state of a submitted job.
-message GetJobRequest {
-  string job_id = 1;
-}
-
-// GetJobResponse returns the job state and progress.
-message GetJobResponse {
-  string job_id = 1;
-  JobState state = 2;
-  JobProgress progress = 3;
-}
-
-// GetJobResultRequest retrieves the results of a completed job.
-message GetJobResultRequest {
-  string job_id = 1;
-}
-
 // GetJobResultResponse returns the job result.
 // The gRPC status is OK regardless of job outcome. For failed jobs, the
 // error field carries the structured ErrorDetail.
@@ -168,15 +132,4 @@ message GetJobResultResponse {
     ExecutionResult result = 2;
     ErrorDetail error = 3;
   }
-}
-
-// CancelJobRequest requests cancellation of a running or pending job.
-message CancelJobRequest {
-  string job_id = 1;
-}
-
-// CancelJobResponse confirms the cancellation outcome.
-message CancelJobResponse {
-  string job_id = 1;
-  JobState state = 2;
 }

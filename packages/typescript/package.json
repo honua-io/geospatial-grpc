@@ -1,0 +1,49 @@
+{
+  "name": "@honua/geospatial-grpc",
+  "version": "1.0.0",
+  "description": "Generated TypeScript bindings for the geospatial.v1 gRPC protocol",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    "./geospatial/v1/*.js": {
+      "types": "./dist/geospatial/v1/*.d.ts",
+      "import": "./dist/geospatial/v1/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "geospatial",
+    "grpc",
+    "protobuf",
+    "gis"
+  ],
+  "author": "Geospatial gRPC Standard Contributors",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/honua-io/geospatial-grpc.git"
+  },
+  "homepage": "https://github.com/honua-io/geospatial-grpc#readme",
+  "bugs": "https://github.com/honua-io/geospatial-grpc/issues",
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.7.0"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

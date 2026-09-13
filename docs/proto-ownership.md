@@ -1,4 +1,14 @@
+---
+type: concept
+title: "Who owns the protos, and why you should not fork them"
+description: "This repository is the canonical home for the shared definitions. Servers, SDKs and apps generate or pin from here rather than keeping local copies, and this explains what breaks when they do not."
+resource: "https://github.com/honua-io/geospatial-grpc/tree/trunk/geospatial/v1"
+tags: [governance, versioning, downstream]
+---
 # Protocol Ownership and Downstream Sync
+
+The contract these rules protect is the [protocol specification](specification.md); to consume it, see
+[getting started](getting-started.md).
 
 This repository is the canonical home for shared geospatial gRPC protocol
 definitions. Honua servers, SDKs, mobile apps, and admin tools may generate,
