@@ -32,7 +32,7 @@ jobs:
       - name: Checkout tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.tag) || github.ref }}
+          ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.tag != '' && format('refs/tags/{0}', inputs.tag)) || github.ref }}
           fetch-depth: 0
           fetch-tags: true
       - name: Setup Node.js
@@ -58,12 +58,16 @@ jobs:
           version="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' <<<"${contract}")"
           tag="v${version}"
           if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
-            target_tag="${GITHUB_REF_NAME}"
+            target_tag="refs/tags/${GITHUB_REF_NAME}"
           elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${DISPATCH_TAG}" ]]; then
-            target_tag="${DISPATCH_TAG}"
+            target_tag="refs/tags/${DISPATCH_TAG}"
           fi
           if [[ -n "${target_tag:-}" ]]; then
-            python3 scripts/release_contract.py --require-stable --tag "${target_tag}"
+            if [[ "${target_tag}" != refs/tags/v* ]]; then
+              echo "tag input must target a tag ref (e.g. v1.2.3)." >&2
+              exit 1
+            fi
+            python3 scripts/release_contract.py --require-stable --tag "${target_tag#refs/tags/}"
             test "$(git rev-parse "${target_tag}^{commit}")" = "$(git rev-parse HEAD)"
           fi
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
@@ -87,8 +91,9 @@ jobs:
         run: |
           smoke_dir="$(mktemp -d)"
           trap 'rm -rf "${smoke_dir}"' EXIT
-          npm install --prefix "${smoke_dir}" \
-            "${GITHUB_WORKSPACE}/dist/typescript/honua-geospatial-grpc-${VERSION}.tgz"
+          node .github/scripts/prepare-typescript-smoke.mjs "${smoke_dir}" \
+            "${GITHUB_WORKSPACE}/dist/typescript/honua-geospatial-grpc-${VERSION}.tgz" "${VERSION}"
+          npm ci --ignore-scripts --prefix "${smoke_dir}"
           cd "${smoke_dir}"
           node --input-type=module -e \
             'import("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js").then(m => { if (!m.FeatureService) process.exit(1); })'
@@ -171,6 +176,11 @@ jobs:
     needs: [build-and-smoke, publish]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout trusted installation lock
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -197,8 +207,9 @@ jobs:
           VERSION: ${{ needs.build-and-smoke.outputs.version }}
         run: |
           smoke_dir="$(mktemp -d)"
-          npm install --prefix "${smoke_dir}" --registry https://registry.npmjs.org \
-            "${GITHUB_WORKSPACE}/public/honua-geospatial-grpc-${VERSION}.tgz"
+          node .github/scripts/prepare-typescript-smoke.mjs "${smoke_dir}" \
+            "${GITHUB_WORKSPACE}/public/honua-geospatial-grpc-${VERSION}.tgz" "${VERSION}"
+          npm ci --ignore-scripts --prefix "${smoke_dir}" --registry https://registry.npmjs.org
           cd "${smoke_dir}"
           node --input-type=module -e \
             'import("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js").then(m => { if (!m.FeatureService) process.exit(1); })'
