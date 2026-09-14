@@ -453,6 +453,38 @@ class PublicRegistryProbeTests(unittest.TestCase):
 
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
+    def test_certification_fixture_dependency_is_hash_pinned(self) -> None:
+        workflow = (ROOT / ".github/workflows/protocol-certification.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("python3 -m pip install --require-hashes", workflow)
+        self.assertIn("--only-binary=:all:", workflow)
+        self.assertIn("--requirement .github/requirements/protocol-certification.txt", workflow)
+        requirements = (ROOT / ".github/requirements/protocol-certification.txt").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "--hash=sha256:766bc7c9a9c340342f4c864ccbda8e78111e4751f13b895812b9c148fb79e9d0",
+            requirements,
+        )
+
+    def test_generated_client_publication_credentials_and_provenance(self) -> None:
+        python = (ROOT / ".github/workflows/publish-python-client.yml").read_text(
+            encoding="utf-8"
+        )
+        typescript = (ROOT / ".github/workflows/publish-typescript-client.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("environment:\n      name: production", python)
+        self.assertIn("id-token: write", python)
+        self.assertIn("uses: pypa/gh-action-pypi-publish@", python)
+        self.assertNotIn("secrets.PYPI_API_TOKEN", python)
+        self.assertIn("environment:\n      name: production", typescript)
+        self.assertIn("id-token: write", typescript)
+        self.assertNotIn("secrets.NPM_TOKEN", typescript)
+        self.assertIn("npm publish dist/typescript/*.tgz --access public --provenance", typescript)
+
     def test_release_actions_are_pinned_to_annotated_commit_shas(self) -> None:
         for filename in (
             "publish-dotnet-protocol.yml",
