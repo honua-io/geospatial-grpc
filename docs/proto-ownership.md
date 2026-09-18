@@ -54,26 +54,6 @@ coordination — follow [docs/release-checklist.md](release-checklist.md).
 - Document server feature flags or optional behavior in the service comments and
   generated docs.
 
-## Honua Consumer Contract
-
-| Repo | Role | Protocol rule |
-| --- | --- | --- |
-| `honua-server` | Implements gRPC services | Must implement the canonical schemas from this repository. Server-local protos are temporary migration inputs only. |
-| `honua-sdk-dotnet` | Publishes .NET SDK clients and domain abstractions | Must consume generated protocol clients through package references or generated artifacts derived from this repository. It should not own independent `.proto` definitions. |
-| `honua-mobile` | Uses SDK capabilities in mobile workflows | Should consume protocol behavior through the .NET SDK packages instead of duplicating transport clients. |
-| `honua-server-admin` | Uses admin/server APIs | Should consume SDK packages for shared admin clients and generated protocol contracts where applicable. |
-
-## Current Honua Reconciliation Items
-
-| Contract | Current status | Next action |
-| --- | --- | --- |
-| `feature_service.proto` | Exists here and in downstream copies with package/layout drift. | Sync downstream consumers to the canonical `geospatial/v1` contract. |
-| `form_service.proto` | Canonical contract now includes downstream workflow/action and access-control fields. | Sync downstream consumers to this file and remove editable local copies. |
-| `process_service.proto` | Canonical contract now lives here. | Sync `honua-server` generated bindings from this repository. |
-| `spec_service.proto` | Canonical contract now lives here. | Sync `honua-server` and SDK/admin spec clients from this repository. |
-
-Tracking issue: <https://github.com/honua-io/geospatial-grpc/issues/12>
-
 ## Downstream Sync Checklist
 
 Use this checklist when updating a downstream repo after protocol changes land

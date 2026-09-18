@@ -24,13 +24,6 @@ This repository owns deterministic, typed protocol contracts. It does not own se
 - Multi-language generation configs for C#, Go, Java, Python, and TypeScript/JavaScript through Buf.
 - A .NET protocol package project for downstream consumers that should reference a package instead of copying `.proto` files.
 
-## Source Evidence
-
-- Service definitions: `geospatial/v1/*_service.proto`
-- Shared domain types: `geospatial/v1/common.proto`, `spatial_types.proto`, `execution_types.proto`, `packaging_types.proto`, `workspace_artifact_types.proto`
-- Generation configs: `buf.yaml`, `buf.gen.*.yaml`
-- Examples: `examples/dotnet/`, `examples/javascript/`, `examples/python/`
-
 ## Boundary
 
 The standard defines contract shape and language generation. Runtime behavior, auth, persistence, and UI workflows belong in `honua-server`, SDKs, admin UI, and operator repositories.

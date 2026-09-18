@@ -178,9 +178,14 @@ pip install grpcio grpcio-tools
 
 3. **Copy generated files**:
 ```bash
-# from the venv directory, with the repo checked out alongside it
-cp -r ../geospatial-grpc/generated/python/* .
+# from the project directory, with the repo checked out alongside it
+mkdir -p geospatial
+cp -r ../geospatial-grpc/gen/python/geospatial/* ./geospatial/
 ```
+
+`buf generate` writes Python to `gen/python/` (Step 3). `generated/python/`
+only exists if you ran the single-language template with
+`--output generated/python`; copy from whichever you produced.
 
 ## Step 5: Your First Query
 
@@ -502,7 +507,7 @@ var credentials = CallCredentials.FromInterceptor((context, metadata) =>
 
 var channel = GrpcChannel.ForAddress("https://api.production.com", new GrpcChannelOptions
 {
-    Credentials = ChannelCredentials.Create(new SslCredentials(), credentials)
+    Credentials = ChannelCredentials.Create(ChannelCredentials.SecureSsl, credentials)
 });
 ```
 
@@ -822,13 +827,6 @@ switch (response.OutcomeCase)
 
 See the [Protocol Specification](specification.md) for the full RPC surface, streaming execution, async job management, pipeline definitions, and the render/build/deployment contracts (including `MapPackage`, `AppPackage`, `DeploymentSpec`, rollback, and deployment health telemetry).
 
-## Next Steps
-
-- **Explore Examples**: Check the `examples/` directory for complete projects
-- **Read the Specification**: Understand the protocol details in `docs/specification.md`
-- **Join the Community**: Ask questions in GitHub Discussions
-- **Build Something Cool**: Use the protocols in your own projects!
-
 ## Common Issues and Solutions
 
 ### Buf Generate Fails
@@ -863,9 +861,10 @@ var channel = GrpcChannel.ForAddress("http://localhost:5000", new GrpcChannelOpt
 });
 ```
 
-## Support
+## Where to go next
 
-- **GitHub Issues**: Report bugs and request features
-- **Discussions**: Ask questions and share ideas
-- **Email**: geospatial-grpc@honua.io
-- **Documentation**: Full protocol specification available
+- [Protocol specification](specification.md) — the full RPC surface and the
+  compatibility rules that govern it.
+- [Protocol ownership](proto-ownership.md) — what stability to expect from
+  `geospatial.v1`.
+- `examples/` — runnable projects for .NET, JavaScript and Python.
