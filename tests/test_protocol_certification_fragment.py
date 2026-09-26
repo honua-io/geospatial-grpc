@@ -3,10 +3,12 @@ import base64
 import hashlib
 import importlib.util
 import json
+import os
 import tempfile
 import unittest
 import subprocess
 import sys
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -16,6 +18,33 @@ SPEC = importlib.util.spec_from_file_location("fragment", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
 SPEC.loader.exec_module(MODULE)
+
+GOVERNED_CLIENT_VERSION = "source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c"
+RELEASE_ROOT = Path(os.environ.get("HONUA_RELEASE_ROOT", "/home/mike/honua-io/honua-release"))
+EVIDENCE_ROOT = Path(os.environ.get("HONUA_EVIDENCE_ROOT", "/home/mike/honua-io/honua-evidence"))
+
+
+def load_module(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+@contextmanager
+def patched_catalog(mutate):
+    original = MODULE.CATALOG
+    document = json.loads(original.read_text())
+    mutate(document)
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "catalog.json"
+        path.write_text(json.dumps(document))
+        MODULE.CATALOG = path
+        try:
+            yield document
+        finally:
+            MODULE.CATALOG = original
 
 
 class FragmentTests(unittest.TestCase):
@@ -45,9 +74,15 @@ class FragmentTests(unittest.TestCase):
             self.assertEqual("localhost:8081", parsed.netloc)
             self.assertTrue(parsed.path.startswith("/geospatial.v1."))
         self.assertEqual("red", fragment["client_rollup"]["state"])
-        self.assertEqual("incomplete", fragment["client_rollup"]["client_states"]["grpc-dotnet"])
-        self.assertEqual("unpublished", fragment["client_rollup"]["client_states"]["grpc-python"])
-        self.assertEqual("unpublished", fragment["client_rollup"]["client_states"]["grpc-typescript"])
+        self.assertEqual(
+            {"grpc-dotnet": "unpublished", "grpc-python": "unpublished", "grpc-typescript": "unpublished"},
+            fragment["client_rollup"]["client_states"],
+        )
+        catalog = json.loads(MODULE.CATALOG.read_text())
+        for observation in fragment["observations"]:
+            self.assertEqual(GOVERNED_CLIENT_VERSION, observation["client_version"])
+            self.assertEqual(catalog["contract_revision"], observation["contract_revision"])
+            self.assertEqual(catalog["fixture_revision"], observation["fixture_revision"])
         self.assertFalse(fragment["client_rollup"]["all_claimed_clients_executed"])
         self.assertFalse(fragment["client_rollup"]["all_claimed_cells_passed"])
         self.assertIsNone(fragment["client_rollup"]["claim_narrowing_decision"])
@@ -61,7 +96,7 @@ class FragmentTests(unittest.TestCase):
             report.write_text(json.dumps({
                 "runner_lane": "grpc-dotnet",
                 "package": "Geospatial.Grpc",
-                "package_version": "1.0.0",
+                "package_version": GOVERNED_CLIENT_VERSION,
                 "package_source": "https://api.nuget.org/v3/index.json",
                 "operations": {"FeatureService/QueryFeatures": {"result": "pass"}},
             }))
@@ -84,7 +119,7 @@ class FragmentTests(unittest.TestCase):
             report.write_text(json.dumps({
                 "runner_lane": "grpc-dotnet",
                 "package": "Geospatial.Grpc",
-                "package_version": "1.0.0",
+                "package_version": GOVERNED_CLIENT_VERSION,
                 "package_source": "https://api.nuget.org/v3/index.json",
                 "operations": {"FeatureService/QueryFeatures": {
                     "result": "fail", "reason": "Canonical response mismatch at $.features[0].id",
@@ -108,12 +143,16 @@ class FragmentTests(unittest.TestCase):
         self.assertIn("$.features[0].id", MODULE.certification_errors(fragment, "pr")[0])
 
     def test_complete_facets_emit_a_v2_receipt_bound_to_the_federation_revision(self):
-        with tempfile.TemporaryDirectory() as directory:
+        def publish_dotnet(document):
+            for client in document["clients"]:
+                if client["client_lane"] == "grpc-dotnet":
+                    client["publication_state"] = "published"
+        with patched_catalog(publish_dotnet), tempfile.TemporaryDirectory() as directory:
             report = Path(directory) / "dotnet.json"
             report.write_text(json.dumps({
                 "runner_lane": "grpc-dotnet",
                 "package": "Geospatial.Grpc",
-                "package_version": "1.0.0",
+                "package_version": GOVERNED_CLIENT_VERSION,
                 "package_source": "https://api.nuget.org/v3/index.json",
                 "operations": {"FeatureService/QueryFeatures": {
                     "result": "pass",
@@ -130,7 +169,10 @@ class FragmentTests(unittest.TestCase):
         self.assertEqual("honua.certification-evidence-receipt/v2", receipt["schema"])
         self.assertEqual("supported", receipt["identity"]["maturity"])
         self.assertEqual("nightly", receipt["identity"]["required_tier"])
-        self.assertEqual("2026-08-29-complete.11", receipt["identity"]["requirements_revision"])
+        self.assertEqual(
+            json.loads(MODULE.CATALOG.read_text())["requirements_revision"],
+            receipt["identity"]["requirements_revision"],
+        )
         self.assertEqual(
             {"positive", "negative", "media-schema"},
             set(observation["exercised_capabilities"]),
@@ -181,7 +223,9 @@ class FragmentTests(unittest.TestCase):
         now = datetime.now(timezone.utc)
         cut, start, end = [(now - timedelta(minutes=i)).isoformat() for i in (3, 2, 1)]
         report = {
-            "runner_lane": "grpc-dotnet", "operations": {"FeatureService/QueryFeatures": {"result": "fail"}},
+            "runner_lane": "grpc-dotnet",
+            "package_version": GOVERNED_CLIENT_VERSION,
+            "operations": {"FeatureService/QueryFeatures": {"result": "fail"}},
             "execution_identity": {
                 "channel_target": "http://localhost:8081",
                 "server_image": "ghcr.io/honua-io/honua-server@sha256:" + "c" * 64,
@@ -211,7 +255,7 @@ class FragmentTests(unittest.TestCase):
             path = Path(directory) / "report.json"
             output = Path(directory) / "fragment.json"
             path.write_text(json.dumps({
-                "runner_lane": "grpc-dotnet", "package": "Geospatial.Grpc", "package_version": "1.0.0",
+                "runner_lane": "grpc-dotnet", "package": "Geospatial.Grpc", "package_version": GOVERNED_CLIENT_VERSION,
                 "package_source": "https://api.nuget.org/v3/index.json",
                 "operations": {"FeatureService/QueryFeatures": {
                     "result": "fail", "reason": "Canonical response mismatch at $.features[0].geometry.point.x",
@@ -252,7 +296,7 @@ class FragmentTests(unittest.TestCase):
             report.write_text(json.dumps({
                 "runner_lane": "grpc-dotnet",
                 "package": "Geospatial.Grpc",
-                "package_version": "1.0.0",
+                "package_version": GOVERNED_CLIENT_VERSION,
                 "package_source": "https://api.nuget.org/v3/index.json",
                 "operations": {"FeatureService/QueryFeatures": {
                     "result": "pass", "facet_results": {"positive": "pass"},
@@ -262,7 +306,14 @@ class FragmentTests(unittest.TestCase):
                 self.build([report])
 
     def test_rejects_non_public_or_wrong_package_identity(self):
-        with tempfile.TemporaryDirectory() as directory:
+        def declare_nuget(document):
+            for client in document["clients"]:
+                if client["client_lane"] == "grpc-dotnet":
+                    client["publication_state"] = "published"
+                    client["client_version"] = "1.0.0"
+                    client["package"] = "Geospatial.Grpc"
+                    client["package_source"] = "https://api.nuget.org/v3/index.json"
+        with patched_catalog(declare_nuget), tempfile.TemporaryDirectory() as directory:
             report = Path(directory) / "dotnet.json"
             report.write_text(json.dumps({
                 "runner_lane": "grpc-dotnet",
@@ -273,6 +324,41 @@ class FragmentTests(unittest.TestCase):
             }))
             with self.assertRaisesRegex(ValueError, "published package identity mismatch"):
                 self.build([report])
+
+    def test_promoted_package_bytes_do_not_satisfy_the_governed_cell(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "dotnet.json"
+            report.write_text(json.dumps({
+                "runner_lane": "grpc-dotnet",
+                "package": "Geospatial.Grpc",
+                "package_version": "1.0.0",
+                "package_source": "https://api.nuget.org/v3/index.json",
+                "operations": {"FeatureService/QueryFeatures": {
+                    "result": "fail",
+                    "reason": "Canonical response mismatch at $.features[0].id",
+                }},
+            }))
+            fragment = self.build([report])
+        observation = next(
+            item for item in fragment["observations"]
+            if item["runner_lane"] == "grpc-dotnet" and item["operation"] == "FeatureService/QueryFeatures"
+        )
+        self.assertEqual("skip", observation["result"])
+        self.assertEqual(GOVERNED_CLIENT_VERSION, observation["client_version"])
+        self.assertIsNone(observation["evidence_receipt"])
+        self.assertIn("1.0.0", observation["skip_reason"])
+        self.assertIn(GOVERNED_CLIENT_VERSION, observation["skip_reason"])
+        self.assertIn("$.features[0].id", observation["skip_reason"])
+        self.assertEqual([{
+            "runner_lane": "grpc-dotnet",
+            "operation": "FeatureService/QueryFeatures",
+            "reason": "Canonical response mismatch at $.features[0].id",
+        }], fragment["execution_failures"])
+        untouched = next(
+            item for item in fragment["observations"]
+            if item["runner_lane"] == "grpc-dotnet" and item["operation"] == "FeatureService/ApplyEdits"
+        )
+        self.assertIn("not executed against the governed client", untouched["skip_reason"])
 
     def test_rejects_placeholder_or_floating_identity(self):
         with self.assertRaisesRegex(ValueError, "absolute HTTP"):
@@ -295,6 +381,95 @@ class FragmentTests(unittest.TestCase):
                     self.build()
             finally:
                 MODULE.CATALOG = original
+
+    def test_skip_fragment_is_accepted_by_evidence_and_enforced_by_release_gate(self):
+        requirements_path = RELEASE_ROOT / "certification/protocol-certification-requirements.v1.json"
+        aggregate_path = EVIDENCE_ROOT / "scripts/aggregate-certification.py"
+        gate_path = RELEASE_ROOT / "tools/check_protocol_certification.py"
+        if not (requirements_path.is_file() and aggregate_path.is_file() and gate_path.is_file()):
+            self.skipTest("honua-release and honua-evidence checkouts are required")
+        requirements = json.loads(requirements_path.read_text())
+        rows = [
+            row for row in requirements["requirements"]
+            if row["surface"] == "grpc" and str(row["canonical_client"]).startswith("Generated gRPC")
+        ]
+        self.assertEqual(240, len(rows))
+        catalog = json.loads(MODULE.CATALOG.read_text())
+        for row in rows:
+            client = next(item for item in catalog["clients"] if item["client_lane"] == row["client_lane"])
+            self.assertEqual(client["client_version"], row["client_version"])
+            self.assertEqual(client["canonical_client"], row["canonical_client"])
+            self.assertEqual(catalog["contract_revision"], row["contract_revision"])
+            self.assertEqual(catalog["fixture_revision"], row["fixture_revision"])
+        source_revisions = requirements["source_revisions"]
+        server_sha = source_revisions["server"]["commit"]
+        producer_sha = source_revisions["geospatial-grpc"]["commit"]
+        image = "sha256:" + "c" * 64
+        cut = "2026-08-26T00:00:00Z"
+        fragment = self.build(
+            server_source_sha=server_sha,
+            image_source_revision=server_sha,
+            producer_source_sha=producer_sha,
+            server_image="ghcr.io/honua-io/honua-server@" + image,
+            candidate_cut=cut,
+            started_at=cut,
+            completed_at="2026-08-26T00:01:00Z",
+        )
+        fetch = load_module(
+            "honua_fetch_certification_producers",
+            EVIDENCE_ROOT / "scripts/fetch-certification-producers.py",
+        )
+        fetch.validate_fragment_producer(fragment, "geospatial-grpc", producer_sha, "honua-io/geospatial-grpc")
+        aggregate = load_module("honua_aggregate_certification", aggregate_path)
+        with tempfile.TemporaryDirectory() as directory:
+            fragment_path = Path(directory) / "protocol-certification-fragment.json"
+            fragment_path.write_text(json.dumps(fragment))
+            loaded = aggregate.load_fragments(Path(directory))
+        self.assertEqual(1, len(loaded))
+        candidate = {
+            "source_sha": server_sha,
+            "image_digest": image,
+            "cut_at": cut,
+        }
+        ledger = aggregate.build_ledger(
+            requirements["revision"],
+            "b" * 40,
+            True,
+            rows,
+            loaded,
+            candidate,
+            now=datetime(2026, 9, 26, tzinfo=timezone.utc),
+        )
+        self.assertEqual(240, len(ledger["cells"]))
+        for cell in ledger["cells"]:
+            self.assertEqual("skip", cell["result"])
+            self.assertNotEqual("no producer evidence for required certification cell", cell["skip_reason"])
+            self.assertEqual(producer_sha, cell["producer_source_sha"])
+            self.assertIsNone(cell["evidence_receipt"])
+        gate = load_module("honua_check_protocol_certification", gate_path)
+        filtered = dict(requirements)
+        filtered["requirements"] = rows
+        report = gate.evaluate(
+            ledger,
+            "release",
+            expected_source_sha=server_sha,
+            expected_image_digest=image,
+            expected_cut_at=cut,
+            expected_component_source_shas={
+                name: source_revisions[name]["commit"] for name in gate.FROZEN_RELEASE_SOURCES
+            },
+            expected_client_versions={
+                "sdk-js": "0.0.0",
+                "sdk-python": "0.0.0",
+                "sdk-dotnet": "0.0.0",
+            },
+            now=datetime(2026, 9, 26, tzinfo=timezone.utc),
+            requirements=filtered,
+        )
+        self.assertEqual("fail", report["overall_status"])
+        self.assertEqual(240, report["required_cells"])
+        self.assertTrue(any("expected 'pass'" in finding["why"] for finding in report["findings"]))
+        self.assertFalse(any("do not resolve" in finding["why"] for finding in report["findings"]))
 
 
 if __name__ == "__main__":

@@ -1,17 +1,19 @@
 # Protocol certification producer
 
 This producer snapshots the 240-cell gRPC denominator frozen by
-`honua-release` (80 RPCs for each generated-client lane). The workflow installs
-`Geospatial.Grpc` 1.0.0 anonymously from nuget.org and executes six requests
-using fixtures checked out by immutable release commit. The schema and fixtures
-are bound to the public BSR `v1.0.0` label at commit
-`0f701ecc6b0c41a5ea43e2dff3c46ce654312576`.
-The remaining .NET cells are materialized as `skip` with a concrete reason.
-Python and TypeScript observations retain the federation-compatible `skip`
-result, but also carry `publication_state: unpublished`; `client_rollup` keeps
-the aggregate red until every claimed lane executes and every required cell
-passes. A narrowing-decision URL alone cannot waive cells; any adopted change
-must be reflected in the governed denominator.
+`honua-release` (80 RPCs for each generated-client lane). Every observation
+uses that denominator's governed identity: client version
+`source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`, contract
+`geospatial-grpc@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`, and fixture
+`geospatial-grpc-conformance@0.2.0-alpha.1+73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`.
+Promoted `Geospatial.Grpc`, `geospatial-grpc`, and `@honua/geospatial-grpc`
+1.0.0 packages are not that pin. The workflow still installs and executes the
+.NET package against six fixtures, but those results stay attributable
+execution failures or skips and do not satisfy the governed cell.
+Python and TypeScript lanes stay unexecuted skips for the same reason.
+`client_rollup` stays red until every governed cell passes. A
+narrowing-decision URL alone cannot waive cells; any adopted change must be
+reflected in the governed denominator.
 
 `scripts/build_protocol_certification_fragment.py` emits the registered
 `protocol-certification-fragment.json`. Its unit tests require no live server:
