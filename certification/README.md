@@ -7,10 +7,13 @@ uses that denominator's governed identity: client version
 `geospatial-grpc@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`, and fixture
 `geospatial-grpc-conformance@0.2.0-alpha.1+73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`.
 Promoted `Geospatial.Grpc`, `geospatial-grpc`, and `@honua/geospatial-grpc`
-1.0.0 packages are not that pin. The workflow still installs and executes the
-.NET package against six fixtures, but those results stay attributable
-execution failures or skips and do not satisfy the governed cell.
-Python and TypeScript lanes stay unexecuted skips for the same reason.
+1.0.0 packages are not that pin. The workflow still installs all three
+promoted packages and executes each against the same six fixtures
+(`certification/dotnet`, `certification/python/runner.py`,
+`certification/typescript/runner.mjs`). Each lane runs independently, so one
+lane failing never hides another lane's results. Those results stay
+attributable `execution_failures` (by lane and operation) or skips, and they do
+not satisfy the governed cell.
 `client_rollup` stays red until every governed cell passes. A
 narrowing-decision URL alone cannot waive cells; any adopted change must be
 reflected in the governed denominator.
@@ -46,9 +49,14 @@ injects one defect at a time. It also injects an RPC exception. Each defect must
 fail the process while retaining all six operation results. This tests the
 producer; it is not evidence that a Honua Server candidate passed.
 
+The same oracle suite runs against every installed-client runner (.NET,
+Python and TypeScript):
+
 ```bash
-python3 -m pip install grpcio==1.81.1
+python3 -m pip install --require-hashes --only-binary=:all: \
+  --requirement .github/requirements/protocol-certification.txt
 dotnet build certification/dotnet/GrpcCertificationRunner.csproj --configuration Release
+npm ci --ignore-scripts --prefix certification/typescript
 python3 -m unittest discover -s certification/tests -v
 ```
 

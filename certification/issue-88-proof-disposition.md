@@ -53,9 +53,13 @@ these unexecuted cells.
    pinned image, not inferred from an absent artifact. The restored failure
    signal must remain red until these execution prerequisites are repaired.
    Those 1.0.0 results still do not satisfy the governed `source@73fc882` cell.
-2. **Python and TypeScript lanes are not executed.** Their promoted 1.0.0
-   packages exist, but running them would not satisfy the governed source pin,
-   so both lanes stay honest skips.
+2. **Python and TypeScript lanes execute, but not the governed pin.** The
+   workflow now installs promoted `geospatial-grpc` 1.0.0 (PyPI) and
+   `@honua/geospatial-grpc` 1.0.0 (npm) and runs the same six fixtures through
+   each, independently of the .NET lane. Their failures are attributed in
+   `execution_failures` by lane and operation. Because 1.0.0 is not
+   `source@73fc882…`, the governed cells stay evidence-free skips until the
+   denominator's client version and the executed package agree.
 3. **Passing cells still cannot be ingested until receipt v2 lands in
    honua-evidence.** The release gate requires
    `honua.certification-evidence-receipt/v2`. The current evidence aggregator

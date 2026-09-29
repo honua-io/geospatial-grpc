@@ -64,12 +64,19 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Verify installed client failure signaling against independent wire fixture
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Install promoted .NET, Python and TypeScript clients
         run: |
           python3 -m pip install --require-hashes --only-binary=:all: \
             --requirement .github/requirements/protocol-certification.txt
           dotnet build certification/dotnet/GrpcCertificationRunner.csproj --configuration Release
-          python3 -m unittest discover -s certification/tests -v
+          npm ci --ignore-scripts --prefix certification/typescript
+
+      - name: Verify installed client failure signaling against independent wire fixture
+        run: python3 -m unittest discover -s certification/tests -v
 
       - name: Resolve and verify immutable candidate
         id: identity
@@ -117,8 +124,8 @@ jobs:
         run: |
           mkdir -p artifacts
           jq -n '{runner_lane:"grpc-dotnet",unexecuted_reason:"Geospatial.Grpc 1.0.0 did not reach live execution in this run. That package is not governed client_version source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c.",operations:{}}' > artifacts/grpc-dotnet.json
-          jq -n '{runner_lane:"grpc-python",publication_state:"unpublished",unexecuted_reason:"Promoted geospatial-grpc 1.0.0 is not governed client_version source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c; the lane was not applied to the required cell.",operations:{}}' > artifacts/grpc-python.json
-          jq -n '{runner_lane:"grpc-typescript",publication_state:"unpublished",unexecuted_reason:"Promoted @honua/geospatial-grpc 1.0.0 is not governed client_version source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c; the lane was not applied to the required cell.",operations:{}}' > artifacts/grpc-typescript.json
+          jq -n '{runner_lane:"grpc-python",unexecuted_reason:"geospatial-grpc 1.0.0 did not reach live execution in this run. That package is not governed client_version source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c.",operations:{}}' > artifacts/grpc-python.json
+          jq -n '{runner_lane:"grpc-typescript",unexecuted_reason:"@honua/geospatial-grpc 1.0.0 did not reach live execution in this run. That package is not governed client_version source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c.",operations:{}}' > artifacts/grpc-typescript.json
 
       - name: Checkout v1.0.0 certification fixtures by immutable source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -139,6 +146,7 @@ jobs:
           psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -f artifacts/base-schema.sql
 
       - name: Start exact Honua Server image
+        id: server
         env:
           SERVER_IMAGE: ${{ steps.identity.outputs.image }}
         run: |
@@ -162,7 +170,10 @@ jobs:
           docker logs honua-server || true
           exit 1
 
+      # Each lane executes independently: a failing lane must not stop the
+      # other installed clients from producing their own attributable results.
       - name: Execute promoted .NET client fixtures
+        if: ${{ !cancelled() && steps.server.outcome == 'success' }}
         env:
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
           SERVER_IMAGE: ${{ steps.identity.outputs.image }}
@@ -172,6 +183,28 @@ jobs:
           dotnet run --project certification/dotnet/GrpcCertificationRunner.csproj
           --configuration Release --no-self-contained --
           "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-dotnet.json
+
+      - name: Execute promoted Python client fixtures
+        if: ${{ !cancelled() && steps.server.outcome == 'success' }}
+        env:
+          HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
+          SERVER_IMAGE: ${{ steps.identity.outputs.image }}
+          SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
+          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.0+0f701ecc6b0c41a5ea43e2dff3c46ce654312576
+        run: >-
+          python3 certification/python/runner.py
+          "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-python.json
+
+      - name: Execute promoted TypeScript client fixtures
+        if: ${{ !cancelled() && steps.server.outcome == 'success' }}
+        env:
+          HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
+          SERVER_IMAGE: ${{ steps.identity.outputs.image }}
+          SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
+          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.0+0f701ecc6b0c41a5ea43e2dff3c46ce654312576
+        run: >-
+          node certification/typescript/runner.mjs
+          "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-typescript.json
 
       - name: Emit normalized certification fragment
         if: always()
