@@ -98,7 +98,16 @@ def build_fragment(args: argparse.Namespace) -> dict:
         unknown = set(report.get("operations", {})) - {op["operation"] for op in catalog["operations"]}
         if unknown:
             raise ValueError(f"unknown operations for {lane}: {sorted(unknown)}")
-        if report.get("operations") and tier in {"nightly", "release"}:
+        client = next(item for item in catalog["clients"] if item["client_lane"] == lane)
+        package_version = report.get("package_version")
+        applies_to_governed_cell = (
+            bool(report.get("operations")) and package_version == client["client_version"]
+        )
+        if report.get("operations") and not isinstance(package_version, str):
+            raise ValueError(f"executed report for {lane} must name package_version")
+        # Only an execution of the governed client_version can be bound to this
+        # run. Any other package version stays in the fragment as a skip.
+        if applies_to_governed_cell and tier in {"nightly", "release"}:
             expected_identity = {
                 "channel_target": target,
                 "server_image": args.server_image,
@@ -140,13 +149,26 @@ def build_fragment(args: argparse.Namespace) -> dict:
                     f"published package identity mismatch for {lane}: "
                     f"expected {expected_package_identity}, got {actual_package_identity}"
                 )
+        package_version = report.get("package_version")
+        governs_execution = not outcomes or package_version == client["client_version"]
         for operation in catalog["operations"]:
-            outcome = outcomes.get(operation["operation"])
+            raw_outcome = outcomes.get(operation["operation"])
+            outcome = raw_outcome if governs_execution else None
+            if raw_outcome and not governs_execution:
+                executed_result = raw_outcome.get("result")
+                if executed_result not in {"pass", "fail", "skip"}:
+                    raise ValueError(
+                        f"unsupported result for {lane}/{operation['operation']}: {executed_result}"
+                    )
+                if executed_result == "fail":
+                    execution_failures.append({
+                        "runner_lane": lane,
+                        "operation": operation["operation"],
+                        "reason": raw_outcome.get("reason") or "executed client failed",
+                    })
             result = outcome.get("result") if outcome else "skip"
             if result not in {"pass", "fail", "skip"}:
                 raise ValueError(f"unsupported result for {lane}/{operation['operation']}: {result}")
-            if result == "pass" and publication_state != "published":
-                raise ValueError(f"unpublished client cannot claim a pass: {lane}")
             if result == "fail":
                 execution_failures.append({
                     "runner_lane": lane, "operation": operation["operation"],
@@ -157,6 +179,22 @@ def build_fragment(args: argparse.Namespace) -> dict:
                 or report.get("unexecuted_reason")
                 or f"No canonical published-client execution result; owner: {OWNER}"
             )
+            if not governs_execution:
+                unexecuted_reason = (
+                    f"installed package_version {package_version!r} does not satisfy "
+                    f"governed client_version {client['client_version']}"
+                )
+                if client.get("promoted_package"):
+                    unexecuted_reason += (
+                        f"; promoted {client['promoted_package']} "
+                        f"{client.get('promoted_package_version')} is not the governed cell"
+                    )
+                if raw_outcome:
+                    unexecuted_reason += f"; positive execution {raw_outcome.get('result')}"
+                    if raw_outcome.get("reason"):
+                        unexecuted_reason += f": {raw_outcome['reason']}"
+                else:
+                    unexecuted_reason += "; operation not executed against the governed client"
             facets = operation["scenario_facets"]
             facet_results = None
             observation_result = "skip"
@@ -183,6 +221,8 @@ def build_fragment(args: argparse.Namespace) -> dict:
                         raise ValueError(
                             f"result for {lane}/{operation['operation']} disagrees with facet results"
                         )
+                    if observation_result == "pass" and publication_state != "published":
+                        raise ValueError(f"unpublished client cannot claim a pass: {lane}")
                     skip_reason = None
                     exercised_capabilities = [
                         facet for facet, value in reported_facets.items() if value == "pass"
