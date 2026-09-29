@@ -19,6 +19,7 @@ This guide will help you quickly get up and running with the Geospatial gRPC pro
 > and note that its gRPC listener is h2c on port **8081**, separate from the HTTP port.
 
 - **Buf CLI**: [Install Buf](https://buf.build/docs/installation) for protocol buffer management
+- **Node.js and npm**: Required for the Linux/WSL and Windows Buf installation commands below, including for C# and Python users.
 - **Development Environment**: Your preferred language with gRPC support
 - **Basic gRPC Knowledge**: Understanding of Protocol Buffers and gRPC concepts
 
@@ -31,10 +32,10 @@ This guide will help you quickly get up and running with the Geospatial gRPC pro
 brew install bufbuild/buf/buf
 
 # Linux/WSL
-curl -sSL https://github.com/bufbuild/buf/releases/latest/download/buf-Linux-x86_64.tar.gz | tar -xzf - -C /usr/local buf/bin/buf
+npm install --global @bufbuild/buf
 
 # Windows
-# Download from: https://github.com/bufbuild/buf/releases
+npm install --global @bufbuild/buf
 ```
 
 ### Verify Installation
@@ -843,12 +844,46 @@ Make sure you've correctly installed the generated files in your project and imp
 
 ### Connection Issues
 
-Verify the server endpoint and ensure your client can reach it:
+Verify the server endpoint with a read-only `QueryFeatures` call. In the console
+project created in **Step 4: .NET / C#**, replace `Program.cs` with:
 
-```bash
-# Test basic connectivity
-curl -v https://api.example.com/health
+```csharp
+using Geospatial.V1;
+using Grpc.Core;
+using Grpc.Net.Client;
+
+// Use your endpoint, service ID, and layer ID. Honua's local h2c listener
+// uses http://localhost:8081; use https:// for a TLS-enabled endpoint.
+using var channel = GrpcChannel.ForAddress("http://localhost:8081");
+var client = new FeatureService.FeatureServiceClient(channel);
+try
+{
+    var response = await client.QueryFeaturesAsync(new QueryFeaturesRequest
+    {
+        ServiceId = "your-service-id",
+        LayerId = 0,
+        Where = "1=1",
+        ReturnGeometry = false,
+        ResultRecordCountLong = 1
+    }, deadline: DateTime.UtcNow.AddSeconds(10));
+    Console.WriteLine($"Query succeeded: {response.Features.Count} feature(s)");
+}
+catch (RpcException ex)
+{
+    Console.Error.WriteLine($"{ex.StatusCode}: {ex.Status.Detail}");
+    Environment.ExitCode = 1;
+}
 ```
+
+Run `dotnet run` from that console project. Configure any authentication required
+by your server before calling it. This query does not submit forms or edit
+features; the full `examples/dotnet` demo includes sample form submissions and
+should not be used as a connectivity check against production data.
+
+A successful RPC verifies HTTP/2 and service routing, plus DNS resolution when
+using a hostname. It verifies TLS only for an `https://` endpoint; the h2c
+listener on port 8081 uses cleartext HTTP/2 and performs no TLS handshake.
+Inspect `RpcException.StatusCode` when a connection or service call fails.
 
 ### SSL/TLS Issues
 
