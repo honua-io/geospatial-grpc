@@ -8,8 +8,8 @@
         "resolved": "1.0.0",
         "contentHash": "<verified-release-artifact-sha512>",
         "dependencies": {
-          "Google.Protobuf": "3.35.1",
-          "Grpc.Core.Api": "2.80.0"
+          "Google.Protobuf": "3.36.2",
+          "Grpc.Core.Api": "2.84.0"
         }
       },
       "Grpc.Net.Client": {
@@ -24,13 +24,13 @@
       },
       "Google.Protobuf": {
         "type": "Transitive",
-        "resolved": "3.35.1",
-        "contentHash": "pxtkuXhR8svkvDTQrYew9GZQt6eWhblz/V/WKUFrQgkHYlQPsumJTeF6ppHRJpe6j9ffukkd5lQULiiKaek4xA=="
+        "resolved": "3.36.2",
+        "contentHash": "Ci1q1iJg74qAE5riTA2FbMS0wPbpruPQI/JQ9DrAsRo2VsSxgt1e/pmxGxgrci+pXJEgrSYg2vPl8rrStZkclQ=="
       },
       "Grpc.Core.Api": {
         "type": "Transitive",
-        "resolved": "2.80.0",
-        "contentHash": "i/8s+MOrYa6n7BmZ5bilcbHk+EMJDQHm2MKLhwGAT+urQqlZ6cpjvSivYvuULjebuX+UKieLYZbLRCmVQxFRkw=="
+        "resolved": "2.84.0",
+        "contentHash": "p2SOMl6q/GZ4/5MLkgboC/z55g4zKUEruRn/g46QgppjQBVnsLZVBU/9VO7n60ll38G3Eo8Zu9b7x+W01GKFVg=="
       },
       "Grpc.Net.Common": {
         "type": "Transitive",

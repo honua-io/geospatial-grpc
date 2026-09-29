@@ -5,6 +5,22 @@ client packages are recorded here. A single git release tag (`v<version>`)
 identifies the matching NuGet, PyPI, npm, BSR, and `conformance/VERSION`
 coordinates.
 
+## v1.0.2
+
+Republishes the v1.0.1 content. The `v1.0.1` tag never reached nuget.org:
+the pre-publish install smoke refused the package because
+`.github/requirements/dotnet-smoke.lock.json` still pinned the v1.0.0
+dependency graph (`Google.Protobuf` 3.35.1, `Grpc.Core.Api` 2.80.0). Release
+tags are immutable, so the fix ships under a new patch version. There are no
+`.proto`, fixture or generated-API changes from `v1.0.1`.
+
+### Fixes
+
+- The consumer smoke lock now pins `Google.Protobuf` 3.36.2 and
+  `Grpc.Core.Api` 2.84.0, the dependencies the package declares.
+- CI's .NET pack job runs the same lock binding on every change, so a
+  dependency bump that leaves the lock stale fails before a tag is cut.
+
 ## v1.0.1
 
 Patch release for the conformance fixture set. There are no `.proto`,

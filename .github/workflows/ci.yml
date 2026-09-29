@@ -449,6 +449,18 @@ jobs:
           python3 scripts/pack_dotnet_release.py \
             --tag "v1.0.0-pr.${GITHUB_RUN_ID}" --output nupkgs
 
+      # The tag-only publish workflow binds this reviewed consumer lock to the
+      # release package and refuses to publish when the package's dependencies
+      # drift from it. Check the same binding on every change so a dependency
+      # bump cannot reach a release tag with a stale lock.
+      - name: Verify the release smoke lock matches the package dependencies
+        run: |
+          version="1.0.0-pr.${GITHUB_RUN_ID}"
+          python3 .github/scripts/prepare-nuget-smoke-lock.py \
+            --package "nupkgs/Geospatial.Grpc.${version}.nupkg" \
+            --version "${version}" \
+            --output "${RUNNER_TEMP}/dotnet-smoke.lock.json"
+
       - name: Upload .NET package artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
