@@ -26,7 +26,8 @@ jobs:
 
       - name: Enforce maintained documentation command policy
         run: |
-          if git grep -n -i -w curl -- '*.md' '*.mdx' '*.rst' '*.txt'; then
+          # Cover common raw HTTP clients and PowerShell aliases.
+          if git grep -n -i -w -E 'curl|wget|Invoke-WebRequest|Invoke-RestMethod|iwr|irm|httpie|(http|https)[[:space:]]+(https?://|:|--|GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)[^[:space:]]*' -- '*.md' '*.mdx' '*.rst' '*.txt'; then
             echo "::error::Maintained documentation must use supported SDK, CLI, or API-reference workflows."
             exit 1
           fi
