@@ -1,0 +1,11 @@
+{
+  "sequence": "8",
+  "kind": "SPEC_APPLY_EVENT_KIND_APPLY_COMPLETED",
+  "timestampUnixMs": "1748520000000",
+  "summary": {
+    "totalNodes": 2,
+    "ranNodes": 2,
+    "totalDurationMs": 0.15
+  },
+  "jobId": "spec-apply-1"
+}

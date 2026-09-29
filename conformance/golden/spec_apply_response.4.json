@@ -1,0 +1,1 @@
+{"sequence":"4","kind":"SPEC_APPLY_EVENT_KIND_SUCCEEDED","nodeId":"source","contentHash":"6943da868ac36499cb702d4af8775820ee0d0731a8a745adc47b7062bed01c54","timestampUnixMs":"1748520000000","actualCost":{"actualBytes":"149","actualDurationMs":0.02},"jobId":"spec-apply-1"}

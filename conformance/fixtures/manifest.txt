@@ -13,6 +13,8 @@
 # FeatureService — query and edit workflows.
 feature_query_request.json          geospatial.v1.QueryFeaturesRequest
 feature_query_response.json         geospatial.v1.QueryFeaturesResponse
+feature_query_stream_request.json   geospatial.v1.QueryFeaturesRequest
+feature_query_stream_response.1.json  geospatial.v1.FeaturePage
 feature_apply_edits_request.json    geospatial.v1.ApplyEditsRequest
 feature_apply_edits_response.json   geospatial.v1.ApplyEditsResponse
 # Negative case: a batch with a missing update/delete target fails as a whole.
@@ -36,3 +38,41 @@ process_execute_plan_response.json  geospatial.v1.ExecutePlanResponse
 # WorkspaceService — workspace lifecycle (create) workflow.
 workspace_create_request.json       geospatial.v1.CreateWorkspaceRequest
 workspace_create_response.json      geospatial.v1.CreateWorkspaceResponse
+
+# ProcessService — plan validation, dry run and the asynchronous job lifecycle.
+# Requests may carry {{capture:<name>}} tokens that the certification runners
+# replace with an id from an earlier response (see certification/scenarios.v1.json).
+process_validate_plan_request.json      geospatial.v1.ValidatePlanRequest
+process_validate_plan_response.json     geospatial.v1.ValidateResponse
+process_dry_run_plan_request.json       geospatial.v1.DryRunPlanRequest
+process_dry_run_plan_response.json      geospatial.v1.DryRunResponse
+process_submit_job_request.json         geospatial.v1.SubmitJobRequest
+process_submit_job_response.json        geospatial.v1.SubmitJobResponse
+process_get_job_request.json            geospatial.v1.GetJobRequest
+process_get_job_response.json           geospatial.v1.GetJobResponse
+process_get_job_result_request.json     geospatial.v1.GetJobResultRequest
+process_get_job_result_response.json    geospatial.v1.GetJobResultResponse
+process_cancel_job_submit_request.json  geospatial.v1.SubmitJobRequest
+process_cancel_job_request.json         geospatial.v1.CancelJobRequest
+process_cancel_job_response.json        geospatial.v1.CancelJobResponse
+
+# SpecService — plan, apply (server stream, one file per event) and cancel.
+spec_plan_request.json          geospatial.v1.PlanSpecRequest
+spec_plan_response.json         geospatial.v1.PlanSpecResponse
+spec_apply_request.json         geospatial.v1.ApplySpecRequest
+spec_apply_response.1.json      geospatial.v1.ApplySpecEvent
+spec_apply_response.2.json      geospatial.v1.ApplySpecEvent
+spec_apply_response.3.json      geospatial.v1.ApplySpecEvent
+spec_apply_response.4.json      geospatial.v1.ApplySpecEvent
+spec_apply_response.5.json      geospatial.v1.ApplySpecEvent
+spec_apply_response.6.json      geospatial.v1.ApplySpecEvent
+spec_apply_response.7.json      geospatial.v1.ApplySpecEvent
+spec_apply_response.8.json      geospatial.v1.ApplySpecEvent
+spec_cancel_apply_request.json  geospatial.v1.CancelJobRequest
+spec_cancel_apply_response.json geospatial.v1.CancelJobResponse
+
+# ElevationService — point and profile sampling over the seeded elevation layer.
+elevation_get_request.json        geospatial.v1.GetElevationRequest
+elevation_get_response.json       geospatial.v1.GetElevationResponse
+elevation_profile_request.json    geospatial.v1.GetElevationProfileRequest
+elevation_profile_response.json   geospatial.v1.GetElevationProfileResponse

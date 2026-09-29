@@ -1,9 +1,17 @@
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Google.Protobuf;
+using Google.Protobuf.Reflection;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Geospatial.V1;
+
+// Execute the promoted Geospatial.Grpc package against a live target. Runs every
+// scenario in certification/scenarios.v1.json through the installed generated
+// descriptors and marshallers, compares each canonical response with the
+// fixture, and writes a lane report for scripts/build_protocol_certification_fragment.py.
 
 if (args.Length != 3)
 {
@@ -16,114 +24,186 @@ var fixtureDirectory = Path.GetFullPath(args[1]);
 var reportPath = Path.GetFullPath(args[2]);
 var apiKey = Environment.GetEnvironmentVariable("HONUA_PROTOCOL_API_KEY")
     ?? throw new InvalidOperationException("HONUA_PROTOCOL_API_KEY is required");
+var pollTimeoutOverride = Environment.GetEnvironmentVariable("HONUA_CERTIFICATION_POLL_TIMEOUT_SECONDS");
 var headers = new Metadata { { "x-api-key", apiKey } };
 using var channel = GrpcChannel.ForAddress(target);
+var invoker = channel.CreateCallInvoker();
 var outcomes = new Dictionary<string, object>();
-var failures = 0;
+var captures = new Dictionary<string, string>(StringComparer.Ordinal);
 var startedAt = DateTimeOffset.UtcNow;
 var (serverAssigned, optionalServerAssigned) = LoadServerAssignedFields(
     Path.Combine(AppContext.BaseDirectory, "server-assigned-fields.v1.json"));
-
-// Call once and return the first divergence from the fixture, or null.
-async Task<string?> Compare<TRequest, TResponse>(
-    string operation,
-    string requestFixture,
-    string responseFixture,
-    Func<TRequest, Metadata, AsyncUnaryCall<TResponse>> invoke)
-    where TRequest : IMessage<TRequest>, new()
-    where TResponse : IMessage<TResponse>, new()
+using var scenarioDocument = JsonDocument.Parse(
+    await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "scenarios.v1.json")));
+if (scenarioDocument.RootElement.GetProperty("schema").GetString() != "honua.grpc-certification-scenarios/v1")
 {
-    var requestJson = await File.ReadAllTextAsync(Path.Combine(fixtureDirectory, requestFixture));
-    var request = JsonParser.Default.Parse<TRequest>(requestJson);
-    var response = await invoke(request, headers).ResponseAsync;
-    var expectedJson = await File.ReadAllTextAsync(Path.Combine(fixtureDirectory, responseFixture));
-    var expected = JsonParser.Default.Parse<TResponse>(expectedJson);
-    var patterns = serverAssigned.TryGetValue(operation, out var listed) ? listed : [];
-    var optional = optionalServerAssigned.TryGetValue(operation, out var listedOptional) ? listedOptional : [];
-    using var expectedDocument = JsonDocument.Parse(
-        MaskServerAssigned(JsonFormatter.Default.Format(expected), patterns, optional));
-    using var actualDocument = JsonDocument.Parse(
-        MaskServerAssigned(JsonFormatter.Default.Format(response), patterns, optional));
-    return FirstDivergence(expectedDocument.RootElement, actualDocument.RootElement, "$");
+    throw new InvalidOperationException("unsupported scenario list");
+}
+var captureToken = new Regex(@"\{\{capture:([A-Za-z0-9_]+)\}\}", RegexOptions.CultureInvariant);
+
+string ReadFixture(string name)
+{
+    var text = File.ReadAllText(Path.Combine(fixtureDirectory, name));
+    return captureToken.Replace(text, match =>
+        captures.TryGetValue(match.Groups[1].Value, out var value)
+            ? value
+            : throw new ScenarioFailure($"{name} needs capture '{match.Groups[1].Value}', which an earlier scenario did not provide"));
 }
 
-async Task Execute<TRequest, TResponse>(
-    string operation,
-    string requestFixture,
-    string responseFixture,
-    Func<TRequest, Metadata, AsyncUnaryCall<TResponse>> invoke,
-    (string Request, string Status, Func<Task<string?>> Verify)? negative = null)
-    where TRequest : IMessage<TRequest>, new()
-    where TResponse : IMessage<TResponse>, new()
+IMessage Parse(string name, MessageDescriptor descriptor) => JsonParser.Default.Parse(ReadFixture(name), descriptor);
+
+JsonNode Canonical(IMessage message) => JsonNode.Parse(JsonFormatter.Default.Format(message))!;
+
+JsonNode Masked(string operation, JsonNode document)
 {
-    try
+    var patterns = serverAssigned.TryGetValue(operation, out var listed) ? listed : [];
+    var optional = optionalServerAssigned.TryGetValue(operation, out var listedOptional) ? listedOptional : [];
+    return MaskServerAssigned(document, patterns, optional);
+}
+
+async Task<JsonNode> Unary(string operation, string requestFixture)
+{
+    var rpc = Rpc.For(operation);
+    var request = Parse(requestFixture, rpc.Descriptor.InputType);
+    var response = await invoker.AsyncUnaryCall(
+        rpc.Method, null, new CallOptions(headers, DateTime.UtcNow.AddSeconds(30)), request).ResponseAsync;
+    return Canonical(response);
+}
+
+string? CompareUnary(string operation, string responseFixture, JsonNode response)
+{
+    var expected = Canonical(Parse(responseFixture, Rpc.For(operation).Descriptor.OutputType));
+    return Divergence(Masked(operation, expected), Masked(operation, response.DeepClone()));
+}
+
+void Capture(JsonElement scenario, string property, JsonNode document)
+{
+    if (!scenario.TryGetProperty(property, out var spec))
     {
-        if (negative is { } negativeCase)
+        return;
+    }
+    foreach (var item in spec.EnumerateObject())
+    {
+        var value = ReadPath(document, item.Value.GetString()!);
+        if (value is not JsonValue scalar || !scalar.TryGetValue<string>(out var text) || text.Length == 0)
         {
-            var negativeRequest = JsonParser.Default.Parse<TRequest>(
-                await File.ReadAllTextAsync(Path.Combine(fixtureDirectory, negativeCase.Request)));
-            using var expectedStatus = JsonDocument.Parse(
-                await File.ReadAllTextAsync(Path.Combine(fixtureDirectory, negativeCase.Status)));
-            var expectedCode = expectedStatus.RootElement.GetProperty("code").GetInt32();
-            var expectedName = expectedStatus.RootElement.GetProperty("name").GetString();
-            RpcException? rejection = null;
-            try
-            {
-                await invoke(negativeRequest, headers).ResponseAsync;
-            }
-            catch (RpcException exception)
-            {
-                rejection = exception;
-            }
-            if (rejection is null)
-            {
-                failures++;
-                outcomes[operation] = new
-                {
-                    result = "fail",
-                    reason = $"Negative case {negativeCase.Request} succeeded; expected the whole batch to fail with status {expectedName}",
-                };
-                return;
-            }
-            if ((int)rejection.StatusCode != expectedCode)
-            {
-                failures++;
-                outcomes[operation] = new
-                {
-                    result = "fail",
-                    reason = $"Negative case {negativeCase.Request} expected status {expectedName}, got {rejection.StatusCode}: {rejection.Status.Detail}",
-                };
-                return;
-            }
-            // The rejected batch must have applied nothing: read its targets back.
-            var verifyDivergence = await negativeCase.Verify();
+            throw new ScenarioFailure($"response has no value at {item.Value.GetString()} to capture as '{item.Name}'");
+        }
+        captures[item.Name] = text;
+    }
+}
+
+async Task Run(JsonElement scenario)
+{
+    var operation = scenario.GetProperty("operation").GetString()!;
+    if (scenario.TryGetProperty("setup", out var setup))
+    {
+        Capture(setup, "capture", await Unary(setup.GetProperty("operation").GetString()!, setup.GetProperty("request").GetString()!));
+    }
+    if (scenario.TryGetProperty("negative", out var negative))
+    {
+        var negativeRequest = negative.GetProperty("request").GetString()!;
+        using var expectedStatus = JsonDocument.Parse(ReadFixture(negative.GetProperty("status").GetString()!));
+        var expectedCode = expectedStatus.RootElement.GetProperty("code").GetInt32();
+        var expectedName = expectedStatus.RootElement.GetProperty("name").GetString();
+        RpcException? rejection = null;
+        try
+        {
+            await Unary(operation, negativeRequest);
+        }
+        catch (RpcException exception)
+        {
+            rejection = exception;
+        }
+        if (rejection is null)
+        {
+            throw new ScenarioFailure($"Negative case {negativeRequest} succeeded; expected the whole batch to fail with status {expectedName}");
+        }
+        if ((int)rejection.StatusCode != expectedCode)
+        {
+            throw new ScenarioFailure($"Negative case {negativeRequest} expected status {expectedName}, got {rejection.StatusCode}: {rejection.Status.Detail}");
+        }
+        if (negative.TryGetProperty("verify", out var verify))
+        {
+            var verifyOperation = verify.GetProperty("operation").GetString()!;
+            var verifyDivergence = CompareUnary(
+                verifyOperation, verify.GetProperty("response").GetString()!,
+                await Unary(verifyOperation, verify.GetProperty("request").GetString()!));
             if (verifyDivergence is not null)
             {
-                failures++;
-                outcomes[operation] = new
-                {
-                    result = "fail",
-                    reason = $"Negative case {negativeCase.Request} was rejected, but reading its targets back does not match the unchanged state at {verifyDivergence}",
-                };
-                return;
+                throw new ScenarioFailure($"Negative case {negativeRequest} was rejected, but reading its targets back does not match the unchanged state at {verifyDivergence}");
             }
         }
-        var divergence = await Compare(operation, requestFixture, responseFixture, invoke);
-        if (divergence is not null)
+    }
+    string? divergence;
+    if (scenario.GetProperty("kind").GetString() == "server_stream")
+    {
+        var rpc = Rpc.For(operation);
+        var prefix = scenario.GetProperty("responses").GetString()!;
+        using var call = invoker.AsyncServerStreamingCall(
+            rpc.Method, null, new CallOptions(headers, DateTime.UtcNow.AddSeconds(60)),
+            Parse(scenario.GetProperty("request").GetString()!, rpc.Descriptor.InputType));
+        var messages = new List<JsonNode>();
+        while (await call.ResponseStream.MoveNext(CancellationToken.None))
         {
-            failures++;
-            outcomes[operation] = new
-            {
-                result = "fail",
-                reason = $"Canonical response mismatch at {divergence}",
-            };
-            return;
+            messages.Add(Canonical(call.ResponseStream.Current));
         }
+        var expected = new JsonArray();
+        for (var index = 1; File.Exists(Path.Combine(fixtureDirectory, $"{prefix}.{index}.json")); index++)
+        {
+            expected.Add(Masked(operation, Canonical(Parse($"{prefix}.{index}.json", rpc.Descriptor.OutputType))));
+        }
+        if (expected.Count == 0)
+        {
+            throw new ScenarioFailure($"no {prefix}.N.json fixtures");
+        }
+        if (messages.Count > 0)
+        {
+            Capture(scenario, "capture", messages[0]);
+        }
+        var actual = new JsonArray(messages.Select(message => (JsonNode?)Masked(operation, message.DeepClone())).ToArray());
+        divergence = Divergence(expected, actual);
+    }
+    else
+    {
+        var request = scenario.GetProperty("request").GetString()!;
+        var response = await Unary(operation, request);
+        if (scenario.TryGetProperty("poll_until", out var poll))
+        {
+            var pollPath = poll.GetProperty("path").GetString()!;
+            var terminal = poll.GetProperty("values").EnumerateArray().Select(value => value.GetString()).ToHashSet();
+            var timeout = double.Parse(pollTimeoutOverride ?? poll.GetProperty("timeout_seconds").GetRawText(),
+                System.Globalization.CultureInfo.InvariantCulture);
+            var deadline = DateTime.UtcNow.AddSeconds(timeout);
+            while (!terminal.Contains((ReadPath(response, pollPath) as JsonValue)?.ToString()) && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1));
+                response = await Unary(operation, request);
+            }
+        }
+        Capture(scenario, "capture", response);
+        divergence = CompareUnary(operation, scenario.GetProperty("response").GetString()!, response);
+    }
+    if (divergence is not null)
+    {
+        throw new ScenarioFailure($"Canonical response mismatch at {divergence}");
+    }
+}
+
+foreach (var scenario in scenarioDocument.RootElement.GetProperty("scenarios").EnumerateArray())
+{
+    var operation = scenario.GetProperty("operation").GetString()!;
+    try
+    {
+        await Run(scenario);
         outcomes[operation] = new { result = "pass" };
+    }
+    catch (ScenarioFailure failure)
+    {
+        outcomes[operation] = new { result = "fail", reason = failure.Message };
     }
     catch (Exception exception)
     {
-        failures++;
         outcomes[operation] = new
         {
             result = "fail",
@@ -131,6 +211,38 @@ async Task Execute<TRequest, TResponse>(
         };
     }
 }
+
+Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
+await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(new
+{
+    runner_lane = "grpc-dotnet",
+    package = "Geospatial.Grpc",
+    package_version = typeof(FeatureService).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+        ?.InformationalVersion.Split('+')[0]
+        ?? typeof(FeatureService).Assembly.GetName().Version!.ToString(3),
+    package_source = "https://api.nuget.org/v3/index.json",
+    started_at = startedAt,
+    completed_at = DateTimeOffset.UtcNow,
+    execution_identity = new
+    {
+        channel_target = target.GetLeftPart(UriPartial.Authority),
+        server_image = Environment.GetEnvironmentVariable("SERVER_IMAGE"),
+        server_source_sha = Environment.GetEnvironmentVariable("SERVER_SOURCE_SHA"),
+        fixture_revision = Environment.GetEnvironmentVariable("FIXTURE_REVISION"),
+    },
+    operations = outcomes,
+}, new JsonSerializerOptions { WriteIndented = true }));
+// Excluded operations are still executed and reported, but only a governed
+// failure fails the lane (the fragment reports excluded results separately).
+using var catalog = JsonDocument.Parse(
+    await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "protocol-certification-catalog.v1.json")));
+var excludedOperations = catalog.RootElement.TryGetProperty("excluded_operations", out var excludedList)
+    ? excludedList.EnumerateArray().Select(operation => operation.GetProperty("operation").GetString()!).ToHashSet()
+    : [];
+var governedFailures = outcomes.Count(outcome =>
+    !excludedOperations.Contains(outcome.Key)
+    && JsonSerializer.SerializeToElement(outcome.Value).GetProperty("result").GetString() == "fail");
+return governedFailures == 0 ? 0 : 1;
 
 static (Dictionary<string, string[]> Required, Dictionary<string, string[]> Optional) LoadServerAssignedFields(string file)
 {
@@ -152,7 +264,7 @@ static List<string> PathTokens(string pattern)
 {
     if (!pattern.StartsWith("$.", StringComparison.Ordinal))
     {
-        throw new InvalidOperationException($"server-assigned path must start with '$.': {pattern}");
+        throw new InvalidOperationException($"path must start with '$.': {pattern}");
     }
     var tokens = new List<string>();
     foreach (var part in pattern[2..].Split('.'))
@@ -169,18 +281,30 @@ static List<string> PathTokens(string pattern)
     }
     if (tokens.Count == 0 || tokens.Any(string.IsNullOrEmpty))
     {
-        throw new InvalidOperationException($"malformed server-assigned path: {pattern}");
+        throw new InvalidOperationException($"malformed path: {pattern}");
     }
     return tokens;
+}
+
+static JsonNode? ReadPath(JsonNode document, string pattern)
+{
+    JsonNode? node = document;
+    foreach (var token in PathTokens(pattern))
+    {
+        if (token == "[*]" || node is not JsonObject obj || !obj.TryGetPropertyValue(token, out node))
+        {
+            return null;
+        }
+    }
+    return node;
 }
 
 // Replace each present server-assigned value with a placeholder. Absent values
 // stay absent, so the comparison still requires a required path on both sides.
 // Optional paths (values that may validly be the proto3 default, which the JSON
 // mapping omits) are removed instead.
-static string MaskServerAssigned(string json, string[] patterns, string[] optional)
+static JsonNode MaskServerAssigned(JsonNode root, string[] patterns, string[] optional)
 {
-    var root = JsonNode.Parse(json)!;
     foreach (var pattern in patterns)
     {
         Visit(root, PathTokens(pattern), 0, remove: false);
@@ -189,7 +313,7 @@ static string MaskServerAssigned(string json, string[] patterns, string[] option
     {
         Visit(root, PathTokens(pattern), 0, remove: true);
     }
-    return root.ToJsonString();
+    return root;
 
     static void Visit(JsonNode? node, List<string> tokens, int index, bool remove)
     {
@@ -231,6 +355,13 @@ static string MaskServerAssigned(string json, string[] patterns, string[] option
             obj[head] = JsonValue.Create("<server-assigned>");
         }
     }
+}
+
+static string? Divergence(JsonNode expected, JsonNode actual)
+{
+    using var expectedDocument = JsonDocument.Parse(expected.ToJsonString());
+    using var actualDocument = JsonDocument.Parse(actual.ToJsonString());
+    return FirstDivergence(expectedDocument.RootElement, actualDocument.RootElement, "$");
 }
 
 static string? FirstDivergence(JsonElement expected, JsonElement actual, string path)
@@ -280,56 +411,40 @@ static string? FirstDivergence(JsonElement expected, JsonElement actual, string 
     return expected.GetRawText() == actual.GetRawText() ? null : path;
 }
 
-var feature = new FeatureService.FeatureServiceClient(channel);
-var form = new FormService.FormServiceClient(channel);
-var process = new ProcessService.ProcessServiceClient(channel);
-var workspace = new WorkspaceService.WorkspaceServiceClient(channel);
+sealed class ScenarioFailure(string message) : Exception(message);
 
-await Execute<QueryFeaturesRequest, QueryFeaturesResponse>(
-    "FeatureService/QueryFeatures", "feature_query_request.json", "feature_query_response.json", (request, metadata) => feature.QueryFeaturesAsync(request, metadata));
-await Execute<ApplyEditsRequest, ApplyEditsResponse>(
-    "FeatureService/ApplyEdits", "feature_apply_edits_request.json", "feature_apply_edits_response.json", (request, metadata) => feature.ApplyEditsAsync(request, metadata),
-    ("feature_apply_edits_missing_target_request.json", "feature_apply_edits_missing_target_status.json",
-        () => Compare<QueryFeaturesRequest, QueryFeaturesResponse>(
-            "FeatureService/QueryFeatures",
-            "feature_apply_edits_missing_target_verify_request.json",
-            "feature_apply_edits_missing_target_verify_response.json",
-            (request, metadata) => feature.QueryFeaturesAsync(request, metadata))));
-await Execute<GetFormDefinitionRequest, GetFormDefinitionResponse>(
-    "FormService/GetFormDefinition", "form_get_definition_request.json", "form_get_definition_response.json", (request, metadata) => form.GetFormDefinitionAsync(request, metadata));
-await Execute<SubmitFormDataRequest, SubmitFormDataResponse>(
-    "FormService/SubmitFormData", "form_submit_request.json", "form_submit_response.json", (request, metadata) => form.SubmitFormDataAsync(request, metadata));
-await Execute<ExecutePlanRequest, ExecutePlanResponse>(
-    "ProcessService/ExecutePlan", "process_execute_plan_request.json", "process_execute_plan_response.json", (request, metadata) => process.ExecutePlanAsync(request, metadata));
-await Execute<CreateWorkspaceRequest, CreateWorkspaceResponse>(
-    "WorkspaceService/CreateWorkspace", "workspace_create_request.json", "workspace_create_response.json", (request, metadata) => workspace.CreateWorkspaceAsync(request, metadata));
-
-Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
-await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(new
+// One geospatial.v1 RPC bound to the installed package's descriptors and marshallers.
+sealed class Rpc
 {
-    runner_lane = "grpc-dotnet",
-    package = "Geospatial.Grpc",
-    package_version = "1.0.0",
-    package_source = "https://api.nuget.org/v3/index.json",
-    started_at = startedAt,
-    completed_at = DateTimeOffset.UtcNow,
-    execution_identity = new
+    private static readonly Dictionary<string, Rpc> Cache = new(StringComparer.Ordinal);
+
+    private Rpc(MethodDescriptor descriptor)
     {
-        channel_target = target.GetLeftPart(UriPartial.Authority),
-        server_image = Environment.GetEnvironmentVariable("SERVER_IMAGE"),
-        server_source_sha = Environment.GetEnvironmentVariable("SERVER_SOURCE_SHA"),
-        fixture_revision = Environment.GetEnvironmentVariable("FIXTURE_REVISION"),
-    },
-    operations = outcomes,
-}, new JsonSerializerOptions { WriteIndented = true }));
-// Excluded operations are still executed and reported, but only a governed
-// failure fails the lane (the fragment reports excluded results separately).
-using var catalog = JsonDocument.Parse(
-    await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "protocol-certification-catalog.v1.json")));
-var excludedOperations = catalog.RootElement.TryGetProperty("excluded_operations", out var excludedList)
-    ? excludedList.EnumerateArray().Select(operation => operation.GetProperty("operation").GetString()!).ToHashSet()
-    : [];
-var governedFailures = outcomes.Count(outcome =>
-    !excludedOperations.Contains(outcome.Key)
-    && JsonSerializer.SerializeToElement(outcome.Value).GetProperty("result").GetString() == "fail");
-return governedFailures == 0 ? 0 : 1;
+        Descriptor = descriptor;
+        Method = new Method<IMessage, IMessage>(
+            descriptor.IsServerStreaming ? MethodType.ServerStreaming : MethodType.Unary,
+            descriptor.Service.FullName,
+            descriptor.Name,
+            Marshallers.Create<IMessage>(message => message.ToByteArray(), bytes => descriptor.InputType.Parser.ParseFrom(bytes)),
+            Marshallers.Create<IMessage>(message => message.ToByteArray(), bytes => descriptor.OutputType.Parser.ParseFrom(bytes)));
+    }
+
+    public MethodDescriptor Descriptor { get; }
+
+    public Method<IMessage, IMessage> Method { get; }
+
+    public static Rpc For(string operation)
+    {
+        if (Cache.TryGetValue(operation, out var cached))
+        {
+            return cached;
+        }
+        var parts = operation.Split('/');
+        var reflection = typeof(FeatureService).Assembly.GetType($"Geospatial.V1.{parts[0]}Reflection")
+            ?? throw new InvalidOperationException($"{parts[0]} is not in the installed Geospatial.Grpc");
+        var file = (FileDescriptor)reflection.GetProperty("Descriptor")!.GetValue(null)!;
+        var method = file.FindTypeByName<ServiceDescriptor>(parts[0])?.FindMethodByName(parts[1])
+            ?? throw new InvalidOperationException($"{operation} is not in the installed Geospatial.Grpc");
+        return Cache[operation] = new Rpc(method);
+    }
+}

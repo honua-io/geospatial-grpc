@@ -1,0 +1,13 @@
+{
+  "sequence": "7",
+  "kind": "SPEC_APPLY_EVENT_KIND_SUCCEEDED",
+  "nodeId": "report",
+  "contentHash": "f36727f6471c69763e0621692450d38c10cfd9ff9e7621468e70a648c9aa795f",
+  "timestampUnixMs": "1748520000000",
+  "actualCost": {
+    "actualRows": "1",
+    "actualBytes": "248",
+    "actualDurationMs": 0.02
+  },
+  "jobId": "spec-apply-1"
+}

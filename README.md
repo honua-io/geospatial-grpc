@@ -69,7 +69,7 @@ cd geospatial-grpc
 npm install -g @bufbuild/buf
 
 # Generate every configured language from the immutable stable public schema
-buf generate buf.build/honua-io/geospatial-grpc:v1.0.3
+buf generate buf.build/honua-io/geospatial-grpc:v1.0.4
 # gen/csharp, gen/go, gen/java, gen/python, gen/rust, gen/swift, gen/typescript
 
 # Or generate the local checkout / a single language with its dedicated template
@@ -147,7 +147,7 @@ dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj --configuration Release -
 descriptors, so a JS or TS project does not need buf at all:
 
 ```bash
-npm install @honua/geospatial-grpc@1.0.3 @connectrpc/connect @connectrpc/connect-node
+npm install @honua/geospatial-grpc@1.0.4 @connectrpc/connect @connectrpc/connect-node
 ```
 
 Generate locally instead only when you are working against an unreleased `.proto`

@@ -1,0 +1,135 @@
+{
+  "schema": "honua.grpc-certification-scenarios/v1",
+  "rule": "Runners execute the scenarios in order against the fixture directory. 'unary' compares one response with <response>. 'server_stream' collects every streamed message and compares them, in order, with <responses>.1.json, <responses>.2.json and so on; the message count must match. 'capture' stores response values by name (from the first message of a stream); a request or expected-response string of the form {{capture:<name>}} is replaced by the captured value before parsing, so an echoed id is compared exactly. A scenario whose capture it needs is missing fails with that reason. 'setup' runs one unary call first and only captures from it. 'poll_until' repeats a unary call until the response value at 'path' is one of 'values' or 'timeout_seconds' passes, then compares the last response. 'negative' runs a request that must fail with the recorded gRPC status, and an optional 'verify' read-back that must match exactly, before the positive call. Values listed in server-assigned-fields.v1.json are masked or removed before every comparison.",
+  "scenarios": [
+    {
+      "operation": "FeatureService/QueryFeatures",
+      "kind": "unary",
+      "request": "feature_query_request.json",
+      "response": "feature_query_response.json"
+    },
+    {
+      "operation": "FeatureService/QueryFeaturesStream",
+      "kind": "server_stream",
+      "request": "feature_query_stream_request.json",
+      "responses": "feature_query_stream_response"
+    },
+    {
+      "operation": "FeatureService/ApplyEdits",
+      "kind": "unary",
+      "request": "feature_apply_edits_request.json",
+      "response": "feature_apply_edits_response.json",
+      "negative": {
+        "request": "feature_apply_edits_missing_target_request.json",
+        "status": "feature_apply_edits_missing_target_status.json",
+        "verify": {
+          "operation": "FeatureService/QueryFeatures",
+          "request": "feature_apply_edits_missing_target_verify_request.json",
+          "response": "feature_apply_edits_missing_target_verify_response.json"
+        }
+      }
+    },
+    {
+      "operation": "FormService/GetFormDefinition",
+      "kind": "unary",
+      "request": "form_get_definition_request.json",
+      "response": "form_get_definition_response.json"
+    },
+    {
+      "operation": "FormService/SubmitFormData",
+      "kind": "unary",
+      "request": "form_submit_request.json",
+      "response": "form_submit_response.json"
+    },
+    {
+      "operation": "ProcessService/ValidatePlan",
+      "kind": "unary",
+      "request": "process_validate_plan_request.json",
+      "response": "process_validate_plan_response.json"
+    },
+    {
+      "operation": "ProcessService/DryRunPlan",
+      "kind": "unary",
+      "request": "process_dry_run_plan_request.json",
+      "response": "process_dry_run_plan_response.json"
+    },
+    {
+      "operation": "ProcessService/ExecutePlan",
+      "kind": "unary",
+      "request": "process_execute_plan_request.json",
+      "response": "process_execute_plan_response.json"
+    },
+    {
+      "operation": "ProcessService/SubmitJob",
+      "kind": "unary",
+      "request": "process_submit_job_request.json",
+      "response": "process_submit_job_response.json",
+      "capture": {"submitted_job": "$.jobId"}
+    },
+    {
+      "operation": "ProcessService/GetJob",
+      "kind": "unary",
+      "request": "process_get_job_request.json",
+      "response": "process_get_job_response.json",
+      "poll_until": {
+        "path": "$.state",
+        "values": ["JOB_STATE_COMPLETED", "JOB_STATE_FAILED", "JOB_STATE_CANCELLED"],
+        "timeout_seconds": 90
+      }
+    },
+    {
+      "operation": "ProcessService/GetJobResult",
+      "kind": "unary",
+      "request": "process_get_job_result_request.json",
+      "response": "process_get_job_result_response.json"
+    },
+    {
+      "operation": "ProcessService/CancelJob",
+      "kind": "unary",
+      "request": "process_cancel_job_request.json",
+      "response": "process_cancel_job_response.json",
+      "setup": {
+        "operation": "ProcessService/SubmitJob",
+        "request": "process_cancel_job_submit_request.json",
+        "capture": {"job_to_cancel": "$.jobId"}
+      }
+    },
+    {
+      "operation": "WorkspaceService/CreateWorkspace",
+      "kind": "unary",
+      "request": "workspace_create_request.json",
+      "response": "workspace_create_response.json"
+    },
+    {
+      "operation": "SpecService/PlanSpec",
+      "kind": "unary",
+      "request": "spec_plan_request.json",
+      "response": "spec_plan_response.json"
+    },
+    {
+      "operation": "SpecService/ApplySpec",
+      "kind": "server_stream",
+      "request": "spec_apply_request.json",
+      "responses": "spec_apply_response",
+      "capture": {"applied_spec": "$.jobId"}
+    },
+    {
+      "operation": "SpecService/CancelApply",
+      "kind": "unary",
+      "request": "spec_cancel_apply_request.json",
+      "response": "spec_cancel_apply_response.json"
+    },
+    {
+      "operation": "ElevationService/GetElevation",
+      "kind": "unary",
+      "request": "elevation_get_request.json",
+      "response": "elevation_get_response.json"
+    },
+    {
+      "operation": "ElevationService/GetElevationProfile",
+      "kind": "unary",
+      "request": "elevation_profile_request.json",
+      "response": "elevation_profile_response.json"
+    }
+  ]
+}

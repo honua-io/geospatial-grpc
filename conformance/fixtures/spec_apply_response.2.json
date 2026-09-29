@@ -1,0 +1,7 @@
+{
+  "sequence": "2",
+  "kind": "SPEC_APPLY_EVENT_KIND_QUEUED",
+  "nodeId": "source",
+  "timestampUnixMs": "1748520000000",
+  "jobId": "spec-apply-1"
+}

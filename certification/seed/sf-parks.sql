@@ -56,6 +56,39 @@ VALUES
     (0, 'AREA', 'Double', 2, NULL, true, 'Area (sq ft)'),
     (0, 'shape', 'Geometry', 3, NULL, true, 'Geometry');
 
+-- Elevation layer 4701 for the ElevationService fixtures: a synthetic 17 x 13
+-- grid of 0.01 degree cells from (-122.52, 37.83) whose elevation is
+-- 10 * column + row metres (1-based), so every sampled value is predictable.
+-- Needs postgis_raster; honua.raster_data is created by the server's migrations.
+DELETE FROM honua.raster_data WHERE layer_id = 4701;
+DELETE FROM honua.service_layers WHERE layer_id = 4701;
+DELETE FROM honua.layers WHERE layer_id = 4701;
+
+INSERT INTO honua.layers (
+    layer_id, layer_name, description, table_schema, table_name, primary_key_column,
+    geometry_column, storage_srid, geometry_type, srid, extent, default_visibility,
+    enabled, metadata)
+VALUES (
+    4701, 'Elevation', 'Synthetic San Francisco elevation model', current_schema(), 'features', 'objectid',
+    'geometry', 4326, 'Polygon', 4326,
+    ST_MakeEnvelope(-122.52, 37.70, -122.35, 37.83, 4326), true,
+    true, jsonb_build_object('accessPolicy', jsonb_build_object('allowAnonymous', true)));
+
+INSERT INTO honua.service_layers (service_name, layer_id, layer_order)
+VALUES ('sf-parks', 4701, 1);
+
+INSERT INTO honua.raster_data (layer_id, name, description, raster)
+SELECT 4701, 'sf-dem', 'Synthetic elevation: 10 * column + row metres',
+    ST_SetValues(
+        ST_AddBand(ST_MakeEmptyRaster(17, 13, -122.52, 37.83, 0.01, -0.01, 0, 0, 4326), '32BF'::text, 0, -9999),
+        1, 1, 1,
+        (SELECT array_agg(cells ORDER BY row_number)
+         FROM (
+             SELECT row_number, array_agg((10 * column_number + row_number)::double precision ORDER BY column_number) AS cells
+             FROM generate_series(1, 13) AS row_number, generate_series(1, 17) AS column_number
+             GROUP BY row_number
+         ) AS grid)::double precision[][]);
+
 SELECT honua.seed_metadata_v2_compat_snapshot();
 
 -- Field aliases. The fixture's display names ("Object ID", "Park Name",

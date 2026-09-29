@@ -21,11 +21,43 @@
       "$.workspace.ref.workspaceRevision",
       "$.workspace.createdAt",
       "$.workspace.updatedAt"
+    ],
+    "ProcessService/SubmitJob": [
+      "$.jobId"
+    ],
+    "ProcessService/GetJob": [
+      "$.progress.startedAt",
+      "$.progress.updatedAt"
+    ],
+    "ProcessService/GetJobResult": [
+      "$.result.resultId",
+      "$.result.artifacts[*].artifactId",
+      "$.result.provenance.executedAt"
+    ],
+    "SpecService/PlanSpec": [
+      "$.plan.planId",
+      "$.plan.nodes[*].contentHash"
+    ],
+    "SpecService/ApplySpec": [
+      "$.jobId",
+      "$.timestampUnixMs",
+      "$.contentHash"
+    ],
+    "ElevationService/GetElevation": [
+      "$.source.rasterIds[*]"
+    ],
+    "ElevationService/GetElevationProfile": [
+      "$.source.rasterIds[*]"
     ]
   },
   "optional_operations": {
     "ProcessService/ExecutePlan": [
       "$.result.provenance.durationSeconds"
+    ],
+    "SpecService/ApplySpec": [
+      "$.actualCost.actualDurationMs",
+      "$.actualCost.actualBytes",
+      "$.summary.totalDurationMs"
     ]
   },
   "optional_rule": "optional_operations lists server-assigned values that may validly equal their proto3 default (for example a zero-second duration), which the proto3 JSON mapping omits. The runners remove these paths from both documents before comparing, so neither the value nor its presence is compared."

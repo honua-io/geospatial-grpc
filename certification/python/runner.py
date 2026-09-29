@@ -1,52 +1,46 @@
 """Execute the promoted ``geospatial-grpc`` Python package against a live target.
 
-This is the Python counterpart of ``certification/dotnet/Program.cs``. It runs the
-same six conformance fixtures through the installed generated client (never a
-source checkout), compares each canonical response with the fixture, and writes
-a lane report consumed by ``scripts/build_protocol_certification_fragment.py``.
+This is the Python counterpart of ``certification/dotnet/Program.cs`` and
+``certification/typescript/runner.mjs``. It runs every scenario in
+``certification/scenarios.v1.json`` through the installed generated client
+(never a source checkout), compares each canonical response with the fixture,
+and writes a lane report consumed by
+``scripts/build_protocol_certification_fragment.py``.
 
 The installed package version is reported exactly as installed. The fragment
-builder decides whether that version satisfies the governed cell; a promoted
-package that is not the governed ``client_version`` stays an attributable
-execution result and never a governed pass.
+builder decides whether that version satisfies the governed cell.
 
 usage: runner.py <absolute-channel-target> <fixture-directory> <report-path>
 """
 from __future__ import annotations
 
+import importlib
 import json
 import os
+import re
 import sys
+import time
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
 from urllib.parse import urlsplit
 
 import grpc
-from google.protobuf import json_format
-
-from geospatial.v1 import (
-    feature_service_pb2,
-    feature_service_pb2_grpc,
-    form_service_pb2,
-    form_service_pb2_grpc,
-    process_service_pb2,
-    process_service_pb2_grpc,
-    workspace_service_pb2,
-    workspace_service_pb2_grpc,
-)
+from google.protobuf import json_format, message_factory
 
 PACKAGE = "geospatial-grpc"
 PACKAGE_SOURCE = "https://pypi.org/pypi/geospatial-grpc/json"
-SERVER_ASSIGNED_FIELDS = Path(__file__).resolve().parents[1] / "server-assigned-fields.v1.json"
+CERTIFICATION = Path(__file__).resolve().parents[1]
+SERVER_ASSIGNED_FIELDS = CERTIFICATION / "server-assigned-fields.v1.json"
+SCENARIOS = CERTIFICATION / "scenarios.v1.json"
+CATALOG = CERTIFICATION / "protocol-certification-catalog.v1.json"
 SERVER_ASSIGNED = "<server-assigned>"
-CATALOG = Path(__file__).resolve().parents[1] / "protocol-certification-catalog.v1.json"
+CAPTURE = re.compile(r"\{\{capture:([A-Za-z0-9_]+)\}\}")
+POLL_INTERVAL_SECONDS = 1.0
 
 
-def load_excluded_operations(path: Path = CATALOG) -> set[str]:
-    """Operations the 2026.1 scope ruling excludes from the governed cells (#88)."""
-    catalog = json.loads(path.read_text(encoding="utf-8"))
-    return {operation["operation"] for operation in catalog.get("excluded_operations", [])}
+class ScenarioFailure(Exception):
+    """A recorded, attributable scenario failure."""
 
 
 def load_server_assigned_fields(
@@ -59,9 +53,22 @@ def load_server_assigned_fields(
     return document["operations"], document.get("optional_operations", {})
 
 
+def load_scenarios(path: Path = SCENARIOS) -> list[dict]:
+    document = json.loads(path.read_text(encoding="utf-8"))
+    if document.get("schema") != "honua.grpc-certification-scenarios/v1":
+        raise ValueError(f"unsupported scenario list: {path}")
+    return document["scenarios"]
+
+
+def load_excluded_operations(path: Path = CATALOG) -> set[str]:
+    """Operations the 2026.1 scope ruling excludes from the governed cells (#88)."""
+    catalog = json.loads(path.read_text(encoding="utf-8"))
+    return {operation["operation"] for operation in catalog.get("excluded_operations", [])}
+
+
 def _path_tokens(pattern: str) -> list[str]:
     if not pattern.startswith("$."):
-        raise ValueError(f"server-assigned path must start with '$.': {pattern}")
+        raise ValueError(f"path must start with '$.': {pattern}")
     tokens = []
     for part in pattern[2:].split("."):
         if part.endswith("[*]"):
@@ -69,8 +76,18 @@ def _path_tokens(pattern: str) -> list[str]:
         else:
             tokens.append(part)
     if not tokens or any(not token for token in tokens):
-        raise ValueError(f"malformed server-assigned path: {pattern}")
+        raise ValueError(f"malformed path: {pattern}")
     return tokens
+
+
+def read_path(document: object, pattern: str) -> object:
+    """Return the value at a path without wildcards, or None."""
+    node = document
+    for token in _path_tokens(pattern):
+        if token == "[*]" or not isinstance(node, dict) or token not in node:
+            return None
+        node = node[token]
+    return node
 
 
 def mask_server_assigned(document: object, patterns: list[str], optional: list[str] = ()) -> object:
@@ -154,6 +171,29 @@ def _canonical(message) -> object:
     return json.loads(json_format.MessageToJson(message))
 
 
+def _module_for(service: str):
+    snake = re.sub(r"(?<!^)(?=[A-Z])", "_", service).lower()
+    return importlib.import_module(f"geospatial.v1.{snake}_pb2")
+
+
+class Method:
+    """One geospatial.v1 RPC bound to the installed generated message classes."""
+
+    def __init__(self, channel: grpc.Channel, operation: str):
+        service, name = operation.split("/")
+        descriptor = _module_for(service).DESCRIPTOR.services_by_name[service].methods_by_name[name]
+        self.request_type = message_factory.GetMessageClass(descriptor.input_type)
+        self.response_type = message_factory.GetMessageClass(descriptor.output_type)
+        path = f"/geospatial.v1.{service}/{name}"
+        factory = channel.unary_stream if descriptor.server_streaming else channel.unary_unary
+        self.streaming = descriptor.server_streaming
+        self.call = factory(
+            path,
+            request_serializer=self.request_type.SerializeToString,
+            response_deserializer=self.response_type.FromString,
+        )
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 3:
         print("usage: runner.py <absolute-channel-target> <fixture-directory> <report-path>", file=sys.stderr)
@@ -167,6 +207,7 @@ def main(argv: list[str]) -> int:
     api_key = os.environ.get("HONUA_PROTOCOL_API_KEY")
     if not api_key:
         raise SystemExit("HONUA_PROTOCOL_API_KEY is required")
+    poll_timeout_override = os.environ.get("HONUA_CERTIFICATION_POLL_TIMEOUT_SECONDS")
     call_metadata = (("x-api-key", api_key),)
     authority = f"{target.hostname}:{target.port}"
     channel = (
@@ -175,127 +216,125 @@ def main(argv: list[str]) -> int:
         else grpc.insecure_channel(authority)
     )
     outcomes: dict[str, dict] = {}
-    failures = 0
+    captures: dict[str, str] = {}
     started_at = datetime.now(timezone.utc)
     server_assigned, optional_server_assigned = load_server_assigned_fields()
+    methods: dict[str, Method] = {}
 
-    def compare(operation, request_fixture, response_fixture, request_type, response_type, invoke):
-        """Call once and return the first divergence from the fixture, or None."""
-        request = json_format.Parse(
-            (fixture_directory / request_fixture).read_text(encoding="utf-8"), request_type()
-        )
-        response = invoke(request, metadata=call_metadata, timeout=30)
-        expected = json_format.Parse(
-            (fixture_directory / response_fixture).read_text(encoding="utf-8"), response_type()
-        )
-        patterns = server_assigned.get(operation, [])
-        optional = optional_server_assigned.get(operation, [])
-        return first_divergence(
-            mask_server_assigned(_canonical(expected), patterns, optional),
-            mask_server_assigned(_canonical(response), patterns, optional),
-        )
+    def method(operation: str) -> Method:
+        if operation not in methods:
+            methods[operation] = Method(channel, operation)
+        return methods[operation]
 
-    def execute(operation, request_fixture, response_fixture, request_type, response_type, invoke,
-                negative=None):
-        nonlocal failures
-        try:
-            if negative is not None:
-                negative_request_fixture, negative_status_fixture, verify = negative
-                negative_request = json_format.Parse(
-                    (fixture_directory / negative_request_fixture).read_text(encoding="utf-8"), request_type()
-                )
-                expected_status = json.loads(
-                    (fixture_directory / negative_status_fixture).read_text(encoding="utf-8")
-                )
-                try:
-                    invoke(negative_request, metadata=call_metadata, timeout=30)
-                except grpc.RpcError as rejection:
-                    if rejection.code().value[0] != expected_status["code"]:
-                        failures += 1
-                        outcomes[operation] = {
-                            "result": "fail",
-                            "reason": (
-                                f"Negative case {negative_request_fixture} expected status "
-                                f"{expected_status['name']}, got {rejection.code().name}: {rejection.details()}"
-                            ),
-                        }
-                        return
-                else:
-                    failures += 1
-                    outcomes[operation] = {
-                        "result": "fail",
-                        "reason": (
-                            f"Negative case {negative_request_fixture} succeeded; expected the whole "
-                            f"batch to fail with status {expected_status['name']}"
-                        ),
-                    }
-                    return
-                # The rejected batch must have applied nothing: read its targets back.
-                verify_divergence = verify()
-                if verify_divergence is not None:
-                    failures += 1
-                    outcomes[operation] = {
-                        "result": "fail",
-                        "reason": (
-                            f"Negative case {negative_request_fixture} was rejected, but reading its targets back "
-                            f"does not match the unchanged state at {verify_divergence}"
-                        ),
-                    }
-                    return
-            divergence = compare(operation, request_fixture, response_fixture, request_type, response_type, invoke)
-            if divergence is not None:
-                failures += 1
-                outcomes[operation] = {
-                    "result": "fail",
-                    "reason": f"Canonical response mismatch at {divergence}",
-                }
-                return
-            outcomes[operation] = {"result": "pass"}
-        except Exception as exception:  # noqa: BLE001 - every failure is a recorded outcome
-            failures += 1
-            detail = exception.details() if isinstance(exception, grpc.RpcError) else str(exception)
-            code = f"{exception.code().name}: " if isinstance(exception, grpc.RpcError) else ""
-            outcomes[operation] = {
-                "result": "fail",
-                "reason": (
-                    "Canonical published client executed and failed: "
-                    f"{type(exception).__name__}: {code}{detail}"
-                ),
-            }
+    def read_fixture(name: str) -> str:
+        text = (fixture_directory / name).read_text(encoding="utf-8")
+
+        def substitute(match: re.Match) -> str:
+            key = match.group(1)
+            if key not in captures:
+                raise ScenarioFailure(f"{name} needs capture '{key}', which an earlier scenario did not provide")
+            return captures[key]
+
+        return CAPTURE.sub(substitute, text)
+
+    def parse(name: str, message_type):
+        return json_format.Parse(read_fixture(name), message_type())
+
+    def masked(operation: str, document: object) -> object:
+        return mask_server_assigned(
+            document, server_assigned.get(operation, []), optional_server_assigned.get(operation, []))
+
+    def unary(operation: str, request_fixture: str):
+        rpc = method(operation)
+        return rpc.call(parse(request_fixture, rpc.request_type), metadata=call_metadata, timeout=30)
+
+    def compare_unary(operation: str, response_fixture: str, response) -> str | None:
+        expected = parse(response_fixture, method(operation).response_type)
+        return first_divergence(masked(operation, _canonical(expected)), masked(operation, _canonical(response)))
+
+    def capture(spec: dict | None, document: object) -> None:
+        for key, pattern in (spec or {}).items():
+            value = read_path(document, pattern)
+            if not isinstance(value, str) or not value:
+                raise ScenarioFailure(f"response has no value at {pattern} to capture as '{key}'")
+            captures[key] = value
+
+    def run(scenario: dict) -> None:
+        operation = scenario["operation"]
+        setup = scenario.get("setup")
+        if setup is not None:
+            capture(setup.get("capture"), _canonical(unary(setup["operation"], setup["request"])))
+        negative = scenario.get("negative")
+        if negative is not None:
+            expected_status = json.loads(read_fixture(negative["status"]))
+            try:
+                unary(operation, negative["request"])
+            except grpc.RpcError as rejection:
+                if rejection.code().value[0] != expected_status["code"]:
+                    raise ScenarioFailure(
+                        f"Negative case {negative['request']} expected status {expected_status['name']}, "
+                        f"got {rejection.code().name}: {rejection.details()}") from None
+            else:
+                raise ScenarioFailure(
+                    f"Negative case {negative['request']} succeeded; expected the whole batch to fail "
+                    f"with status {expected_status['name']}")
+            verify = negative.get("verify")
+            if verify is not None:
+                divergence = compare_unary(
+                    verify["operation"], verify["response"], unary(verify["operation"], verify["request"]))
+                if divergence is not None:
+                    raise ScenarioFailure(
+                        f"Negative case {negative['request']} was rejected, but reading its targets back "
+                        f"does not match the unchanged state at {divergence}")
+        if scenario["kind"] == "server_stream":
+            rpc = method(operation)
+            messages = list(rpc.call(
+                parse(scenario["request"], rpc.request_type), metadata=call_metadata, timeout=60))
+            actual = [masked(operation, _canonical(message)) for message in messages]
+            expected = []
+            index = 1
+            while (fixture_directory / f"{scenario['responses']}.{index}.json").is_file():
+                expected.append(masked(operation, _canonical(
+                    parse(f"{scenario['responses']}.{index}.json", rpc.response_type))))
+                index += 1
+            if not expected:
+                raise ScenarioFailure(f"no {scenario['responses']}.N.json fixtures")
+            if messages:
+                capture(scenario.get("capture"), _canonical(messages[0]))
+            divergence = first_divergence(expected, actual)
+        else:
+            poll = scenario.get("poll_until")
+            response = unary(operation, scenario["request"])
+            if poll is not None:
+                timeout = float(poll_timeout_override or poll["timeout_seconds"])
+                deadline = time.monotonic() + timeout
+                while read_path(_canonical(response), poll["path"]) not in poll["values"] \
+                        and time.monotonic() < deadline:
+                    time.sleep(POLL_INTERVAL_SECONDS)
+                    response = unary(operation, scenario["request"])
+            capture(scenario.get("capture"), _canonical(response))
+            divergence = compare_unary(operation, scenario["response"], response)
+        if divergence is not None:
+            raise ScenarioFailure(f"Canonical response mismatch at {divergence}")
 
     with channel:
-        feature = feature_service_pb2_grpc.FeatureServiceStub(channel)
-        form = form_service_pb2_grpc.FormServiceStub(channel)
-        process = process_service_pb2_grpc.ProcessServiceStub(channel)
-        workspace = workspace_service_pb2_grpc.WorkspaceServiceStub(channel)
-        execute("FeatureService/QueryFeatures", "feature_query_request.json", "feature_query_response.json",
-                feature_service_pb2.QueryFeaturesRequest, feature_service_pb2.QueryFeaturesResponse,
-                feature.QueryFeatures)
-        execute("FeatureService/ApplyEdits", "feature_apply_edits_request.json", "feature_apply_edits_response.json",
-                feature_service_pb2.ApplyEditsRequest, feature_service_pb2.ApplyEditsResponse,
-                feature.ApplyEdits,
-                negative=("feature_apply_edits_missing_target_request.json",
-                          "feature_apply_edits_missing_target_status.json",
-                          lambda: compare("FeatureService/QueryFeatures",
-                                          "feature_apply_edits_missing_target_verify_request.json",
-                                          "feature_apply_edits_missing_target_verify_response.json",
-                                          feature_service_pb2.QueryFeaturesRequest,
-                                          feature_service_pb2.QueryFeaturesResponse,
-                                          feature.QueryFeatures)))
-        execute("FormService/GetFormDefinition", "form_get_definition_request.json",
-                "form_get_definition_response.json",
-                form_service_pb2.GetFormDefinitionRequest, form_service_pb2.GetFormDefinitionResponse,
-                form.GetFormDefinition)
-        execute("FormService/SubmitFormData", "form_submit_request.json", "form_submit_response.json",
-                form_service_pb2.SubmitFormDataRequest, form_service_pb2.SubmitFormDataResponse,
-                form.SubmitFormData)
-        execute("ProcessService/ExecutePlan", "process_execute_plan_request.json",
-                "process_execute_plan_response.json",
-                process_service_pb2.ExecutePlanRequest, process_service_pb2.ExecutePlanResponse,
-                process.ExecutePlan)
-        execute("WorkspaceService/CreateWorkspace", "workspace_create_request.json", "workspace_create_response.json",
-                workspace_service_pb2.CreateWorkspaceRequest, workspace_service_pb2.CreateWorkspaceResponse,
-                workspace.CreateWorkspace)
+        for scenario in load_scenarios():
+            operation = scenario["operation"]
+            try:
+                run(scenario)
+                outcomes[operation] = {"result": "pass"}
+            except ScenarioFailure as failure:
+                outcomes[operation] = {"result": "fail", "reason": str(failure)}
+            except Exception as exception:  # noqa: BLE001 - every failure is a recorded outcome
+                detail = exception.details() if isinstance(exception, grpc.RpcError) else str(exception)
+                code = f"{exception.code().name}: " if isinstance(exception, grpc.RpcError) else ""
+                outcomes[operation] = {
+                    "result": "fail",
+                    "reason": (
+                        "Canonical published client executed and failed: "
+                        f"{type(exception).__name__}: {code}{detail}"
+                    ),
+                }
 
     report = {
         "runner_lane": "grpc-python",

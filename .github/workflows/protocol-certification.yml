@@ -54,6 +54,13 @@ jobs:
         ports: ["5432:5432"]
         options: >-
           --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+      # Durable ProcessService jobs (SubmitJob, GetJob, GetJobResult, CancelJob)
+      # need the Redis job substrate, as in the Redis-on GA topology.
+      redis:
+        image: redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -158,6 +165,8 @@ jobs:
             -e Security__ConnectionEncryption__MasterKey="${key}" \
             -e Security__ConnectionEncryption__Salt="${salt}" \
             -e HONUA_ADMIN_PASSWORD="ci-protocol-api-key" \
+            -e ConnectionStrings__Redis="localhost:6379" \
+            -e Licensing__Mode="Disabled" \
             -e Kestrel__Endpoints__Http__Url="http://+:8080" \
             -e Kestrel__Endpoints__Http__Protocols="Http1" \
             -e Kestrel__Endpoints__Grpc__Url="http://+:8081" \

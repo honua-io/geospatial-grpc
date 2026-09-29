@@ -1,0 +1,26 @@
+{
+  "document": {
+    "grammarVersion": "grammar/1.0",
+    "processFamilyVersion": "family/1.0",
+    "specId": "cert-spec-noop",
+    "nodes": [
+      {
+        "id": "source",
+        "kind": "SPEC_RESOURCE_KIND_COMPUTE",
+        "op": "compute.noop"
+      },
+      {
+        "id": "report",
+        "kind": "SPEC_RESOURCE_KIND_REPORT",
+        "op": "compute.noop",
+        "inputs": {
+          "from": {
+            "stringValue": "@source"
+          }
+        }
+      }
+    ]
+  },
+  "cacheMode": "SPEC_CACHE_MODE_BYPASS",
+  "maxConcurrency": 1
+}
