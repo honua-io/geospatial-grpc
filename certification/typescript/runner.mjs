@@ -47,6 +47,52 @@ import {
 
 const PACKAGE = "@honua/geospatial-grpc";
 const PACKAGE_SOURCE = "https://registry.npmjs.org/@honua/geospatial-grpc";
+const SERVER_ASSIGNED_FIELDS = fileURLToPath(new URL("../server-assigned-fields.v1.json", import.meta.url));
+const SERVER_ASSIGNED = "<server-assigned>";
+
+export async function loadServerAssignedFields(file = SERVER_ASSIGNED_FIELDS) {
+  const document = JSON.parse(await readFile(file, "utf8"));
+  if (document.schema !== "honua.grpc-certification-server-assigned-fields/v1") {
+    throw new Error(`unsupported server-assigned field list: ${file}`);
+  }
+  return { required: document.operations, optional: document.optional_operations ?? {} };
+}
+
+function pathTokens(pattern) {
+  if (!pattern.startsWith("$.")) throw new Error(`server-assigned path must start with '$.': ${pattern}`);
+  const tokens = [];
+  for (const part of pattern.slice(2).split(".")) {
+    if (part.endsWith("[*]")) tokens.push(part.slice(0, -3), "[*]");
+    else tokens.push(part);
+  }
+  if (tokens.length === 0 || tokens.some((token) => token === "")) {
+    throw new Error(`malformed server-assigned path: ${pattern}`);
+  }
+  return tokens;
+}
+
+// Replace each present server-assigned value with a placeholder. Absent values
+// stay absent, so the comparison still requires a required path on both sides.
+// Optional paths (values that may validly be the proto3 default, which the JSON
+// mapping omits) are removed instead.
+export function maskServerAssigned(document, patterns, optional = []) {
+  const visit = (node, tokens, remove) => {
+    const [head, ...rest] = tokens;
+    if (head === "[*]") {
+      if (!Array.isArray(node)) return;
+      if (rest.length) node.forEach((item) => visit(item, rest, remove));
+      else if (!remove) node.fill(SERVER_ASSIGNED);
+      return;
+    }
+    if (kind(node) !== "object" || !(head in node)) return;
+    if (rest.length) visit(node[head], rest, remove);
+    else if (remove) delete node[head];
+    else node[head] = SERVER_ASSIGNED;
+  };
+  for (const pattern of patterns) visit(document, pathTokens(pattern), false);
+  for (const pattern of optional) visit(document, pathTokens(pattern), true);
+  return document;
+}
 
 function installedPackageRoot() {
   // The package's exports map does not expose package.json, so resolve it from
@@ -109,15 +155,66 @@ async function main(argv) {
   const outcomes = {};
   let failures = 0;
   const startedAt = new Date();
+  const serverAssigned = await loadServerAssignedFields();
 
-  async function execute(operation, requestFixture, responseFixture, requestSchema, responseSchema, invoke) {
+  // Call once and return the first divergence from the fixture, or null.
+  async function compare(operation, requestFixture, responseFixture, requestSchema, responseSchema, invoke) {
+    const requestJson = JSON.parse(await readFile(path.join(fixtureDirectory, requestFixture), "utf8"));
+    const request = fromJson(requestSchema, requestJson);
+    const response = await invoke(request, { headers, timeoutMs: 30_000 });
+    const expectedJson = JSON.parse(await readFile(path.join(fixtureDirectory, responseFixture), "utf8"));
+    const expected = fromJson(responseSchema, expectedJson);
+    const patterns = serverAssigned.required[operation] ?? [];
+    const optional = serverAssigned.optional[operation] ?? [];
+    return firstDivergence(
+      maskServerAssigned(toJson(responseSchema, expected), patterns, optional),
+      maskServerAssigned(toJson(responseSchema, response), patterns, optional),
+    );
+  }
+
+  async function execute(operation, requestFixture, responseFixture, requestSchema, responseSchema, invoke,
+    negative = null) {
     try {
-      const requestJson = JSON.parse(await readFile(path.join(fixtureDirectory, requestFixture), "utf8"));
-      const request = fromJson(requestSchema, requestJson);
-      const response = await invoke(request, { headers, timeoutMs: 30_000 });
-      const expectedJson = JSON.parse(await readFile(path.join(fixtureDirectory, responseFixture), "utf8"));
-      const expected = fromJson(responseSchema, expectedJson);
-      const divergence = firstDivergence(toJson(responseSchema, expected), toJson(responseSchema, response));
+      if (negative !== null) {
+        const [negativeRequestFixture, negativeStatusFixture, verify] = negative;
+        const negativeRequest = fromJson(requestSchema,
+          JSON.parse(await readFile(path.join(fixtureDirectory, negativeRequestFixture), "utf8")));
+        const expectedStatus = JSON.parse(await readFile(path.join(fixtureDirectory, negativeStatusFixture), "utf8"));
+        let rejection = null;
+        try {
+          await invoke(negativeRequest, { headers, timeoutMs: 30_000 });
+        } catch (error) {
+          if (!(error instanceof ConnectError)) throw error;
+          rejection = error;
+        }
+        if (rejection === null) {
+          failures++;
+          outcomes[operation] = {
+            result: "fail",
+            reason: `Negative case ${negativeRequestFixture} succeeded; expected the whole batch to fail with status ${expectedStatus.name}`,
+          };
+          return;
+        }
+        if (rejection.code !== expectedStatus.code) {
+          failures++;
+          outcomes[operation] = {
+            result: "fail",
+            reason: `Negative case ${negativeRequestFixture} expected status ${expectedStatus.name}, got code ${rejection.code}: ${rejection.rawMessage}`,
+          };
+          return;
+        }
+        // The rejected batch must have applied nothing: read its targets back.
+        const verifyDivergence = await verify();
+        if (verifyDivergence !== null) {
+          failures++;
+          outcomes[operation] = {
+            result: "fail",
+            reason: `Negative case ${negativeRequestFixture} was rejected, but reading its targets back does not match the unchanged state at ${verifyDivergence}`,
+          };
+          return;
+        }
+      }
+      const divergence = await compare(operation, requestFixture, responseFixture, requestSchema, responseSchema, invoke);
       if (divergence !== null) {
         failures++;
         outcomes[operation] = { result: "fail", reason: `Canonical response mismatch at ${divergence}` };
@@ -142,7 +239,12 @@ async function main(argv) {
   await execute("FeatureService/QueryFeatures", "feature_query_request.json", "feature_query_response.json",
     QueryFeaturesRequestSchema, QueryFeaturesResponseSchema, (r, o) => feature.queryFeatures(r, o));
   await execute("FeatureService/ApplyEdits", "feature_apply_edits_request.json", "feature_apply_edits_response.json",
-    ApplyEditsRequestSchema, ApplyEditsResponseSchema, (r, o) => feature.applyEdits(r, o));
+    ApplyEditsRequestSchema, ApplyEditsResponseSchema, (r, o) => feature.applyEdits(r, o),
+    ["feature_apply_edits_missing_target_request.json", "feature_apply_edits_missing_target_status.json",
+      () => compare("FeatureService/QueryFeatures",
+        "feature_apply_edits_missing_target_verify_request.json",
+        "feature_apply_edits_missing_target_verify_response.json",
+        QueryFeaturesRequestSchema, QueryFeaturesResponseSchema, (r, o) => feature.queryFeatures(r, o))]);
   await execute("FormService/GetFormDefinition", "form_get_definition_request.json", "form_get_definition_response.json",
     GetFormDefinitionRequestSchema, GetFormDefinitionResponseSchema, (r, o) => form.getFormDefinition(r, o));
   await execute("FormService/SubmitFormData", "form_submit_request.json", "form_submit_response.json",

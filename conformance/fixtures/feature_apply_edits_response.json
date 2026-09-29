@@ -1,19 +1,20 @@
 {
   "addResults": [
-    { "objectId": "101", "success": true }
+    {
+      "objectId": "101",
+      "success": true
+    }
   ],
   "updateResults": [
-    { "objectId": "42", "success": true }
+    {
+      "objectId": "42",
+      "success": true
+    }
   ],
   "deleteResults": [
-    { "objectId": "7", "success": true },
     {
-      "objectId": "8",
-      "success": false,
-      "error": {
-        "code": 404,
-        "message": "feature 8 not found"
-      }
+      "objectId": "7",
+      "success": true
     }
   ]
 }

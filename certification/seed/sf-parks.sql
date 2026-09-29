@@ -57,3 +57,64 @@ VALUES
     (0, 'shape', 'Geometry', 3, NULL, true, 'Geometry');
 
 SELECT honua.seed_metadata_v2_compat_snapshot();
+
+-- Field aliases. The fixture's display names ("Object ID", "Park Name",
+-- "Area (sq ft)") live in the Metadata v2 field `alias`, the same field the
+-- admin field-configuration API writes. The compat compiler above does not
+-- project aliases, so set them on the compiled sf-parks feature resource
+-- (res-layer-0) from layer_fields.description, then re-derive the etag the
+-- same way honua.seed_metadata_v2_compat_snapshot() does.
+WITH aliased AS (
+    SELECT
+        snapshot.environment,
+        snapshot.revision,
+        jsonb_set(
+            snapshot.document,
+            '{resources}',
+            (
+                SELECT jsonb_agg(
+                    CASE
+                        WHEN resource #>> '{metadata,id}' = 'res-layer-0' THEN jsonb_set(
+                            resource,
+                            '{schemaFields}',
+                            (
+                                SELECT jsonb_agg(
+                                    CASE
+                                        WHEN lf.description IS NULL THEN field
+                                        ELSE field || jsonb_build_object('alias', lf.description)
+                                    END
+                                    ORDER BY ordinality
+                                )
+                                FROM jsonb_array_elements(resource -> 'schemaFields') WITH ORDINALITY AS f(field, ordinality)
+                                LEFT JOIN honua.layer_fields lf
+                                    ON lf.layer_id = 0 AND lf.field_name = field ->> 'name'
+                            )
+                        )
+                        ELSE resource
+                    END
+                    ORDER BY resource_ordinality
+                )
+                FROM jsonb_array_elements(snapshot.document -> 'resources')
+                    WITH ORDINALITY AS r(resource, resource_ordinality)
+            )
+        ) AS document
+    FROM honua.metadata_v2_snapshots snapshot
+    JOIN honua.metadata_v2_current current_revision
+        ON current_revision.environment = snapshot.environment
+       AND current_revision.revision = snapshot.revision
+),
+updated AS (
+    UPDATE honua.metadata_v2_snapshots snapshot
+    SET document = aliased.document,
+        etag = '"' || md5(aliased.document::text) || '"'
+    FROM aliased
+    WHERE snapshot.environment = aliased.environment
+      AND snapshot.revision = aliased.revision
+    RETURNING snapshot.environment, snapshot.revision, snapshot.etag
+)
+UPDATE honua.metadata_v2_current current_revision
+SET etag = updated.etag,
+    activated_at = NOW()
+FROM updated
+WHERE current_revision.environment = updated.environment
+  AND current_revision.revision = updated.revision;

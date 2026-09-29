@@ -1,0 +1,19 @@
+{
+  "serviceId": "sf-parks",
+  "layerId": 0,
+  "objectIds": [
+    "7",
+    "42"
+  ],
+  "outFields": [
+    "OBJECTID",
+    "NAME",
+    "AREA"
+  ],
+  "returnGeometry": true,
+  "outSr": {
+    "wkid": 4326,
+    "latestWkid": 4326
+  },
+  "orderBy": "NAME ASC"
+}

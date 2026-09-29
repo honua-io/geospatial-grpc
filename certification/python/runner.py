@@ -38,6 +38,66 @@ from geospatial.v1 import (
 
 PACKAGE = "geospatial-grpc"
 PACKAGE_SOURCE = "https://pypi.org/pypi/geospatial-grpc/json"
+SERVER_ASSIGNED_FIELDS = Path(__file__).resolve().parents[1] / "server-assigned-fields.v1.json"
+SERVER_ASSIGNED = "<server-assigned>"
+
+
+def load_server_assigned_fields(
+    path: Path = SERVER_ASSIGNED_FIELDS,
+) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    """Return (required, optional) server-assigned paths by operation."""
+    document = json.loads(path.read_text(encoding="utf-8"))
+    if document.get("schema") != "honua.grpc-certification-server-assigned-fields/v1":
+        raise ValueError(f"unsupported server-assigned field list: {path}")
+    return document["operations"], document.get("optional_operations", {})
+
+
+def _path_tokens(pattern: str) -> list[str]:
+    if not pattern.startswith("$."):
+        raise ValueError(f"server-assigned path must start with '$.': {pattern}")
+    tokens = []
+    for part in pattern[2:].split("."):
+        if part.endswith("[*]"):
+            tokens.extend([part[:-3], "[*]"])
+        else:
+            tokens.append(part)
+    if not tokens or any(not token for token in tokens):
+        raise ValueError(f"malformed server-assigned path: {pattern}")
+    return tokens
+
+
+def mask_server_assigned(document: object, patterns: list[str], optional: list[str] = ()) -> object:
+    """Replace each present server-assigned value with a placeholder.
+
+    Absent values are left absent, so the comparison still requires a required
+    path on both sides. Optional paths (values that may validly be the proto3
+    default, which the JSON mapping omits) are removed instead. Nothing outside
+    the listed paths is touched.
+    """
+    def visit(node: object, tokens: list[str], remove: bool) -> None:
+        head, rest = tokens[0], tokens[1:]
+        if head == "[*]":
+            if isinstance(node, list):
+                if rest:
+                    for item in node:
+                        visit(item, rest, remove)
+                elif not remove:
+                    node[:] = [SERVER_ASSIGNED] * len(node)
+            return
+        if not isinstance(node, dict) or head not in node:
+            return
+        if rest:
+            visit(node[head], rest, remove)
+        elif remove:
+            del node[head]
+        else:
+            node[head] = SERVER_ASSIGNED
+
+    for pattern in patterns:
+        visit(document, _path_tokens(pattern), False)
+    for pattern in optional:
+        visit(document, _path_tokens(pattern), True)
+    return document
 
 
 def _kind(value: object) -> str:
@@ -110,18 +170,72 @@ def main(argv: list[str]) -> int:
     outcomes: dict[str, dict] = {}
     failures = 0
     started_at = datetime.now(timezone.utc)
+    server_assigned, optional_server_assigned = load_server_assigned_fields()
 
-    def execute(operation, request_fixture, response_fixture, request_type, response_type, invoke):
+    def compare(operation, request_fixture, response_fixture, request_type, response_type, invoke):
+        """Call once and return the first divergence from the fixture, or None."""
+        request = json_format.Parse(
+            (fixture_directory / request_fixture).read_text(encoding="utf-8"), request_type()
+        )
+        response = invoke(request, metadata=call_metadata, timeout=30)
+        expected = json_format.Parse(
+            (fixture_directory / response_fixture).read_text(encoding="utf-8"), response_type()
+        )
+        patterns = server_assigned.get(operation, [])
+        optional = optional_server_assigned.get(operation, [])
+        return first_divergence(
+            mask_server_assigned(_canonical(expected), patterns, optional),
+            mask_server_assigned(_canonical(response), patterns, optional),
+        )
+
+    def execute(operation, request_fixture, response_fixture, request_type, response_type, invoke,
+                negative=None):
         nonlocal failures
         try:
-            request = json_format.Parse(
-                (fixture_directory / request_fixture).read_text(encoding="utf-8"), request_type()
-            )
-            response = invoke(request, metadata=call_metadata, timeout=30)
-            expected = json_format.Parse(
-                (fixture_directory / response_fixture).read_text(encoding="utf-8"), response_type()
-            )
-            divergence = first_divergence(_canonical(expected), _canonical(response))
+            if negative is not None:
+                negative_request_fixture, negative_status_fixture, verify = negative
+                negative_request = json_format.Parse(
+                    (fixture_directory / negative_request_fixture).read_text(encoding="utf-8"), request_type()
+                )
+                expected_status = json.loads(
+                    (fixture_directory / negative_status_fixture).read_text(encoding="utf-8")
+                )
+                try:
+                    invoke(negative_request, metadata=call_metadata, timeout=30)
+                except grpc.RpcError as rejection:
+                    if rejection.code().value[0] != expected_status["code"]:
+                        failures += 1
+                        outcomes[operation] = {
+                            "result": "fail",
+                            "reason": (
+                                f"Negative case {negative_request_fixture} expected status "
+                                f"{expected_status['name']}, got {rejection.code().name}: {rejection.details()}"
+                            ),
+                        }
+                        return
+                else:
+                    failures += 1
+                    outcomes[operation] = {
+                        "result": "fail",
+                        "reason": (
+                            f"Negative case {negative_request_fixture} succeeded; expected the whole "
+                            f"batch to fail with status {expected_status['name']}"
+                        ),
+                    }
+                    return
+                # The rejected batch must have applied nothing: read its targets back.
+                verify_divergence = verify()
+                if verify_divergence is not None:
+                    failures += 1
+                    outcomes[operation] = {
+                        "result": "fail",
+                        "reason": (
+                            f"Negative case {negative_request_fixture} was rejected, but reading its targets back "
+                            f"does not match the unchanged state at {verify_divergence}"
+                        ),
+                    }
+                    return
+            divergence = compare(operation, request_fixture, response_fixture, request_type, response_type, invoke)
             if divergence is not None:
                 failures += 1
                 outcomes[operation] = {
@@ -152,7 +266,15 @@ def main(argv: list[str]) -> int:
                 feature.QueryFeatures)
         execute("FeatureService/ApplyEdits", "feature_apply_edits_request.json", "feature_apply_edits_response.json",
                 feature_service_pb2.ApplyEditsRequest, feature_service_pb2.ApplyEditsResponse,
-                feature.ApplyEdits)
+                feature.ApplyEdits,
+                negative=("feature_apply_edits_missing_target_request.json",
+                          "feature_apply_edits_missing_target_status.json",
+                          lambda: compare("FeatureService/QueryFeatures",
+                                          "feature_apply_edits_missing_target_verify_request.json",
+                                          "feature_apply_edits_missing_target_verify_response.json",
+                                          feature_service_pb2.QueryFeaturesRequest,
+                                          feature_service_pb2.QueryFeaturesResponse,
+                                          feature.QueryFeatures)))
         execute("FormService/GetFormDefinition", "form_get_definition_request.json",
                 "form_get_definition_response.json",
                 form_service_pb2.GetFormDefinitionRequest, form_service_pb2.GetFormDefinitionResponse,

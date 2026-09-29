@@ -5,7 +5,7 @@ protocol. The package version matches the schema tag and conformance fixture
 version.
 
 ```bash
-python -m pip install geospatial-grpc==1.0.2
+python -m pip install geospatial-grpc==1.0.3
 ```
 
 ```python

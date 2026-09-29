@@ -57,6 +57,27 @@ def query_response(*, x=-157.5, y=21.25, z=0.0, m=12.5, wkid=4326, null_value=Tr
     return b"\x10\x01" + message(3, b"\x08" + varint(wkid)) + message(5, feature)
 
 
+def edit_result(object_id, success=True):
+    # EditResult.object_id=1 (int64 varint, omitted at 0), success=2 (bool).
+    payload = (b"" + varint(object_id) if object_id else b"") + (b"" if success else b"")
+    return payload
+
+
+def apply_edits_response(*, add_id=555, update_id=42):
+    # ApplyEditsResponse.add_results=1, update_results=2.
+    return message(1, edit_result(add_id)) + message(2, edit_result(update_id))
+
+
+# The fixture's expected add id deliberately differs from the oracle's 555:
+# addResults[*].objectId is server-assigned (certification/server-assigned-fields.v1.json).
+EXPECTED_APPLY_EDITS = {
+    "addResults": [{"objectId": "101", "success": True}],
+    "updateResults": [{"objectId": "42", "success": True}],
+}
+NEGATIVE_MARKER = "missing-target"
+VERIFY_MARKER = "rejected-batch-read-back"
+
+
 EXPECTED_QUERY = {
     "geometryType": "GEOMETRY_TYPE_POINT",
     "spatialReference": {"wkid": 4326},
@@ -73,17 +94,29 @@ class RunnerTransportContract:
     def command(self, target, fixtures, report_path):
         raise NotImplementedError
 
-    def execute(self, response=None, abort=False):
+    def execute(self, response=None, abort=False, edits_response=None,
+                negative_status=grpc.StatusCode.NOT_FOUND, verify_response=None):
         requests = {}
         server = grpc.server(ThreadPoolExecutor(max_workers=2))
 
         def handler(operation):
             def invoke(request, context):
-                requests[operation] = request
+                if VERIFY_MARKER.encode() not in request:
+                    requests[operation] = request
+                if operation == "FeatureService/QueryFeatures" and VERIFY_MARKER.encode() in request:
+                    requests["FeatureService/QueryFeatures#read-back"] = request
+                    return query_response() if verify_response is None else verify_response
                 if operation == "FeatureService/QueryFeatures":
                     if abort:
                         context.abort(grpc.StatusCode.UNAVAILABLE, "injected unavailable")
                     return query_response() if response is None else response
+                if operation == "FeatureService/ApplyEdits":
+                    if NEGATIVE_MARKER.encode() in request:
+                        requests["FeatureService/ApplyEdits#negative"] = request
+                        if negative_status is not None:
+                            context.abort(negative_status, "feature 8 was not found")
+                        return b""
+                    return apply_edits_response() if edits_response is None else edits_response
                 return b""
             return grpc.unary_unary_rpc_method_handler(invoke)
 
@@ -98,9 +131,18 @@ class RunnerTransportContract:
                 fixtures = Path(directory)
                 for operation, name in CALLS.items():
                     request = {"serviceId": "oracle"} if name == "feature_query" else {}
-                    expected = EXPECTED_QUERY if name == "feature_query" else {}
+                    expected = {"feature_query": EXPECTED_QUERY,
+                                "feature_apply_edits": EXPECTED_APPLY_EDITS}.get(name, {})
                     (fixtures / f"{name}_request.json").write_text(json.dumps(request))
                     (fixtures / f"{name}_response.json").write_text(json.dumps(expected))
+                (fixtures / "feature_apply_edits_missing_target_request.json").write_text(
+                    json.dumps({"serviceId": NEGATIVE_MARKER, "deletes": ["7", "8"]}))
+                (fixtures / "feature_apply_edits_missing_target_status.json").write_text(
+                    json.dumps({"code": 5, "name": "NOT_FOUND"}))
+                (fixtures / "feature_apply_edits_missing_target_verify_request.json").write_text(
+                    json.dumps({"serviceId": VERIFY_MARKER}))
+                (fixtures / "feature_apply_edits_missing_target_verify_response.json").write_text(
+                    json.dumps(EXPECTED_QUERY))
                 report_path = fixtures / "report.json"
                 completed = subprocess.run(
                     self.command(f"http://127.0.0.1:{port}", fixtures, report_path),
@@ -111,7 +153,10 @@ class RunnerTransportContract:
                 report = json.loads(report_path.read_text())
         finally:
             server.stop(0).wait()
-        self.assertEqual(set(CALLS), set(requests))
+        expected_requests = set(CALLS) | {"FeatureService/ApplyEdits#negative"}
+        if negative_status == grpc.StatusCode.NOT_FOUND:
+            expected_requests.add("FeatureService/QueryFeatures#read-back")
+        self.assertEqual(expected_requests, set(requests))
         self.assertEqual(b"\x0a\x06oracle", requests["FeatureService/QueryFeatures"])
         self.assertEqual(set(CALLS), set(report["operations"]))
         self.assertEqual(self.lane, report["runner_lane"])
@@ -139,6 +184,52 @@ class RunnerTransportContract:
                 self.assertEqual("fail", outcome["result"])
                 self.assertIn(divergence, outcome["reason"])
                 self.assertEqual(5, sum(item["result"] == "pass" for item in report["operations"].values()))
+
+    def test_server_assigned_add_id_is_not_compared(self):
+        # The oracle assigns 555; the fixture says 101. The path is listed as
+        # server-assigned, so only its presence is required.
+        completed, report = self.execute(edits_response=apply_edits_response(add_id=987654))
+        self.assertEqual(0, completed.returncode, report)
+        self.assertEqual("pass", report["operations"]["FeatureService/ApplyEdits"]["result"])
+
+    def test_server_assigned_value_must_still_be_present(self):
+        completed, report = self.execute(edits_response=apply_edits_response(add_id=0))
+        self.assertEqual(1, completed.returncode, report)
+        outcome = report["operations"]["FeatureService/ApplyEdits"]
+        self.assertEqual("fail", outcome["result"])
+        self.assertIn("addResults[0]", outcome["reason"])
+
+    def test_client_supplied_edit_id_is_still_compared(self):
+        completed, report = self.execute(edits_response=apply_edits_response(update_id=43))
+        self.assertEqual(1, completed.returncode, report)
+        outcome = report["operations"]["FeatureService/ApplyEdits"]
+        self.assertEqual("fail", outcome["result"])
+        self.assertIn("updateResults[0].objectId", outcome["reason"])
+
+    def test_negative_batch_that_succeeds_fails_the_operation(self):
+        completed, report = self.execute(negative_status=None)
+        self.assertEqual(1, completed.returncode, report)
+        outcome = report["operations"]["FeatureService/ApplyEdits"]
+        self.assertEqual("fail", outcome["result"])
+        self.assertIn("succeeded", outcome["reason"])
+        self.assertEqual(5, sum(item["result"] == "pass" for item in report["operations"].values()))
+
+    def test_negative_batch_with_the_wrong_status_fails_the_operation(self):
+        completed, report = self.execute(negative_status=grpc.StatusCode.INVALID_ARGUMENT)
+        self.assertEqual(1, completed.returncode, report)
+        outcome = report["operations"]["FeatureService/ApplyEdits"]
+        self.assertEqual("fail", outcome["result"])
+        self.assertIn("NOT_FOUND", outcome["reason"])
+
+    def test_rejected_batch_that_changed_state_fails_the_operation(self):
+        # The server returned NOT_FOUND but its read-back shows a changed feature.
+        completed, report = self.execute(verify_response=query_response(identifier=43))
+        self.assertEqual(1, completed.returncode, report)
+        outcome = report["operations"]["FeatureService/ApplyEdits"]
+        self.assertEqual("fail", outcome["result"])
+        self.assertIn("does not match the unchanged state", outcome["reason"])
+        self.assertIn("features[0].id", outcome["reason"])
+        self.assertEqual(5, sum(item["result"] == "pass" for item in report["operations"].values()))
 
     def test_rpc_exception_fails_without_losing_other_results(self):
         completed, report = self.execute(abort=True)

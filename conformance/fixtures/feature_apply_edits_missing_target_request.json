@@ -1,0 +1,19 @@
+{
+  "serviceId": "sf-parks",
+  "layerId": 0,
+  "updates": [
+    {
+      "id": "42",
+      "attributes": {
+        "AREA": {
+          "doubleValue": 1.0
+        }
+      }
+    }
+  ],
+  "deletes": [
+    "7",
+    "8"
+  ],
+  "rollbackOnFailure": true
+}
