@@ -1,6 +1,6 @@
 {
   "schema": "honua.grpc-protocol-certification-catalog/v1",
-  "requirements_revision": "2026-09-16-complete.13",
+  "requirements_revision": "2026-09-29-complete.14",
   "maturity": "supported",
   "required_tier": "nightly",
   "claim_narrowing_decision": null,
@@ -39,314 +39,6 @@
     }
   ],
   "operations": [
-    {
-      "capability_key": "grpc.artifactservice",
-      "surface": "grpc",
-      "operation": "ArtifactService/GetArtifact",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.artifactservice",
-      "surface": "grpc",
-      "operation": "ArtifactService/GetRetentionPolicy",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.artifactservice",
-      "surface": "grpc",
-      "operation": "ArtifactService/InspectArtifact",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.artifactservice",
-      "surface": "grpc",
-      "operation": "ArtifactService/ListArtifacts",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.artifactservice",
-      "surface": "grpc",
-      "operation": "ArtifactService/ListRetentionPolicies",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.artifactservice",
-      "surface": "grpc",
-      "operation": "ArtifactService/PublishArtifact",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.artifactservice",
-      "surface": "grpc",
-      "operation": "ArtifactService/ReadArtifact",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.artifactservice",
-      "surface": "grpc",
-      "operation": "ArtifactService/ReleaseArtifact",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.artifactservice",
-      "surface": "grpc",
-      "operation": "ArtifactService/RetainArtifact",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.builderservice",
-      "surface": "grpc",
-      "operation": "BuilderService/CancelBuildJob",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.builderservice",
-      "surface": "grpc",
-      "operation": "BuilderService/DryRunBuild",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.builderservice",
-      "surface": "grpc",
-      "operation": "BuilderService/ExecuteBuild",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.builderservice",
-      "surface": "grpc",
-      "operation": "BuilderService/ExecuteBuildStream",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.builderservice",
-      "surface": "grpc",
-      "operation": "BuilderService/GetBuildJob",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.builderservice",
-      "surface": "grpc",
-      "operation": "BuilderService/GetBuildJobResult",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.builderservice",
-      "surface": "grpc",
-      "operation": "BuilderService/SubmitBuildJob",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.builderservice",
-      "surface": "grpc",
-      "operation": "BuilderService/ValidateBuild",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.deploymentservice",
-      "surface": "grpc",
-      "operation": "DeploymentService/CancelDeploymentJob",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.deploymentservice",
-      "surface": "grpc",
-      "operation": "DeploymentService/DryRunDeployment",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.deploymentservice",
-      "surface": "grpc",
-      "operation": "DeploymentService/ExecuteDeployment",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.deploymentservice",
-      "surface": "grpc",
-      "operation": "DeploymentService/ExecuteDeploymentStream",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.deploymentservice",
-      "surface": "grpc",
-      "operation": "DeploymentService/GetDeploymentHealth",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.deploymentservice",
-      "surface": "grpc",
-      "operation": "DeploymentService/GetDeploymentJob",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.deploymentservice",
-      "surface": "grpc",
-      "operation": "DeploymentService/GetDeploymentJobResult",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.deploymentservice",
-      "surface": "grpc",
-      "operation": "DeploymentService/RollbackDeployment",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.deploymentservice",
-      "surface": "grpc",
-      "operation": "DeploymentService/StreamDeploymentHealth",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.deploymentservice",
-      "surface": "grpc",
-      "operation": "DeploymentService/SubmitDeploymentJob",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.deploymentservice",
-      "surface": "grpc",
-      "operation": "DeploymentService/ValidateDeployment",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
     {
       "capability_key": "grpc.elevationservice",
       "surface": "grpc",
@@ -403,149 +95,6 @@
       "auth_policy_revision": "anonymous-public-v1"
     },
     {
-      "capability_key": "grpc.formservice",
-      "surface": "grpc",
-      "operation": "FormService/GetFormDefinition",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.formservice",
-      "surface": "grpc",
-      "operation": "FormService/GetFormMetadata",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.formservice",
-      "surface": "grpc",
-      "operation": "FormService/StreamFormUpdates",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.formservice",
-      "surface": "grpc",
-      "operation": "FormService/SubmitFormData",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.formservice",
-      "surface": "grpc",
-      "operation": "FormService/ValidateFormData",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.pipelineservice",
-      "surface": "grpc",
-      "operation": "PipelineService/CancelPipelineJob",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.pipelineservice",
-      "surface": "grpc",
-      "operation": "PipelineService/DryRunPipeline",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.pipelineservice",
-      "surface": "grpc",
-      "operation": "PipelineService/ExecutePipeline",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.pipelineservice",
-      "surface": "grpc",
-      "operation": "PipelineService/ExecutePipelineStream",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.pipelineservice",
-      "surface": "grpc",
-      "operation": "PipelineService/GetPipelineJob",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.pipelineservice",
-      "surface": "grpc",
-      "operation": "PipelineService/GetPipelineJobResult",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.pipelineservice",
-      "surface": "grpc",
-      "operation": "PipelineService/SubmitPipelineJob",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.pipelineservice",
-      "surface": "grpc",
-      "operation": "PipelineService/ValidatePipeline",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
       "capability_key": "grpc.processservice",
       "surface": "grpc",
       "operation": "ProcessService/CancelJob",
@@ -560,28 +109,6 @@
       "capability_key": "grpc.processservice",
       "surface": "grpc",
       "operation": "ProcessService/DryRunPlan",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.processservice",
-      "surface": "grpc",
-      "operation": "ProcessService/ExecutePlan",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.processservice",
-      "surface": "grpc",
-      "operation": "ProcessService/ExecutePlanStream",
       "scenario_facets": [
         "positive",
         "negative",
@@ -634,116 +161,6 @@
       "auth_policy_revision": "anonymous-public-v1"
     },
     {
-      "capability_key": "grpc.renderservice",
-      "surface": "grpc",
-      "operation": "RenderService/CancelRenderJob",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.renderservice",
-      "surface": "grpc",
-      "operation": "RenderService/DryRunRender",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.renderservice",
-      "surface": "grpc",
-      "operation": "RenderService/ExecuteRender",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.renderservice",
-      "surface": "grpc",
-      "operation": "RenderService/ExecuteRenderStream",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.renderservice",
-      "surface": "grpc",
-      "operation": "RenderService/GetRenderJob",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.renderservice",
-      "surface": "grpc",
-      "operation": "RenderService/GetRenderJobResult",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.renderservice",
-      "surface": "grpc",
-      "operation": "RenderService/SubmitRenderJob",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.renderservice",
-      "surface": "grpc",
-      "operation": "RenderService/ValidateRender",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.sceneservice",
-      "surface": "grpc",
-      "operation": "SceneService/GetScene",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.sceneservice",
-      "surface": "grpc",
-      "operation": "SceneService/ListScenes",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
       "capability_key": "grpc.specservice",
       "surface": "grpc",
       "operation": "SpecService/ApplySpec",
@@ -775,149 +192,542 @@
         "media-schema"
       ],
       "auth_policy_revision": "anonymous-public-v1"
+    }
+  ],
+  "scope_ruling": {
+    "id": "grpc-2026.1-implemented-rpcs",
+    "decision_url": "https://github.com/honua-io/geospatial-grpc/issues/88#issuecomment-5896448868",
+    "release_plan": "https://github.com/honua-io/honua-release/issues/376",
+    "rule": "Excluded operations are not governed cells. A runner may execute their fixtures; the fragment reports those results under excluded_operations, and they never count as GA passes or failures of the governed rollup."
+  },
+  "excluded_operations": [
+    {
+      "capability_key": "grpc.artifactservice",
+      "operation": "ArtifactService/PublishArtifact",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no ArtifactService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "operation": "ArtifactService/ReadArtifact",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no ArtifactService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "operation": "ArtifactService/GetArtifact",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no ArtifactService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "operation": "ArtifactService/InspectArtifact",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no ArtifactService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "operation": "ArtifactService/ListArtifacts",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no ArtifactService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "operation": "ArtifactService/RetainArtifact",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no ArtifactService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "operation": "ArtifactService/ReleaseArtifact",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no ArtifactService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "operation": "ArtifactService/GetRetentionPolicy",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no ArtifactService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.artifactservice",
+      "operation": "ArtifactService/ListRetentionPolicies",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no ArtifactService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "operation": "BuilderService/ValidateBuild",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no BuilderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "operation": "BuilderService/DryRunBuild",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no BuilderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "operation": "BuilderService/ExecuteBuild",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no BuilderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "operation": "BuilderService/ExecuteBuildStream",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no BuilderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "operation": "BuilderService/SubmitBuildJob",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no BuilderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "operation": "BuilderService/GetBuildJob",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no BuilderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "operation": "BuilderService/GetBuildJobResult",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no BuilderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.builderservice",
+      "operation": "BuilderService/CancelBuildJob",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no BuilderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "operation": "DeploymentService/ValidateDeployment",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no DeploymentService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "operation": "DeploymentService/DryRunDeployment",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no DeploymentService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "operation": "DeploymentService/ExecuteDeployment",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no DeploymentService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "operation": "DeploymentService/ExecuteDeploymentStream",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no DeploymentService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "operation": "DeploymentService/SubmitDeploymentJob",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no DeploymentService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "operation": "DeploymentService/GetDeploymentJob",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no DeploymentService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "operation": "DeploymentService/GetDeploymentJobResult",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no DeploymentService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "operation": "DeploymentService/CancelDeploymentJob",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no DeploymentService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "operation": "DeploymentService/RollbackDeployment",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no DeploymentService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "operation": "DeploymentService/GetDeploymentHealth",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no DeploymentService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.deploymentservice",
+      "operation": "DeploymentService/StreamDeploymentHealth",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no DeploymentService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.formservice",
+      "operation": "FormService/GetFormDefinition",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no FormService (the gRPC-native IFormDefinitionStore has no implementation); every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.formservice",
+      "operation": "FormService/SubmitFormData",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no FormService (the gRPC-native IFormDefinitionStore has no implementation); every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.formservice",
+      "operation": "FormService/StreamFormUpdates",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no FormService (the gRPC-native IFormDefinitionStore has no implementation); every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.formservice",
+      "operation": "FormService/ValidateFormData",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no FormService (the gRPC-native IFormDefinitionStore has no implementation); every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.formservice",
+      "operation": "FormService/GetFormMetadata",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no FormService (the gRPC-native IFormDefinitionStore has no implementation); every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "operation": "PipelineService/ValidatePipeline",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no PipelineService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "operation": "PipelineService/DryRunPipeline",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no PipelineService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "operation": "PipelineService/ExecutePipeline",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no PipelineService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "operation": "PipelineService/ExecutePipelineStream",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no PipelineService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "operation": "PipelineService/SubmitPipelineJob",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no PipelineService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "operation": "PipelineService/GetPipelineJob",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no PipelineService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "operation": "PipelineService/GetPipelineJobResult",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no PipelineService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.pipelineservice",
+      "operation": "PipelineService/CancelPipelineJob",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no PipelineService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.processservice",
+      "operation": "ProcessService/ExecutePlan",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/honua-server/issues/4632",
+      "target_release": "2026.2",
+      "rationale": "Synchronous plan execution returns UNIMPLEMENTED ('Use SubmitJob for asynchronous execution'). honua-server#4632 schedules bounded synchronous and streamed execution for 2026.2."
+    },
+    {
+      "capability_key": "grpc.processservice",
+      "operation": "ProcessService/ExecutePlanStream",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/honua-server/issues/4632",
+      "target_release": "2026.2",
+      "rationale": "Streamed plan execution returns UNIMPLEMENTED. honua-server#4632 schedules bounded synchronous and streamed execution for 2026.2."
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "operation": "RenderService/ValidateRender",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no RenderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "operation": "RenderService/DryRunRender",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no RenderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "operation": "RenderService/ExecuteRender",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no RenderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "operation": "RenderService/ExecuteRenderStream",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no RenderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "operation": "RenderService/SubmitRenderJob",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no RenderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "operation": "RenderService/GetRenderJob",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no RenderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "operation": "RenderService/GetRenderJobResult",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no RenderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.renderservice",
+      "operation": "RenderService/CancelRenderJob",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no RenderService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.sceneservice",
+      "operation": "SceneService/ListScenes",
+      "maturity": "experimental",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server maps SceneService only when the experimental scene.catalog capability flag is on (Program.cs). 3D is Experimental and opt-in in the 2026.1 decision record, so the default GA image does not serve it."
+    },
+    {
+      "capability_key": "grpc.sceneservice",
+      "operation": "SceneService/GetScene",
+      "maturity": "experimental",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server maps SceneService only when the experimental scene.catalog capability flag is on (Program.cs). 3D is Experimental and opt-in in the 2026.1 decision record, so the default GA image does not serve it."
     },
     {
       "capability_key": "grpc.styleservice",
-      "surface": "grpc",
-      "operation": "StyleService/GetStyle",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.styleservice",
-      "surface": "grpc",
       "operation": "StyleService/ListStyles",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no StyleService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.styleservice",
+      "operation": "StyleService/GetStyle",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no StyleService; every RPC returns UNIMPLEMENTED."
     },
     {
       "capability_key": "grpc.tileservice",
-      "surface": "grpc",
       "operation": "TileService/GetTile",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
+      "maturity": "experimental",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server maps TileService only when the experimental serve.3d-tiles-scene capability flag is on (Program.cs). 3D is Experimental and opt-in in the 2026.1 decision record, so the default GA image does not serve it."
     },
     {
       "capability_key": "grpc.tileservice",
-      "surface": "grpc",
       "operation": "TileService/StreamTiles",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
+      "maturity": "experimental",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server maps TileService only when the experimental serve.3d-tiles-scene capability flag is on (Program.cs). 3D is Experimental and opt-in in the 2026.1 decision record, so the default GA image does not serve it."
     },
     {
       "capability_key": "grpc.workspaceservice",
-      "surface": "grpc",
       "operation": "WorkspaceService/CreateWorkspace",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no WorkspaceService; every RPC returns UNIMPLEMENTED."
     },
     {
       "capability_key": "grpc.workspaceservice",
-      "surface": "grpc",
-      "operation": "WorkspaceService/GetQuotaUsage",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.workspaceservice",
-      "surface": "grpc",
-      "operation": "WorkspaceService/GetWorkspace",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.workspaceservice",
-      "surface": "grpc",
-      "operation": "WorkspaceService/ListWorkspaces",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.workspaceservice",
-      "surface": "grpc",
       "operation": "WorkspaceService/OpenWorkspace",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no WorkspaceService; every RPC returns UNIMPLEMENTED."
     },
     {
       "capability_key": "grpc.workspaceservice",
-      "surface": "grpc",
-      "operation": "WorkspaceService/PromoteWorkspace",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
+      "operation": "WorkspaceService/GetWorkspace",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no WorkspaceService; every RPC returns UNIMPLEMENTED."
     },
     {
       "capability_key": "grpc.workspaceservice",
-      "surface": "grpc",
-      "operation": "WorkspaceService/ReleaseWorkspace",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
+      "operation": "WorkspaceService/ListWorkspaces",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no WorkspaceService; every RPC returns UNIMPLEMENTED."
     },
     {
       "capability_key": "grpc.workspaceservice",
-      "surface": "grpc",
-      "operation": "WorkspaceService/RetainWorkspace",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
-    },
-    {
-      "capability_key": "grpc.workspaceservice",
-      "surface": "grpc",
       "operation": "WorkspaceService/UpdateWorkspace",
-      "scenario_facets": [
-        "positive",
-        "negative",
-        "media-schema"
-      ],
-      "auth_policy_revision": "anonymous-public-v1"
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no WorkspaceService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.workspaceservice",
+      "operation": "WorkspaceService/PromoteWorkspace",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no WorkspaceService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.workspaceservice",
+      "operation": "WorkspaceService/RetainWorkspace",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no WorkspaceService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.workspaceservice",
+      "operation": "WorkspaceService/ReleaseWorkspace",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no WorkspaceService; every RPC returns UNIMPLEMENTED."
+    },
+    {
+      "capability_key": "grpc.workspaceservice",
+      "operation": "WorkspaceService/GetQuotaUsage",
+      "maturity": "preview",
+      "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
+      "target_release": "2026.2",
+      "rationale": "honua-server registers no WorkspaceService; every RPC returns UNIMPLEMENTED."
     }
   ]
 }

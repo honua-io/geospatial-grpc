@@ -95,7 +95,8 @@ def build_fragment(args: argparse.Namespace) -> dict:
         lane = report["runner_lane"]
         if lane not in CLIENT_IDS or lane in reports:
             raise ValueError(f"invalid or duplicate runner lane: {lane}")
-        unknown = set(report.get("operations", {})) - {op["operation"] for op in catalog["operations"]}
+        excluded_names = {op["operation"] for op in catalog.get("excluded_operations", [])}
+        unknown = set(report.get("operations", {})) - {op["operation"] for op in catalog["operations"]} - excluded_names
         if unknown:
             raise ValueError(f"unknown operations for {lane}: {sorted(unknown)}")
         client = next(item for item in catalog["clients"] if item["client_lane"] == lane)
@@ -316,6 +317,29 @@ def build_fragment(args: argparse.Namespace) -> dict:
         narrowing_decision,
     ):
         raise ValueError("claim narrowing decision must be a recorded issue #88 comment URL")
+    excluded_operations = []
+    for excluded in catalog.get("excluded_operations", []):
+        results = {}
+        for lane in CLIENT_IDS:
+            outcome = reports.get(lane, {}).get("operations", {}).get(excluded["operation"])
+            if outcome is None:
+                results[lane] = {"result": "not-executed", "reason": None}
+                continue
+            if outcome.get("result") not in {"pass", "fail", "skip"}:
+                raise ValueError(f"unsupported result for {lane}/{excluded['operation']}: {outcome.get('result')}")
+            results[lane] = {"result": outcome["result"], "reason": outcome.get("reason")}
+        # Reported for visibility only: an excluded operation is not a governed
+        # cell, so it never becomes an observation, a receipt, an
+        # execution_failure or part of the client rollup.
+        excluded_operations.append({
+            "capability_key": excluded["capability_key"],
+            "operation": excluded["operation"],
+            "maturity": excluded["maturity"],
+            "owner_issue": excluded["owner_issue"],
+            "target_release": excluded["target_release"],
+            "counts_toward_ga": False,
+            "results": results,
+        })
     all_claimed_clients_executed = all(state == "executed" for state in lane_states.values())
     all_claimed_cells_passed = all(item["result"] == "pass" for item in observations)
     # A comment URL is provenance for a decision, not a waiver for failed cells.
@@ -325,6 +349,7 @@ def build_fragment(args: argparse.Namespace) -> dict:
         "schema": "honua.protocol-certification-fragment/v1",
         "producer": PRODUCER,
         "execution_failures": execution_failures,
+        "excluded_operations": excluded_operations,
         "generated_at": now,
         "candidate": {"source_sha": args.server_source_sha, "image_digest": image_digest, "cut_at": args.candidate_cut},
         "operation_scope": {
