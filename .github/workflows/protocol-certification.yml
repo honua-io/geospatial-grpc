@@ -127,10 +127,10 @@ jobs:
           jq -n '{runner_lane:"grpc-python",unexecuted_reason:"geospatial-grpc 1.0.0 did not reach live execution in this run. That package is not governed client_version source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c.",operations:{}}' > artifacts/grpc-python.json
           jq -n '{runner_lane:"grpc-typescript",unexecuted_reason:"@honua/geospatial-grpc 1.0.0 did not reach live execution in this run. That package is not governed client_version source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c.",operations:{}}' > artifacts/grpc-typescript.json
 
-      - name: Checkout v1.0.0 certification fixtures by immutable source revision
+      - name: Checkout v1.0.1 certification fixtures by immutable source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 0f701ecc6b0c41a5ea43e2dff3c46ce654312576
+          ref: 6d4346d784b70e9f593ba50870adb89c98f69786 # v1.0.1
           path: .certification-source
           persist-credentials: false
 
@@ -144,6 +144,9 @@ jobs:
           gh api "repos/honua-io/honua-server/contents/tests/seed/base-schema.sql?ref=${SERVER_SOURCE_SHA}" \
             -H "Accept: application/vnd.github.raw" > artifacts/base-schema.sql
           psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -f artifacts/base-schema.sql
+          # The fixtures target serviceId sf-parks, layerId 0. Seed it through
+          # the same catalog + Metadata v2 compat path as base-schema.sql.
+          psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -f certification/seed/sf-parks.sql
 
       - name: Start exact Honua Server image
         id: server
@@ -175,36 +178,41 @@ jobs:
       - name: Execute promoted .NET client fixtures
         if: ${{ !cancelled() && steps.server.outcome == 'success' }}
         env:
+          PGPASSWORD: honua
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
           SERVER_IMAGE: ${{ steps.identity.outputs.image }}
           SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
-          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.0+0f701ecc6b0c41a5ea43e2dff3c46ce654312576
-        run: >-
-          dotnet run --project certification/dotnet/GrpcCertificationRunner.csproj
-          --configuration Release --no-self-contained --
-          "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-dotnet.json
+          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.1+6d4346d784b70e9f593ba50870adb89c98f69786
+        run: |
+          # ApplyEdits mutates sf-parks; every lane starts from the same rows.
+          psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -q -f certification/seed/sf-parks-reset.sql
+          dotnet run --project certification/dotnet/GrpcCertificationRunner.csproj --configuration Release --no-self-contained -- "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-dotnet.json
 
       - name: Execute promoted Python client fixtures
         if: ${{ !cancelled() && steps.server.outcome == 'success' }}
         env:
+          PGPASSWORD: honua
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
           SERVER_IMAGE: ${{ steps.identity.outputs.image }}
           SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
-          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.0+0f701ecc6b0c41a5ea43e2dff3c46ce654312576
-        run: >-
-          python3 certification/python/runner.py
-          "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-python.json
+          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.1+6d4346d784b70e9f593ba50870adb89c98f69786
+        run: |
+          # ApplyEdits mutates sf-parks; every lane starts from the same rows.
+          psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -q -f certification/seed/sf-parks-reset.sql
+          python3 certification/python/runner.py "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-python.json
 
       - name: Execute promoted TypeScript client fixtures
         if: ${{ !cancelled() && steps.server.outcome == 'success' }}
         env:
+          PGPASSWORD: honua
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
           SERVER_IMAGE: ${{ steps.identity.outputs.image }}
           SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
-          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.0+0f701ecc6b0c41a5ea43e2dff3c46ce654312576
-        run: >-
-          node certification/typescript/runner.mjs
-          "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-typescript.json
+          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.1+6d4346d784b70e9f593ba50870adb89c98f69786
+        run: |
+          # ApplyEdits mutates sf-parks; every lane starts from the same rows.
+          psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -q -f certification/seed/sf-parks-reset.sql
+          node certification/typescript/runner.mjs "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-typescript.json
 
       - name: Emit normalized certification fragment
         if: always()
