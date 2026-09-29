@@ -1,17 +1,22 @@
 # Protocol certification producer
 
 This producer snapshots the 240-cell gRPC denominator frozen by
-`honua-release` (80 RPCs for each generated-client lane). The workflow installs
-`Geospatial.Grpc` 1.0.0 anonymously from nuget.org and executes six requests
-using fixtures checked out by immutable release commit. The schema and fixtures
-are bound to the public BSR `v1.0.0` label at commit
-`0f701ecc6b0c41a5ea43e2dff3c46ce654312576`.
-The remaining .NET cells are materialized as `skip` with a concrete reason.
-Python and TypeScript observations retain the federation-compatible `skip`
-result, but also carry `publication_state: unpublished`; `client_rollup` keeps
-the aggregate red until every claimed lane executes and every required cell
-passes. A narrowing-decision URL alone cannot waive cells; any adopted change
-must be reflected in the governed denominator.
+`honua-release` (80 RPCs for each generated-client lane). Every observation
+uses that denominator's governed identity: client version
+`source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`, contract
+`geospatial-grpc@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`, and fixture
+`geospatial-grpc-conformance@0.2.0-alpha.1+73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`.
+Promoted `Geospatial.Grpc`, `geospatial-grpc`, and `@honua/geospatial-grpc`
+1.0.0 packages are not that pin. The workflow still installs all three
+promoted packages and executes each against the same six fixtures
+(`certification/dotnet`, `certification/python/runner.py`,
+`certification/typescript/runner.mjs`). Each lane runs independently, so one
+lane failing never hides another lane's results. Those results stay
+attributable `execution_failures` (by lane and operation) or skips, and they do
+not satisfy the governed cell.
+`client_rollup` stays red until every governed cell passes. A
+narrowing-decision URL alone cannot waive cells; any adopted change must be
+reflected in the governed denominator.
 
 `scripts/build_protocol_certification_fragment.py` emits the registered
 `protocol-certification-fragment.json`. Its unit tests require no live server:
@@ -44,9 +49,14 @@ injects one defect at a time. It also injects an RPC exception. Each defect must
 fail the process while retaining all six operation results. This tests the
 producer; it is not evidence that a Honua Server candidate passed.
 
+The same oracle suite runs against every installed-client runner (.NET,
+Python and TypeScript):
+
 ```bash
-python3 -m pip install grpcio==1.81.1
+python3 -m pip install --require-hashes --only-binary=:all: \
+  --requirement .github/requirements/protocol-certification.txt
 dotnet build certification/dotnet/GrpcCertificationRunner.csproj --configuration Release
+npm ci --ignore-scripts --prefix certification/typescript
 python3 -m unittest discover -s certification/tests -v
 ```
 

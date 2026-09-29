@@ -1,4 +1,5 @@
-"""Exercise installed .NET bytes against an independent loopback gRPC oracle.
+"""Exercise installed .NET, Python and TypeScript client bytes against an
+independent loopback gRPC oracle.
 
 This is a producer regression, not Honua Server release certification. The
 oracle writes protobuf wire fields directly; it never uses generated bindings
@@ -8,7 +9,9 @@ import json
 import os
 from pathlib import Path
 import struct
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -16,7 +19,10 @@ from concurrent.futures import ThreadPoolExecutor
 import grpc
 
 ROOT = Path(__file__).resolve().parents[2]
-RUNNER = ROOT / "certification/dotnet/bin/Release/net10.0/GrpcCertificationRunner.dll"
+DOTNET_RUNNER = ROOT / "certification/dotnet/bin/Release/net10.0/GrpcCertificationRunner.dll"
+PYTHON_RUNNER = ROOT / "certification/python/runner.py"
+TYPESCRIPT_RUNNER = ROOT / "certification/typescript/runner.mjs"
+TYPESCRIPT_MODULES = ROOT / "certification/typescript/node_modules/@honua/geospatial-grpc"
 CALLS = {
     "FeatureService/QueryFeatures": "feature_query",
     "FeatureService/ApplyEdits": "feature_apply_edits",
@@ -59,9 +65,15 @@ EXPECTED_QUERY = {
 }
 
 
-class RunnerTransportTests(unittest.TestCase):
+class RunnerTransportContract:
+    """Shared oracle contract; each subclass binds one installed-client runner."""
+
+    lane = ""
+
+    def command(self, target, fixtures, report_path):
+        raise NotImplementedError
+
     def execute(self, response=None, abort=False):
-        self.assertTrue(RUNNER.is_file(), "Build certification/dotnet in Release before running this suite")
         requests = {}
         server = grpc.server(ThreadPoolExecutor(max_workers=2))
 
@@ -91,7 +103,7 @@ class RunnerTransportTests(unittest.TestCase):
                     (fixtures / f"{name}_response.json").write_text(json.dumps(expected))
                 report_path = fixtures / "report.json"
                 completed = subprocess.run(
-                    ["dotnet", str(RUNNER), f"http://127.0.0.1:{port}", str(fixtures), str(report_path)],
+                    self.command(f"http://127.0.0.1:{port}", fixtures, report_path),
                     env={**os.environ, "HONUA_PROTOCOL_API_KEY": "oracle-test-key"},
                     text=True, capture_output=True, timeout=30, check=False,
                 )
@@ -102,6 +114,8 @@ class RunnerTransportTests(unittest.TestCase):
         self.assertEqual(set(CALLS), set(requests))
         self.assertEqual(b"\x0a\x06oracle", requests["FeatureService/QueryFeatures"])
         self.assertEqual(set(CALLS), set(report["operations"]))
+        self.assertEqual(self.lane, report["runner_lane"])
+        self.assertIsInstance(report["package_version"], str)
         return completed, report
 
     def test_matching_wire_values_pass_and_preserve_optional_zero_and_null(self):
@@ -131,6 +145,35 @@ class RunnerTransportTests(unittest.TestCase):
         self.assertEqual(1, completed.returncode, report)
         self.assertIn("injected unavailable", report["operations"]["FeatureService/QueryFeatures"]["reason"])
         self.assertEqual(5, sum(item["result"] == "pass" for item in report["operations"].values()))
+
+
+class DotnetRunnerTransportTests(RunnerTransportContract, unittest.TestCase):
+    lane = "grpc-dotnet"
+
+    def command(self, target, fixtures, report_path):
+        self.assertTrue(DOTNET_RUNNER.is_file(), "Build certification/dotnet in Release before running this suite")
+        return ["dotnet", str(DOTNET_RUNNER), target, str(fixtures), str(report_path)]
+
+
+class PythonRunnerTransportTests(RunnerTransportContract, unittest.TestCase):
+    lane = "grpc-python"
+
+    def command(self, target, fixtures, report_path):
+        try:
+            import geospatial.v1.feature_service_pb2  # noqa: F401
+        except ImportError:
+            self.fail("Install the promoted geospatial-grpc package before running this suite")
+        return [sys.executable, str(PYTHON_RUNNER), target, str(fixtures), str(report_path)]
+
+
+class TypeScriptRunnerTransportTests(RunnerTransportContract, unittest.TestCase):
+    lane = "grpc-typescript"
+
+    def command(self, target, fixtures, report_path):
+        node = shutil.which("node")
+        self.assertIsNotNone(node, "Node.js 22+ is required for the TypeScript runner")
+        self.assertTrue(TYPESCRIPT_MODULES.is_dir(), "Run npm ci in certification/typescript before this suite")
+        return [node, str(TYPESCRIPT_RUNNER), target, str(fixtures), str(report_path)]
 
 
 if __name__ == "__main__":

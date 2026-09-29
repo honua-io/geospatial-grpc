@@ -7,3 +7,14 @@ grpcio==1.81.1 \
     --hash=sha256:766bc7c9a9c340342f4c864ccbda8e78111e4751f13b895812b9c148fb79e9d0 \
     --hash=sha256:e64dd101d380a115cc5a0c7856788adb535f1a4e21fc543775602f8be95180ae \
     --hash=sha256:410482da976329fe5f4067270401b12cf2bd552ff8020f054ecfaddb5475f9d6
+# grpcio 1.81.1 requires typing-extensions~=4.12; --require-hashes needs it pinned.
+typing-extensions==4.16.0 \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8
+# Promoted geospatial-grpc 1.0.0 (PyPI) and its protobuf runtime, executed by
+# certification/python/runner.py. Keep a promoted registry version here; never
+# replace it with a source checkout.
+protobuf==7.36.2 \
+    --hash=sha256:89f23aa53c24553a2416fd4fd1ec06f74fa42b14b546d8883128813f775bbfd2 \
+    --hash=sha256:bdb3a345d48db958e6ce1f18e508beb0cc981d64f24088427549c866cd039f1e
+geospatial-grpc==1.0.0 \
+    --hash=sha256:29716965fb5be549802be87a3488073c2895fc0f0fe767c4c04bdcc1063d1564
