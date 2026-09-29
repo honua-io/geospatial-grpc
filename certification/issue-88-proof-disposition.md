@@ -1,5 +1,11 @@
 # Issue #88 proof disposition
 
+> **Scope update (2026-09-29).** The 240-cell / 80-RPC figures below record the
+> denominator as it stood on 2026-09-06. The 2026.1 scope ruling
+> ([comment](https://github.com/honua-io/geospatial-grpc/issues/88#issuecomment-5896448868))
+> narrows the governed denominator to 42 cells (14 RPCs × 3 lanes). The other 66
+> RPCs are reported as `excluded_operations`; see `README.md`.
+
 Observed 2026-09-06 UTC (2026-09-05 Honolulu). Issue #88 remains blocked.
 This does not change its must-fix-before-cut classification or the supported
 gRPC promise in the 2026.1 quality contract and September 4 decision 4.

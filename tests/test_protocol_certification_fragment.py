@@ -466,8 +466,11 @@ class FragmentTests(unittest.TestCase):
         by_operation = {item["operation"]: item for item in fragment["excluded_operations"]}
         self.assertEqual(EXCLUDED_RPCS, len(by_operation))
         self.assertTrue(all(item["counts_toward_ga"] is False for item in by_operation.values()))
-        self.assertEqual({"result": "pass", "reason": None},
-                         by_operation["FormService/SubmitFormData"]["results"]["grpc-python"])
+        submitted = by_operation["FormService/SubmitFormData"]["results"]["grpc-python"]
+        self.assertEqual(("pass", None), (submitted["result"], submitted["reason"]))
+        # The report carries no execution identity, so its result is labelled unverified.
+        self.assertFalse(submitted["identity_verified"])
+        self.assertEqual(GOVERNED_CLIENT_VERSION, submitted["package_version"])
         self.assertEqual("fail", by_operation["ProcessService/ExecutePlan"]["results"]["grpc-python"]["result"])
         self.assertEqual("not-executed",
                          by_operation["ProcessService/ExecutePlan"]["results"]["grpc-dotnet"]["result"])
@@ -479,6 +482,40 @@ class FragmentTests(unittest.TestCase):
         self.assertNotIn("ProcessService/ExecutePlan", governed)
         self.assertEqual([], fragment["execution_failures"])
         self.assertEqual("red", fragment["client_rollup"]["state"])
+
+    def test_excluded_result_is_verified_only_when_bound_to_this_run(self):
+        catalog = json.loads(MODULE.CATALOG.read_text())
+        identity = {
+            "channel_target": "http://localhost:8081",
+            "server_image": "ghcr.io/honua-io/honua-server@sha256:" + "c" * 64,
+            "server_source_sha": "b" * 40,
+            "fixture_revision": catalog["fixture_revision"],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "grpc-python.json"
+            report.write_text(json.dumps({
+                "runner_lane": "grpc-python", "package_version": "1.0.0",
+                "started_at": "2026-08-26T00:00:10Z", "completed_at": "2026-08-26T00:00:50Z",
+                "execution_identity": identity,
+                "operations": {"WorkspaceService/CreateWorkspace": {"result": "fail", "reason": "UNIMPLEMENTED"}},
+            }))
+            fragment = self.build([report])
+            stale = Path(directory) / "stale" / "grpc-python.json"
+            stale.parent.mkdir()
+            stale.write_text(json.dumps({
+                "runner_lane": "grpc-python", "package_version": "1.0.0",
+                "started_at": "2026-08-25T00:00:10Z", "completed_at": "2026-08-25T00:00:50Z",
+                "execution_identity": identity,
+                "operations": {"WorkspaceService/CreateWorkspace": {"result": "pass"}},
+            }))
+            stale_fragment = self.build([stale])
+        result = next(item for item in fragment["excluded_operations"]
+                      if item["operation"] == "WorkspaceService/CreateWorkspace")["results"]["grpc-python"]
+        self.assertTrue(result["identity_verified"])
+        self.assertEqual(identity, result["execution_identity"])
+        stale_result = next(item for item in stale_fragment["excluded_operations"]
+                            if item["operation"] == "WorkspaceService/CreateWorkspace")["results"]["grpc-python"]
+        self.assertFalse(stale_result["identity_verified"])
 
     def test_an_operation_in_neither_scope_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

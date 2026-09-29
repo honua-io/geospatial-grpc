@@ -198,7 +198,11 @@
     "id": "grpc-2026.1-implemented-rpcs",
     "decision_url": "https://github.com/honua-io/geospatial-grpc/issues/88#issuecomment-5896448868",
     "release_plan": "https://github.com/honua-io/honua-release/issues/376",
-    "rule": "Excluded operations are not governed cells. A runner may execute their fixtures; the fragment reports those results under excluded_operations, and they never count as GA passes or failures of the governed rollup."
+    "rule": "Excluded operations are not governed cells. A runner may execute their fixtures; the fragment reports those results under excluded_operations, and they never count as GA passes or failures of the governed rollup.",
+    "verified_server_commits": [
+      "ac30266fbd153363bebdbed13130accc8ab0c94a",
+      "2db24e648350927c3dada3eb00638bcec1e5cc3e"
+    ]
   },
   "excluded_operations": [
     {
@@ -615,7 +619,7 @@
       "maturity": "experimental",
       "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
       "target_release": "2026.2",
-      "rationale": "honua-server maps SceneService only when the experimental scene.catalog capability flag is on (Program.cs). 3D is Experimental and opt-in in the 2026.1 decision record, so the default GA image does not serve it."
+      "rationale": "3D (I3S, scene and 3D tiles) stays Experimental and opt-in in 2026.1 (docs/2026.1-release-decision-record.md, 'Excluded from GA'). honua-server implements SceneService at every verified commit, but it is not a GA surface; from 2db24e6 it is also mapped only behind the experimental scene.catalog capability flag."
     },
     {
       "capability_key": "grpc.sceneservice",
@@ -623,7 +627,7 @@
       "maturity": "experimental",
       "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
       "target_release": "2026.2",
-      "rationale": "honua-server maps SceneService only when the experimental scene.catalog capability flag is on (Program.cs). 3D is Experimental and opt-in in the 2026.1 decision record, so the default GA image does not serve it."
+      "rationale": "3D (I3S, scene and 3D tiles) stays Experimental and opt-in in 2026.1 (docs/2026.1-release-decision-record.md, 'Excluded from GA'). honua-server implements SceneService at every verified commit, but it is not a GA surface; from 2db24e6 it is also mapped only behind the experimental scene.catalog capability flag."
     },
     {
       "capability_key": "grpc.styleservice",
@@ -647,7 +651,7 @@
       "maturity": "experimental",
       "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
       "target_release": "2026.2",
-      "rationale": "honua-server maps TileService only when the experimental serve.3d-tiles-scene capability flag is on (Program.cs). 3D is Experimental and opt-in in the 2026.1 decision record, so the default GA image does not serve it."
+      "rationale": "3D (I3S, scene and 3D tiles) stays Experimental and opt-in in 2026.1 (docs/2026.1-release-decision-record.md, 'Excluded from GA'). honua-server implements TileService at every verified commit, but it is not a GA surface; from 2db24e6 it is also mapped only behind the experimental serve.3d-tiles-scene capability flag."
     },
     {
       "capability_key": "grpc.tileservice",
@@ -655,7 +659,7 @@
       "maturity": "experimental",
       "owner_issue": "https://github.com/honua-io/geospatial-grpc/issues/88",
       "target_release": "2026.2",
-      "rationale": "honua-server maps TileService only when the experimental serve.3d-tiles-scene capability flag is on (Program.cs). 3D is Experimental and opt-in in the 2026.1 decision record, so the default GA image does not serve it."
+      "rationale": "3D (I3S, scene and 3D tiles) stays Experimental and opt-in in 2026.1 (docs/2026.1-release-decision-record.md, 'Excluded from GA'). honua-server implements TileService at every verified commit, but it is not a GA surface; from 2db24e6 it is also mapped only behind the experimental serve.3d-tiles-scene capability flag."
     },
     {
       "capability_key": "grpc.workspaceservice",

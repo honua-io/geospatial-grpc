@@ -49,6 +49,13 @@ const PACKAGE = "@honua/geospatial-grpc";
 const PACKAGE_SOURCE = "https://registry.npmjs.org/@honua/geospatial-grpc";
 const SERVER_ASSIGNED_FIELDS = fileURLToPath(new URL("../server-assigned-fields.v1.json", import.meta.url));
 const SERVER_ASSIGNED = "<server-assigned>";
+const CATALOG = fileURLToPath(new URL("../protocol-certification-catalog.v1.json", import.meta.url));
+
+// Operations the 2026.1 scope ruling excludes from the governed cells (#88).
+async function loadExcludedOperations(file = CATALOG) {
+  const catalog = JSON.parse(await readFile(file, "utf8"));
+  return new Set((catalog.excluded_operations ?? []).map((operation) => operation.operation));
+}
 
 export async function loadServerAssignedFields(file = SERVER_ASSIGNED_FIELDS) {
   const document = JSON.parse(await readFile(file, "utf8"));
@@ -273,7 +280,12 @@ async function main(argv) {
   };
   await mkdir(path.dirname(reportPath), { recursive: true });
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
-  return failures === 0 ? 0 : 1;
+  // Excluded operations are still executed and reported, but only a governed
+  // failure fails the lane (the fragment reports excluded results separately).
+  const excluded = await loadExcludedOperations();
+  const governedFailures = Object.entries(outcomes)
+    .filter(([name, outcome]) => outcome.result === "fail" && !excluded.has(name)).length;
+  return governedFailures === 0 ? 0 : 1;
 }
 
 process.exitCode = await main(process.argv.slice(2));
