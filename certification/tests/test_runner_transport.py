@@ -103,9 +103,10 @@ class RunnerTransportContract:
         raise NotImplementedError
 
     def execute(self, response=None, abort=False, edits_response=None,
-                negative_status=grpc.StatusCode.NOT_FOUND, verify_response=None, unimplemented=(), captured=None):
+                negative_status=grpc.StatusCode.NOT_FOUND, verify_response=None, unimplemented=(), captured=None, cancel_races=0):
         requests = {}
         captured_ids = CAPTURED_IDS if captured is None else captured
+        races = {"left": cancel_races}
         server = grpc.server(ThreadPoolExecutor(max_workers=2))
 
         def handler(operation):
@@ -120,6 +121,9 @@ class RunnerTransportContract:
                     requests[operation] = request
                 if operation in unimplemented:
                     context.abort(grpc.StatusCode.UNIMPLEMENTED, "Service is unimplemented.")
+                if operation == "ProcessService/CancelJob" and races["left"] > 0:
+                    races["left"] -= 1
+                    context.abort(grpc.StatusCode.FAILED_PRECONDITION, "job reached terminal state before cancellation")
                 if operation == "FeatureService/QueryFeatures" and VERIFY_MARKER.encode() in request:
                     requests["FeatureService/QueryFeatures#read-back"] = request
                     return query_response() if verify_response is None else verify_response
@@ -283,6 +287,17 @@ class RunnerTransportContract:
             self.assertIn("needs capture 'submitted_job'", report["operations"][operation]["reason"])
         self.assertIn("to capture as 'job_to_cancel'", report["operations"]["ProcessService/CancelJob"]["reason"])
         self.assertEqual("pass", report["operations"]["SpecService/CancelApply"]["result"])
+
+    def test_cancel_setup_race_is_retried_with_a_fresh_job(self):
+        completed, report = self.execute(cancel_races=2)
+        self.assertEqual(0, completed.returncode, report)
+        self.assertEqual("pass", report["operations"]["ProcessService/CancelJob"]["result"])
+
+    def test_cancel_setup_race_that_persists_fails(self):
+        completed, report = self.execute(cancel_races=3)
+        self.assertEqual(1, completed.returncode, report)
+        self.assertEqual("fail", report["operations"]["ProcessService/CancelJob"]["result"])
+        self.assertIn("terminal state before cancellation", report["operations"]["ProcessService/CancelJob"]["reason"])
 
     def test_rpc_exception_fails_without_losing_other_results(self):
         completed, report = self.execute(abort=True)

@@ -195,7 +195,21 @@ foreach (var scenario in scenarioDocument.RootElement.GetProperty("scenarios").E
     var operation = scenario.GetProperty("operation").GetString()!;
     try
     {
-        await Run(scenario);
+        var attempts = scenario.TryGetProperty("setup_race_retry", out var retry) ? retry.GetProperty("attempts").GetInt32() : 1;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await Run(scenario);
+                break;
+            }
+            // The setup produced a job that finished before the call (outside the
+            // contract under test); redo setup and call.
+            catch (RpcException race) when (attempt < attempts
+                && (int)race.StatusCode == retry.GetProperty("status_code").GetInt32())
+            {
+            }
+        }
         outcomes[operation] = new { result = "pass" };
     }
     catch (ScenarioFailure failure)

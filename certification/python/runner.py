@@ -321,7 +321,17 @@ def main(argv: list[str]) -> int:
         for scenario in load_scenarios():
             operation = scenario["operation"]
             try:
-                run(scenario)
+                retry = scenario.get("setup_race_retry")
+                attempts = retry["attempts"] if retry else 1
+                for attempt in range(1, attempts + 1):
+                    try:
+                        run(scenario)
+                        break
+                    except grpc.RpcError as race:
+                        # The setup produced a job that finished before the call
+                        # (outside the contract under test); redo setup and call.
+                        if not retry or race.code().value[0] != retry["status_code"] or attempt == attempts:
+                            raise
                 outcomes[operation] = {"result": "pass"}
             except ScenarioFailure as failure:
                 outcomes[operation] = {"result": "fail", "reason": str(failure)}

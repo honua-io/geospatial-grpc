@@ -1,6 +1,6 @@
 {
   "schema": "honua.grpc-certification-scenarios/v1",
-  "rule": "Runners execute the scenarios in order against the fixture directory. 'unary' compares one response with <response>. 'server_stream' collects every streamed message and compares them, in order, with <responses>.1.json, <responses>.2.json and so on; the message count must match. 'capture' stores response values by name (from the first message of a stream); a request or expected-response string of the form {{capture:<name>}} is replaced by the captured value before parsing, so an echoed id is compared exactly. A scenario whose capture it needs is missing fails with that reason. 'setup' runs one unary call first and only captures from it. 'poll_until' repeats a unary call until the response value at 'path' is one of 'values' or 'timeout_seconds' passes, then compares the last response. 'negative' runs a request that must fail with the recorded gRPC status, and an optional 'verify' read-back that must match exactly, before the positive call. Values listed in server-assigned-fields.v1.json are masked or removed before every comparison.",
+  "rule": "Runners execute the scenarios in order against the fixture directory. 'unary' compares one response with <response>. 'server_stream' collects every streamed message and compares them, in order, with <responses>.1.json, <responses>.2.json and so on; the message count must match. 'capture' stores response values by name (from the first message of a stream); a request or expected-response string of the form {{capture:<name>}} is replaced by the captured value before parsing, so an echoed id is compared exactly. A scenario whose capture it needs is missing fails with that reason. 'setup' runs one unary call first and only captures from it. 'poll_until' repeats a unary call until the response value at 'path' is one of 'values' or 'timeout_seconds' passes, then compares the last response. 'negative' runs a request that must fail with the recorded gRPC status, and an optional 'verify' read-back that must match exactly, before the positive call. 'setup_race_retry' repeats setup and call, at most 'attempts' times, only when the call fails with 'status_code' (FAILED_PRECONDITION: the setup job finished before it could be cancelled, which is outside the contract under test); the expected response is unchanged and the last failure is reported. Values listed in server-assigned-fields.v1.json are masked or removed before every comparison.",
   "scenarios": [
     {
       "operation": "FeatureService/QueryFeatures",
@@ -92,7 +92,8 @@
         "operation": "ProcessService/SubmitJob",
         "request": "process_cancel_job_submit_request.json",
         "capture": {"job_to_cancel": "$.jobId"}
-      }
+      },
+      "setup_race_retry": {"status_code": 9, "attempts": 3}
     },
     {
       "operation": "WorkspaceService/CreateWorkspace",

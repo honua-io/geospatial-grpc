@@ -275,7 +275,20 @@ async function main(argv) {
 
   for (const scenario of scenarios) {
     try {
-      await run(scenario);
+      const retry = scenario.setup_race_retry;
+      const attempts = retry ? retry.attempts : 1;
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await run(scenario);
+          break;
+        } catch (race) {
+          // The setup produced a job that finished before the call (outside the
+          // contract under test); redo setup and call.
+          if (!retry || !(race instanceof ConnectError) || race.code !== retry.status_code || attempt >= attempts) {
+            throw race;
+          }
+        }
+      }
       outcomes[scenario.operation] = { result: "pass" };
     } catch (error) {
       if (error instanceof ScenarioFailure) {
