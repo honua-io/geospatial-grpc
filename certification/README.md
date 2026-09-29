@@ -42,6 +42,15 @@ lane and restores features 7 and 42, leaves 8 absent, and pins the next object
 id to 101. Without it, one lane's ApplyEdits would change what the next lane
 reads.
 
+Response comparison is exact except for the values listed in
+`server-assigned-fields.v1.json`, which a server assigns and a fixture cannot
+predict (created ids, timestamps, job and result ids). Each runner replaces
+those values in both documents with a placeholder before comparing, so the
+value must be present but is not compared. ApplyEdits also runs the negative
+`feature_apply_edits_missing_target` batch first. It must fail as a whole with
+the recorded gRPC status, and the positive batch that follows must still find
+feature 7.
+
 Executed failures are also retained in `execution_failures`, attributed by lane
 and operation. Both the .NET runner and fragment CLI return nonzero on an
 executed failure, including a failure in a cell with incomplete scenario facets.

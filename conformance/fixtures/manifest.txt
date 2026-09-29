@@ -15,6 +15,11 @@ feature_query_request.json          geospatial.v1.QueryFeaturesRequest
 feature_query_response.json         geospatial.v1.QueryFeaturesResponse
 feature_apply_edits_request.json    geospatial.v1.ApplyEditsRequest
 feature_apply_edits_response.json   geospatial.v1.ApplyEditsResponse
+# Negative case: a batch with a missing update/delete target fails as a whole.
+# The expected outcome is the gRPC status in
+# feature_apply_edits_missing_target_status.json (not a protobuf message, so it
+# is not listed here).
+feature_apply_edits_missing_target_request.json  geospatial.v1.ApplyEditsRequest
 
 # FormService — mobile data collection workflow.
 form_get_definition_request.json    geospatial.v1.GetFormDefinitionRequest

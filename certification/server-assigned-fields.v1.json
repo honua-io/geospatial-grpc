@@ -1,0 +1,27 @@
+{
+  "schema": "honua.grpc-certification-server-assigned-fields/v1",
+  "rule": "Each path names a response value that the server assigns and a fixture cannot predict. Before comparison the runners replace the value at each listed path, in both the expected and the actual canonical JSON, with a placeholder. The path must still be present on both sides, and a proto3 default (for example an int64 0) counts as absent, so the server must assign a value. Every other path, including every value the client supplied, is compared exactly. Paths use $ for the response root, .name for a field (the proto3 JSON name) and [*] for every element of a repeated field.",
+  "operations": {
+    "FeatureService/ApplyEdits": [
+      "$.addResults[*].objectId"
+    ],
+    "FormService/SubmitFormData": [
+      "$.result.serverTimestamp",
+      "$.createdFeatureId"
+    ],
+    "ProcessService/ExecutePlan": [
+      "$.jobId",
+      "$.result.resultId",
+      "$.result.artifacts[*].artifactId",
+      "$.result.artifacts[*].producerRef",
+      "$.result.provenance.executedAt",
+      "$.result.provenance.durationSeconds"
+    ],
+    "WorkspaceService/CreateWorkspace": [
+      "$.workspace.ref.workspaceId",
+      "$.workspace.ref.workspaceRevision",
+      "$.workspace.createdAt",
+      "$.workspace.updatedAt"
+    ]
+  }
+}

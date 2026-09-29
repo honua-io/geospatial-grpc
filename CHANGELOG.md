@@ -5,6 +5,36 @@ client packages are recorded here. A single git release tag (`v<version>`)
 identifies the matching NuGet, PyPI, npm, BSR, and `conformance/VERSION`
 coordinates.
 
+## v1.0.3
+
+Conformance fixture and certification-harness release. There are no `.proto`,
+wire-surface or generated-API changes from `v1.0.2`.
+
+### Fixture changes
+
+- `feature_apply_edits_{request,response}.json` follow all-or-nothing batch
+  semantics (`rollbackOnFailure: true`). The positive batch adds one feature,
+  updates 42 and deletes 7, and every edit succeeds. The previous fixture mixed
+  a failed delete of the missing feature 8 with successful edits, which a batch
+  that fails as a whole can never return.
+- New negative case `feature_apply_edits_missing_target_request.json`. A batch
+  that updates 42 and deletes 7 and the missing 8 must fail as a whole with the
+  gRPC status in `feature_apply_edits_missing_target_status.json` (`NOT_FOUND`)
+  and apply no edit. The positive batch runs next and deletes 7 successfully,
+  which proves the failed batch left it in place.
+
+### Certification harness
+
+- `certification/server-assigned-fields.v1.json` lists the response values a
+  server assigns and a fixture cannot predict: created feature ids, workspace
+  ids and revisions, timestamps, job, result and artifact ids, and durations.
+  The .NET, Python and TypeScript runners replace those values, and only
+  those, with a placeholder before comparing. The value must still be present.
+  `tests/test_server_assigned_fields.py` checks that every listed path resolves
+  in the expected response and never covers a value the request supplied. The
+  wire-oracle suite checks that a listed value may differ, that a listed value
+  may not be missing, and that a client-supplied id is still compared.
+
 ## v1.0.2
 
 Republishes the v1.0.1 content. The `v1.0.1` tag never reached nuget.org:

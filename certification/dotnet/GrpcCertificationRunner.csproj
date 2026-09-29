@@ -10,4 +10,7 @@
     <PackageReference Include="Geospatial.Grpc" Version="1.0.0" />
     <PackageReference Include="Grpc.Net.Client" Version="2.76.0" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="../server-assigned-fields.v1.json" CopyToOutputDirectory="PreserveNewest" Link="server-assigned-fields.v1.json" />
+  </ItemGroup>
 </Project>
