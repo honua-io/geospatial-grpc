@@ -1,0 +1,15 @@
+{
+  "name": "geospatial-grpc-typescript-certification-runner",
+  "private": true,
+  "type": "module",
+  "description": "Executes the promoted @honua/geospatial-grpc package against a live gRPC target. Keep @honua/geospatial-grpc a promoted registry version; never replace it with a workspace or file reference.",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.15.0",
+    "@connectrpc/connect": "2.2.0",
+    "@connectrpc/connect-node": "2.2.0",
+    "@honua/geospatial-grpc": "1.0.0"
+  }
+}
