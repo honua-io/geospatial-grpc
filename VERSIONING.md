@@ -3,13 +3,11 @@
 This document governs how the `geospatial.v1` proto surface evolves.
 It is the canonical reference for maintainers and contributors making proto changes.
 
-## Pre-1.0 Exception (v0.x-alpha)
+## Historical Pre-1.0 Exception (closed)
 
-While git release tags remain `v0.x-alpha` and no external consumers have pinned
-the wire contract, the strong within-major compatibility guarantees below do not
-yet apply. The maintainer may authorize deliberate, coordinated breaking changes —
-without the new-major-version governance process described in this document — when
-all of the following conditions are met:
+Before `v1.0.0`, the maintainer could authorize deliberate, coordinated alpha
+breaks without the new-major-version governance process when all of the
+following conditions were met:
 
 1. No external consumers depend on the wire contract (verified via issue discussion
    before the PR opens).
@@ -20,9 +18,10 @@ all of the following conditions are met:
 4. Downstream repos (`honua-server`, `honua-sdk-dotnet`, `honua-mobile`, etc.)
    schedule SDK regeneration and re-pinning before the GA (`v1.0.0`) cut.
 
-Such breaks are one-time, scoped windows, not a blanket exemption. From `v1.0.0`
-forward, all compatibility guarantees in this document apply without exception. The
-decision for the first use of this exception is documented in
+That exception closed permanently at `v1.0.0`; it is retained here only as
+historical context for the alpha tags. All compatibility guarantees in this
+document apply without exception to stable `v1` releases. The decision for its
+first use is documented in
 [issue #48](https://github.com/honua-io/geospatial-grpc/issues/48) (pre-v1
 job-lifecycle refactor + SpecService convergence).
 
@@ -108,11 +107,21 @@ Breaking changes follow a structured process:
 
 - Every merge to `trunk` that modifies `.proto` files should result in a tagged semver release.
 - Documentation-only changes may be batched into a single patch release.
+- One exact `v<Version>` tag binds the Git commit, BSR release label/immutable
+  commit, `Geospatial.Grpc` package and symbol package, conformance fixtures,
+  and GitHub release. A second package-specific tag family is not used.
+- `workflow_dispatch` validates only. Only a matching stable tag push can
+  publish, and it requires both `BUF_TOKEN` and `NUGET_API_KEY` before any
+  registry mutation.
+- Publication is complete only after a fresh credential-free job restores the
+  exact NuGet version, resolves/builds the immutable BSR commit, verifies public
+  payloads, and emits the release receipt plus `SHA256SUMS`.
 
 ## CI Enforcement
 
-The following automated checks run on every PR and are not optional (they are
-required status checks on the `trunk` branch protection):
+The following automated checks run on every PR. Repository owners must also
+configure the `trunk` ruleset to require the CI workflow before merge; workflow
+configuration alone cannot enforce that GitHub setting:
 
 | Check | Purpose |
 |-------|---------|
@@ -132,7 +141,8 @@ dropped enum value, reused reserved number) **or a removed/renamed RPC or
 service** cannot land:
 
 - **Pull requests** — `buf breaking --against '.git#branch=<base>'` compares the
-  PR head to its target branch. This is the primary required check.
+  PR head to its target branch. This is the primary check that the `trunk`
+  ruleset must require.
 - **Direct push to `trunk`** — `buf breaking --against '.git#tag=<prev-release>'`
   compares the pushed state to the most recent `v*` release tag, so a breaking
   change cannot slip in via a non-PR push. (If no release tag exists yet, there
@@ -152,9 +162,9 @@ CI catches accidental breakage. This policy adds the human governance layer for 
 The conformance fixtures (`conformance/`) ride the **same release version** as
 the proto surface and the .NET package. `conformance/VERSION` equals the
 `Geospatial.Grpc` `<Version>` (CI-enforced by `conformance/check-version.sh`),
-so one fixture set maps 1:1 to one `geospatial.v1` schema release. On push to
-`trunk`, the `publish` job packages the fixtures and attaches
-`conformance-fixtures-<version>.tar.gz` (+ `.sha256`) to a GitHub Release tagged
-`v<version>`. Downstream consumers pull a pinned version with
+so one fixture set maps 1:1 to one `geospatial.v1` schema release. On the exact
+`v<version>` tag, the stable publish workflow packages the fixtures and attaches
+`conformance-fixtures-<version>.tar.gz` (+ `.sha256`) to a GitHub Release only
+after the public registry gates pass. Downstream consumers pull a pinned version with
 `conformance/fetch-fixtures.sh --version <version>`. See
 `conformance/README.md` for the full consumer contract.

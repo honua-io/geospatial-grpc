@@ -19,10 +19,8 @@ definitions ([ownership rules](docs/proto-ownership.md)).
 
 ## Status
 
-**Pre-1.0 (alpha).** The wire contract is still being deliberately settled;
-alpha releases may include acknowledged breaking changes, each documented in the
-[CHANGELOG](CHANGELOG.md) and re-baselined with a new tag. From `v1.0.0` the
-full within-major compatibility guarantees in [VERSIONING.md](VERSIONING.md)
+**Stable v1.** `v1.0.0` closes the pre-release stabilization window. The full
+within-major compatibility guarantees in [VERSIONING.md](VERSIONING.md) now
 apply without exception. Every PR is gated by `buf lint`, `buf format`,
 `buf breaking` (WIRE_JSON + RPC/service no-delete rules), multi-language
 codegen, and a conformance-fixture round-trip.
@@ -70,11 +68,12 @@ cd geospatial-grpc
 # Install the Buf CLI (https://buf.build/docs/installation), e.g.:
 npm install -g @bufbuild/buf
 
-# Generate every configured language into gen/
-buf generate
+# Generate every configured language from the immutable stable public schema
+buf generate buf.build/honua-io/geospatial-grpc:v1.0.0
 # gen/csharp, gen/go, gen/java, gen/python, gen/rust, gen/swift, gen/typescript
 
-# Or generate a single language with its dedicated template
+# Or generate the local checkout / a single language with its dedicated template
+buf generate
 buf generate --template buf.gen.go.yaml --output generated/go
 # also: buf.gen.csharp.yaml, buf.gen.python.yaml, buf.gen.javascript.yaml, buf.gen.java.yaml
 ```
@@ -83,15 +82,102 @@ buf generate --template buf.gen.go.yaml --output generated/go
 
 ### .NET: use the published protocol package
 
-The `Geospatial.Grpc` NuGet package (netstandard2.0, protos compiled via
-`Grpc.Tools`) is published to
-[GitHub Packages](https://github.com/orgs/honua-io/packages?repo_name=geospatial-grpc)
-by the `Publish .NET Protocol Package` workflow on `geospatial-grpc-v*` tags.
-Downstream .NET projects should reference the package rather than copying
-`.proto` files. You can also pack it locally:
+gRPC remains **supported for 2026.1**. The `Geospatial.Grpc` NuGet package
+(netstandard2.0, protos compiled via `Grpc.Tools`) releases through
+[GitHub Packages](https://github.com/orgs/honua-io/packages?repo_name=geospatial-grpc).
+Historical versions remain on [nuget.org](https://www.nuget.org/packages/Geospatial.Grpc).
+Downstream .NET projects should pin a published version instead of copying protos.
+
+For a new consumer project, add this minimal `nuget.config` beside the project.
+For an existing project, merge the `github` source and `Geospatial.Grpc` mapping
+into its configuration, preserving other sources and mappings: `<clear />` in
+this standalone example removes inherited feeds. The mapping resolves
+`Geospatial.Grpc` from GitHub Packages and other dependencies from nuget.org:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="github" value="https://nuget.pkg.github.com/honua-io/index.json" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+  <packageSourceMapping>
+    <packageSource key="github"><package pattern="Geospatial.Grpc" /></packageSource>
+    <packageSource key="nuget.org"><package pattern="*" /></packageSource>
+  </packageSourceMapping>
+</configuration>
+```
+
+GitHub's NuGet registry requires authentication even for public packages.
+For local restores, have the operator supply a personal access token (classic)
+with `read:packages` and package access through a credential provider or the
+`NuGetPackageSourceCredentials_github` environment variable, whose format is
+`Username=GITHUB_LOGIN;Password=TOKEN;ValidAuthenticationTypes=Basic`.
+Never commit credentials to `nuget.config` or print them in logs.
+In GitHub Actions, use `GITHUB_TOKEN` with `packages: read` and grant the consumer
+repository read access under the package's **Manage Actions access** settings.
+See [GitHub NuGet authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry).
+
+After checkout and .NET SDK setup, bind the token to NuGet in the consumer's
+restore step (`packages: read` alone does not supply registry credentials):
+
+```yaml
+- name: Restore authenticated GitHub Packages dependencies
+  env:
+    NuGetPackageSourceCredentials_github: Username=${{ github.actor }};Password=${{ secrets.GITHUB_TOKEN }};ValidAuthenticationTypes=Basic
+  run: dotnet restore
+```
+
+Replace `X.Y.Z` with an exact version listed in GitHub Packages:
+
+```bash
+dotnet add package Geospatial.Grpc --version X.Y.Z
+```
+
+You can also pack it locally:
 
 ```bash
 dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj --configuration Release -o ./nupkgs
+```
+
+### JavaScript and TypeScript: use the published client
+
+`@honua/geospatial-grpc` carries the generated protobuf-es messages and service
+descriptors, so a JS or TS project does not need buf at all:
+
+```bash
+npm install @honua/geospatial-grpc@1.0.0 @connectrpc/connect @connectrpc/connect-node
+```
+
+Generate locally instead only when you are working against an unreleased `.proto`
+change. Note that the TypeScript target lives in the all-language `buf.gen.yaml`
+(`target=ts`); `buf.gen.javascript.yaml` is `target=js` and emits no `.d.ts`.
+
+### Python: generate from the protos
+
+There is no published Python client yet — generate one:
+
+```bash
+buf generate --template buf.gen.python.yaml --output generated/python
+```
+
+Publication is tracked in [#107](https://github.com/honua-io/geospatial-grpc/pull/107);
+this section changes to an install command when it lands.
+
+The [.NET GitHub Packages workflow](.github/workflows/publish-dotnet-github-packages.yml)
+packs and verifies a synthetic prerelease on every PR to `trunk`; manual runs
+also only pack. Pushing a `vMAJOR.MINOR.PATCH[-PRERELEASE]` tag packs that SemVer,
+attests the runtime and symbol archives, then pushes the exact runtime archive
+using only `GITHUB_TOKEN` with `packages: write`. Build metadata (`+...`) is
+rejected because NuGet strips it from package identity. An occupied version
+fails publication; choose a new version instead of overwriting a release.
+The workflow is independent of the legacy BSR/nuget.org release credentials.
+Symbol archives remain in the workflow artifact; GitHub Packages does not serve
+`.snupkg` symbols. Verify a downloaded archive's provenance with:
+
+```text
+gh attestation verify Geospatial.Grpc.X.Y.Z.nupkg --repo honua-io/geospatial-grpc
 ```
 
 ### First query
@@ -198,9 +284,8 @@ consumer contract.
 - Breaking changes require deprecation first, maintainer sign-off, and a new
   package version path (`geospatial/v2`) — enforced in CI by `buf breaking`
   on every PR and on every push to `trunk` against the previous release tag.
-- Pre-1.0 exception: while tags are `v0.x-alpha`, coordinated breaks are
-  allowed under documented conditions (changelog acknowledgment + new baseline
-  tag).
+- The historical pre-1.0 exception is closed. It remains documented only to
+  explain the alpha baselines; it cannot be used for `v1` changes.
 
 ## Implementing the standard
 
@@ -222,6 +307,8 @@ Known implementations and clients:
 - Your implementation here — PRs welcome.
 
 ## Documentation
+
+- **[Full documentation index](docs/SUMMARY.md)** — every published page, generated from the documentation bundle so it cannot drift.
 
 | Document | Contents |
 |----------|----------|

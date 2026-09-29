@@ -61,8 +61,8 @@ buf generate --template buf.gen.csharp.yaml --output generated/csharp
 buf build -o descriptors/image.bin
 buf build -o descriptors/image.json
 
-# Publish to Buf registry (CI only, needs BUF_TOKEN)
-buf push
+# Validate the stable release contract; publishing is tag-workflow-only
+python scripts/release_contract.py --require-stable --tag v1.0.0
 ```
 
 .NET protocol package (from repo root):
@@ -112,7 +112,10 @@ Shared type modules: `common.proto`, `spatial_types.proto`,
 
 Generation flow: `buf.gen.yaml` (v2) drives multi-language output to `gen/`
 with managed-mode package prefixes (`github.com/geospatial-grpc/proto-go`,
-`io.grpc.geospatial`, C# base namespace `GeospatialGrpc`). The .NET package
+`io.grpc.geospatial`). C# uses no `base_namespace` override: managed mode
+derives the namespace from the proto package (`geospatial.v1` -> `Geospatial.V1`),
+and a `base_namespace` that is not a prefix of that namespace makes the C#
+plugin hard-fail (so `GeospatialGrpc` must not be set). The .NET package
 instead compiles the protos directly via `Grpc.Tools` (`GrpcServices=Both`).
 
 ## Directory Layout
@@ -159,7 +162,10 @@ gen/                    # Generated client libraries (output, not committed sour
 - **.NET package builds with `TreatWarningsAsErrors=true`** and all analyzers
   enabled (`AnalysisMode=AllEnabledByDefault`); generated/compiled proto code
   must stay warning-clean. Bump `<Version>` in the `.csproj`; the publish
-  workflow requires the `geospatial-grpc-v*` tag version to match it exactly.
+  workflow requires the single `v<Version>` tag to match it exactly. A manual
+  workflow dispatch validates only; registry publication requires both
+  `BUF_TOKEN` and `NUGET_API_KEY` and succeeds only after clean public
+  consumption plus receipt/checksum generation.
 
 ## Shared dev-environment rules (multi-agent WSL)
 
