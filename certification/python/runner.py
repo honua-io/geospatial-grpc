@@ -314,7 +314,7 @@ def main(argv: list[str]) -> int:
                     f"Negative case {negative['request']} was rejected, but reading its targets back "
                     f"does not match the unchanged state at {divergence}")
 
-    def run_positive_once(scenario: dict) -> list:
+    def run_positive_once(scenario: dict, decoded: list) -> list:
         operation = scenario["operation"]
         setup = scenario.get("setup")
         if setup is not None:
@@ -322,6 +322,7 @@ def main(argv: list[str]) -> int:
         rpc = method(operation)
         if scenario["kind"] == "server_stream":
             messages = call(operation, scenario["request"], timeout=60)
+            decoded.extend(messages)
             actual = [masked(operation, _canonical(message)) for message in messages]
             expected = []
             index = 1
@@ -337,6 +338,7 @@ def main(argv: list[str]) -> int:
         else:
             poll = scenario.get("poll_until")
             response = call(operation, scenario["request"])[0]
+            decoded.append(response)
             if poll is not None:
                 timeout = float(poll_timeout_override or poll["timeout_seconds"])
                 deadline = time.monotonic() + timeout
@@ -344,6 +346,7 @@ def main(argv: list[str]) -> int:
                         and time.monotonic() < deadline:
                     time.sleep(POLL_INTERVAL_SECONDS)
                     response = call(operation, scenario["request"])[0]
+                    decoded.append(response)
             capture(scenario.get("capture"), _canonical(response))
             messages = [response]
             divergence = compare_unary(operation, scenario["response"], response)
@@ -351,12 +354,12 @@ def main(argv: list[str]) -> int:
             raise ScenarioFailure(f"Canonical response mismatch at {divergence}")
         return messages
 
-    def run_positive(scenario: dict) -> list:
+    def run_positive(scenario: dict, decoded: list) -> list:
         retry = scenario.get("setup_race_retry")
         attempts = retry["attempts"] if retry else 1
         for attempt in range(1, attempts + 1):
             try:
-                return run_positive_once(scenario)
+                return run_positive_once(scenario, decoded)
             except grpc.RpcError as race:
                 # The setup produced a job that finished before the call
                 # (outside the contract under test); redo setup and call.
@@ -376,9 +379,9 @@ def main(argv: list[str]) -> int:
                 except Exception as exception:  # noqa: BLE001 - every failure is a recorded outcome
                     facets["negative"] = "fail"
                     reasons.append(f"negative: {describe(exception)}")
-            messages = None
+            decoded: list = []
             try:
-                messages = run_positive(scenario)
+                run_positive(scenario, decoded)
                 facets["positive"] = "pass"
             except Exception as exception:  # noqa: BLE001 - every failure is a recorded outcome
                 facets["positive"] = "fail"
@@ -388,8 +391,10 @@ def main(argv: list[str]) -> int:
                     {"result": "pass"} if facets["positive"] == "pass" else {"result": "fail", "reason": reasons[0]}
                 )
                 continue
-            unknown = [path for message in (messages or []) for path in unknown_field_paths(message)]
-            if messages is None:
+            # media-schema covers every positive response the client decoded,
+            # including polled ones, whether or not the comparison passed.
+            unknown = [path for message in decoded for path in unknown_field_paths(message)]
+            if not decoded:
                 facets["media-schema"] = "fail"
                 reasons.append("media-schema: no positive response to check")
             elif unknown:

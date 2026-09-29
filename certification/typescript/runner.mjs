@@ -275,7 +275,7 @@ async function main(argv) {
     }
   }
 
-  async function runPositiveOnce(scenario) {
+  async function runPositiveOnce(scenario, decoded) {
     const operation = scenario.operation;
     if (scenario.setup) {
       const [created] = await call(scenario.setup.operation, scenario.setup.request);
@@ -286,6 +286,7 @@ async function main(argv) {
     let divergence;
     if (scenario.kind === "server_stream") {
       messages = await call(operation, scenario.request, 60_000);
+      decoded.push(...messages);
       const actual = messages.map((message) => masked(operation, toJson(method.output, message)));
       const expected = [];
       for (let index = 1; existsSync(path.join(fixtureDirectory, `${scenario.responses}.${index}.json`)); index++) {
@@ -297,12 +298,14 @@ async function main(argv) {
       divergence = firstDivergence(expected, actual);
     } else {
       let [response] = await call(operation, scenario.request);
+      decoded.push(response);
       const poll = scenario.poll_until;
       if (poll) {
         const deadline = Date.now() + 1000 * Number(pollTimeoutOverride ?? poll.timeout_seconds);
         while (!poll.values.includes(readPath(toJson(method.output, response), poll.path)) && Date.now() < deadline) {
           await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
           [response] = await call(operation, scenario.request);
+          decoded.push(response);
         }
       }
       capture(scenario.capture, toJson(method.output, response));
@@ -313,12 +316,12 @@ async function main(argv) {
     return messages;
   }
 
-  async function runPositive(scenario) {
+  async function runPositive(scenario, decoded) {
     const retry = scenario.setup_race_retry;
     const attempts = retry ? retry.attempts : 1;
     for (let attempt = 1; ; attempt++) {
       try {
-        return await runPositiveOnce(scenario);
+        return await runPositiveOnce(scenario, decoded);
       } catch (race) {
         // The setup produced a job that finished before the call (outside the
         // contract under test); redo setup and call.
@@ -343,9 +346,9 @@ async function main(argv) {
         reasons.push(`negative: ${describe(error)}`);
       }
     }
-    let messages = null;
+    const decoded = [];
     try {
-      messages = await runPositive(scenario);
+      await runPositive(scenario, decoded);
       facets.positive = "pass";
     } catch (error) {
       facets.positive = "fail";
@@ -355,8 +358,10 @@ async function main(argv) {
       outcomes[operation] = facets.positive === "pass" ? { result: "pass" } : { result: "fail", reason: reasons[0] };
       continue;
     }
-    const unknown = (messages ?? []).flatMap((message) => unknownFieldPaths(message));
-    if (messages === null) {
+    // media-schema covers every positive response the client decoded, including
+    // polled ones, whether or not the comparison passed.
+    const unknown = decoded.flatMap((message) => unknownFieldPaths(message));
+    if (decoded.length === 0) {
       facets["media-schema"] = "fail";
       reasons.push("media-schema: no positive response to check");
     } else if (unknown.length) {

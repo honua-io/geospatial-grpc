@@ -144,7 +144,7 @@ async Task RunNegative(JsonElement scenario)
     }
 }
 
-async Task<List<IMessage>> RunPositiveOnce(JsonElement scenario)
+async Task<List<IMessage>> RunPositiveOnce(JsonElement scenario, List<IMessage> decoded)
 {
     var operation = scenario.GetProperty("operation").GetString()!;
     if (scenario.TryGetProperty("setup", out var setup))
@@ -159,6 +159,7 @@ async Task<List<IMessage>> RunPositiveOnce(JsonElement scenario)
     {
         var prefix = scenario.GetProperty("responses").GetString()!;
         messages = await Call(operation, scenario.GetProperty("request").GetString()!, 60);
+        decoded.AddRange(messages);
         var expected = new JsonArray();
         for (var index = 1; File.Exists(Path.Combine(fixtureDirectory, $"{prefix}.{index}.json")); index++)
         {
@@ -179,6 +180,7 @@ async Task<List<IMessage>> RunPositiveOnce(JsonElement scenario)
     {
         var request = scenario.GetProperty("request").GetString()!;
         var response = (await Call(operation, request))[0];
+        decoded.Add(response);
         if (scenario.TryGetProperty("poll_until", out var poll))
         {
             var pollPath = poll.GetProperty("path").GetString()!;
@@ -190,6 +192,7 @@ async Task<List<IMessage>> RunPositiveOnce(JsonElement scenario)
             {
                 await Task.Delay(TimeSpan.FromSeconds(1));
                 response = (await Call(operation, request))[0];
+                decoded.Add(response);
             }
         }
         Capture(scenario, "capture", Canonical(response));
@@ -203,14 +206,14 @@ async Task<List<IMessage>> RunPositiveOnce(JsonElement scenario)
     return messages;
 }
 
-async Task<List<IMessage>> RunPositive(JsonElement scenario)
+async Task<List<IMessage>> RunPositive(JsonElement scenario, List<IMessage> decoded)
 {
     var attempts = scenario.TryGetProperty("setup_race_retry", out var retry) ? retry.GetProperty("attempts").GetInt32() : 1;
     for (var attempt = 1; ; attempt++)
     {
         try
         {
-            return await RunPositiveOnce(scenario);
+            return await RunPositiveOnce(scenario, decoded);
         }
         // The setup produced a job that finished before the call (outside the
         // contract under test); redo setup and call.
@@ -240,10 +243,10 @@ foreach (var scenario in scenarioDocument.RootElement.GetProperty("scenarios").E
             reasons.Add($"negative: {Describe(exception)}");
         }
     }
-    List<IMessage>? messages = null;
+    var decoded = new List<IMessage>();
     try
     {
-        messages = await RunPositive(scenario);
+        await RunPositive(scenario, decoded);
         facets["positive"] = "pass";
     }
     catch (Exception exception)
@@ -258,8 +261,10 @@ foreach (var scenario in scenarioDocument.RootElement.GetProperty("scenarios").E
             : new { result = "fail", reason = reasons[0] };
         continue;
     }
-    var unknown = (messages ?? []).SelectMany(message => UnknownFieldPaths(message, "$")).ToList();
-    if (messages is null)
+    // media-schema covers every positive response the client decoded, including
+    // polled ones, whether or not the comparison passed.
+    var unknown = decoded.SelectMany(message => UnknownFieldPaths(message, "$")).ToList();
+    if (decoded.Count == 0)
     {
         facets["media-schema"] = "fail";
         reasons.Add("media-schema: no positive response to check");

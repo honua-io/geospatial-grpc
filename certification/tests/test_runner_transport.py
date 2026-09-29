@@ -60,14 +60,15 @@ def message(field, payload):
     return varint((field << 3) | 2) + varint(len(payload)) + payload
 
 
-def query_response(*, x=-157.5, y=21.25, z=0.0, m=12.5, wkid=4326, null_value=True, identifier=42):
+def query_response(*, x=-157.5, y=21.25, z=0.0, m=12.5, wkid=4326, null_value=True, identifier=42,
+                   attribute_extra=b""):
     # QueryFeaturesResponse.features=5 -> Feature.geometry=3 -> Geometry.point=1.
     # Point x/y/z/m are fixed64 fields 1/2/3/4; optional zero Z must stay present.
     point = b"".join(varint((field << 3) | 1) + struct.pack("<d", value)
                      for field, value in ((1, x), (2, y), (3, z), (4, m)) if value is not None)
     feature = b"\x08" + varint(identifier) + message(3, message(1, point))
     # AttributeValue.null_value is oneof field 9, explicitly encoded even at 0.
-    attribute = b"\x48\x00" if null_value else b"\x21" + struct.pack("<d", 0.0)
+    attribute = (b"\x48\x00" if null_value else b"\x21" + struct.pack("<d", 0.0)) + attribute_extra
     feature += message(2, message(1, b"height") + message(2, attribute))
     return b"\x10\x01" + message(3, b"\x08" + varint(wkid)) + message(5, feature)
 
@@ -344,6 +345,20 @@ class RunnerTransportContract:
         outcome = report["operations"]["FeatureService/QueryFeatures"]
         self.assertEqual({"positive": "pass", "negative": "pass", "media-schema": "fail"}, outcome["facet_results"])
         self.assertIn("unknown to the installed schema", outcome["reason"])
+
+    def test_value_mismatch_fails_only_the_positive_facet(self):
+        completed, report = self.execute(query_response(x=21.25, y=-157.5))
+        self.assertEqual(1, completed.returncode, report)
+        outcome = report["operations"]["FeatureService/QueryFeatures"]
+        self.assertEqual({"positive": "fail", "negative": "pass", "media-schema": "pass"}, outcome["facet_results"])
+
+    def test_unknown_field_inside_a_map_value_fails_media_schema(self):
+        # Field 99 inside the AttributeValue held by Feature.attributes["height"].
+        completed, report = self.execute(query_response(attribute_extra=b"\xf8\x06\x01"))
+        self.assertEqual(1, completed.returncode, report)
+        outcome = report["operations"]["FeatureService/QueryFeatures"]
+        self.assertEqual("fail", outcome["facet_results"]["media-schema"])
+        self.assertIn("attributes", outcome["reason"])
 
     def test_rpc_exception_fails_without_losing_other_results(self):
         completed, report = self.execute(abort=True)
