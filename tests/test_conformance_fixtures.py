@@ -34,6 +34,23 @@ def _manifest_fixtures() -> list[str]:
     return names
 
 
+PROTOS = ROOT / "geospatial" / "v1"
+_FIELD_RE = re.compile(
+    r"^\s*(?:optional\s+|repeated\s+)?(?:map\s*<[^>]+>|[\w.]+)\s+(\w+)\s*=\s*\d+",
+    re.MULTILINE,
+)
+
+
+def _schema_field_names() -> frozenset[str]:
+    """Every field name the schema defines, in proto and JSON (lowerCamel) spelling."""
+    names: set[str] = set()
+    for proto in PROTOS.glob("*.proto"):
+        for name in _FIELD_RE.findall(proto.read_text(encoding="utf-8")):
+            names.add(name)
+            names.add(_camel(name))
+    return frozenset(names)
+
+
 def _camel(name: str) -> str:
     return re.sub(r"_([a-z0-9])", lambda match: match.group(1).upper(), name)
 
@@ -63,7 +80,10 @@ def dropped_paths(fixture: object, golden: object, path: str = "$") -> list[str]
                 missing += dropped_paths(value, golden[key], child)
             elif _camel(key) in golden:
                 missing += dropped_paths(value, golden[_camel(key)], child)
-            elif not _is_proto3_default(value):
+            elif key not in SCHEMA_FIELDS or not _is_proto3_default(value):
+                # A key the schema does not define is always a defect, even
+                # when its value looks like a proto3 default (e.g. "0" in a
+                # misspelled string field). Only a real field may be omitted.
                 missing.append(child)
         return missing
     if isinstance(fixture, list):
@@ -79,7 +99,18 @@ def dropped_paths(fixture: object, golden: object, path: str = "$") -> list[str]
     return []
 
 
+SCHEMA_FIELDS = _schema_field_names()
+
+
 class ConformanceFixtureSchemaTests(unittest.TestCase):
+    def test_unknown_key_is_reported_even_with_a_default_looking_value(self):
+        self.assertIn("retentionPolicyId", SCHEMA_FIELDS)
+        self.assertEqual(["$.scopeTokn"], dropped_paths({"scopeTokn": "0"}, {}))
+        self.assertEqual(["$.retentionPolicyIdd"], dropped_paths({"retentionPolicyIdd": ""}, {}))
+        # A real field left at its proto3 default is legitimately omitted.
+        self.assertEqual([], dropped_paths({"retentionPolicyId": ""}, {}))
+
+
     def test_no_fixture_value_is_silently_dropped_by_the_schema(self):
         names = _manifest_fixtures()
         self.assertGreater(len(names), 0)
