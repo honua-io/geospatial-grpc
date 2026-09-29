@@ -201,7 +201,8 @@
     "rule": "Excluded operations are not governed cells. A runner may execute their fixtures; the fragment reports those results under excluded_operations, and they never count as GA passes or failures of the governed rollup.",
     "verified_server_commits": [
       "ac30266fbd153363bebdbed13130accc8ab0c94a",
-      "2db24e648350927c3dada3eb00638bcec1e5cc3e"
+      "2db24e648350927c3dada3eb00638bcec1e5cc3e",
+      "87966c3f7b6c840ffc4d4da0b451714ab717b18a"
     ]
   },
   "excluded_operations": [
