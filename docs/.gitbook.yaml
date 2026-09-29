@@ -1,0 +1,11 @@
+# GitBook configuration for the geospatial.v1 protocol documentation.
+#
+# SUMMARY.md is GENERATED from the OKF bundle by scripts/generate-summary.py,
+# so the human table of contents and the agent-traversable bundle cannot
+# disagree. Edit frontmatter or docs/okf-bundle.v1.json, then re-run it.
+# CI fails on drift via `generate-summary.py --check`.
+root: ./
+
+structure:
+  readme: features/README.md
+  summary: SUMMARY.md

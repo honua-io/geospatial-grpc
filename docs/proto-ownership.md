@@ -1,4 +1,14 @@
+---
+type: concept
+title: "Who owns the protos, and why you should not fork them"
+description: "This repository is the canonical home for the shared definitions. Servers, SDKs and apps generate or pin from here rather than keeping local copies, and this explains what breaks when they do not."
+resource: "https://github.com/honua-io/geospatial-grpc/tree/trunk/geospatial/v1"
+tags: [governance, versioning, downstream]
+---
 # Protocol Ownership and Downstream Sync
+
+The contract these rules protect is the [protocol specification](specification.md); to consume it, see
+[getting started](getting-started.md).
 
 This repository is the canonical home for shared geospatial gRPC protocol
 definitions. Honua servers, SDKs, mobile apps, and admin tools may generate,
@@ -43,26 +53,6 @@ coordination — follow [docs/release-checklist.md](release-checklist.md).
 - Keep default values meaningful for older clients.
 - Document server feature flags or optional behavior in the service comments and
   generated docs.
-
-## Honua Consumer Contract
-
-| Repo | Role | Protocol rule |
-| --- | --- | --- |
-| `honua-server` | Implements gRPC services | Must implement the canonical schemas from this repository. Server-local protos are temporary migration inputs only. |
-| `honua-sdk-dotnet` | Publishes .NET SDK clients and domain abstractions | Must consume generated protocol clients through package references or generated artifacts derived from this repository. It should not own independent `.proto` definitions. |
-| `honua-mobile` | Uses SDK capabilities in mobile workflows | Should consume protocol behavior through the .NET SDK packages instead of duplicating transport clients. |
-| `honua-server-admin` | Uses admin/server APIs | Should consume SDK packages for shared admin clients and generated protocol contracts where applicable. |
-
-## Current Honua Reconciliation Items
-
-| Contract | Current status | Next action |
-| --- | --- | --- |
-| `feature_service.proto` | Exists here and in downstream copies with package/layout drift. | Sync downstream consumers to the canonical `geospatial/v1` contract. |
-| `form_service.proto` | Canonical contract now includes downstream workflow/action and access-control fields. | Sync downstream consumers to this file and remove editable local copies. |
-| `process_service.proto` | Canonical contract now lives here. | Sync `honua-server` generated bindings from this repository. |
-| `spec_service.proto` | Canonical contract now lives here. | Sync `honua-server` and SDK/admin spec clients from this repository. |
-
-Tracking issue: <https://github.com/honua-io/geospatial-grpc/issues/12>
 
 ## Downstream Sync Checklist
 

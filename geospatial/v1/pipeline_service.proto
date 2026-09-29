@@ -36,10 +36,10 @@ import "geospatial/v1/execution_types.proto";
 // arrive as gRPC-level codes from client deadlines or transport cancellation.
 service PipelineService {
   // ValidatePipeline checks a pipeline definition for structural and capability issues.
-  rpc ValidatePipeline(ValidatePipelineRequest) returns (ValidatePipelineResponse);
+  rpc ValidatePipeline(ValidatePipelineRequest) returns (ValidateResponse);
 
   // DryRunPipeline estimates the cost and impact of executing a pipeline without side effects.
-  rpc DryRunPipeline(DryRunPipelineRequest) returns (DryRunPipelineResponse);
+  rpc DryRunPipeline(DryRunPipelineRequest) returns (DryRunResponse);
 
   // ExecutePipeline runs a pipeline synchronously and returns the result.
   rpc ExecutePipeline(ExecutePipelineRequest) returns (ExecutePipelineResponse);
@@ -48,16 +48,16 @@ service PipelineService {
   rpc ExecutePipelineStream(ExecutePipelineRequest) returns (stream PipelineEvent);
 
   // SubmitPipelineJob submits a pipeline for asynchronous execution and returns a job handle.
-  rpc SubmitPipelineJob(SubmitPipelineJobRequest) returns (SubmitPipelineJobResponse);
+  rpc SubmitPipelineJob(SubmitPipelineJobRequest) returns (SubmitJobResponse);
 
   // GetPipelineJob retrieves the current state and progress of a submitted pipeline job.
-  rpc GetPipelineJob(GetPipelineJobRequest) returns (GetPipelineJobResponse);
+  rpc GetPipelineJob(GetJobRequest) returns (GetJobResponse);
 
   // GetPipelineJobResult retrieves the results of a completed pipeline job.
-  rpc GetPipelineJobResult(GetPipelineJobResultRequest) returns (GetPipelineJobResultResponse);
+  rpc GetPipelineJobResult(GetJobResultRequest) returns (GetPipelineJobResultResponse);
 
   // CancelPipelineJob requests cancellation of a running or pending pipeline job.
-  rpc CancelPipelineJob(CancelPipelineJobRequest) returns (CancelPipelineJobResponse);
+  rpc CancelPipelineJob(CancelJobRequest) returns (CancelJobResponse);
 }
 
 // PipelineDefinition describes a data publishing pipeline.
@@ -121,22 +121,9 @@ message ValidatePipelineRequest {
   PipelineDefinition pipeline = 1;
 }
 
-// ValidatePipelineResponse returns the validation outcome.
-message ValidatePipelineResponse {
-  bool valid = 1;
-  repeated PlanValidationIssue issues = 2;
-}
-
 // DryRunPipelineRequest asks the server to estimate pipeline execution impact.
 message DryRunPipelineRequest {
   PipelineDefinition pipeline = 1;
-}
-
-// DryRunPipelineResponse contains the validation outcome and dry-run estimation.
-message DryRunPipelineResponse {
-  bool valid = 1;
-  repeated PlanValidationIssue issues = 2;
-  DryRunResult result = 3;
 }
 
 // ExecutePipelineRequest submits a pipeline for synchronous or streaming execution.
@@ -233,29 +220,6 @@ message SubmitPipelineJobRequest {
   string idempotency_key = 3;
 }
 
-// SubmitPipelineJobResponse confirms pipeline job submission.
-message SubmitPipelineJobResponse {
-  string job_id = 1;
-  JobState state = 2;
-}
-
-// GetPipelineJobRequest retrieves the current state of a pipeline job.
-message GetPipelineJobRequest {
-  string job_id = 1;
-}
-
-// GetPipelineJobResponse returns the pipeline job state and progress.
-message GetPipelineJobResponse {
-  string job_id = 1;
-  JobState state = 2;
-  JobProgress progress = 3;
-}
-
-// GetPipelineJobResultRequest retrieves the results of a completed pipeline job.
-message GetPipelineJobResultRequest {
-  string job_id = 1;
-}
-
 // GetPipelineJobResultResponse returns the pipeline job result.
 // The gRPC status is OK regardless of job outcome. For failed jobs, the
 // error field carries the structured ErrorDetail.
@@ -265,15 +229,4 @@ message GetPipelineJobResultResponse {
     PipelineResult result = 2;
     ErrorDetail error = 3;
   }
-}
-
-// CancelPipelineJobRequest requests cancellation of a pipeline job.
-message CancelPipelineJobRequest {
-  string job_id = 1;
-}
-
-// CancelPipelineJobResponse confirms the pipeline cancellation outcome.
-message CancelPipelineJobResponse {
-  string job_id = 1;
-  JobState state = 2;
 }

@@ -1,3 +1,10 @@
+---
+type: reference
+title: "geospatial.v1 protocol specification"
+description: "The wire contract: services, messages, enums and the compatibility rules that govern changes to them. The authority when an implementation and a client disagree."
+resource: "https://buf.build/honua-io/geospatial-grpc"
+tags: [protocol, contract, reference]
+---
 # Geospatial gRPC Protocol Specification
 
 ## Overview

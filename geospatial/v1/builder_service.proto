@@ -39,10 +39,10 @@ import "geospatial/v1/packaging_types.proto";
 // arrive as gRPC-level codes from client deadlines or transport cancellation.
 service BuilderService {
   // ValidateBuild checks a build spec for structural and capability issues.
-  rpc ValidateBuild(ValidateBuildRequest) returns (ValidateBuildResponse);
+  rpc ValidateBuild(ValidateBuildRequest) returns (ValidateResponse);
 
   // DryRunBuild estimates the cost and impact of executing a build without side effects.
-  rpc DryRunBuild(DryRunBuildRequest) returns (DryRunBuildResponse);
+  rpc DryRunBuild(DryRunBuildRequest) returns (DryRunResponse);
 
   // ExecuteBuild runs a build synchronously and returns the result.
   rpc ExecuteBuild(ExecuteBuildRequest) returns (ExecuteBuildResponse);
@@ -51,16 +51,16 @@ service BuilderService {
   rpc ExecuteBuildStream(ExecuteBuildRequest) returns (stream BuildEvent);
 
   // SubmitBuildJob submits a build spec for asynchronous execution and returns a job handle.
-  rpc SubmitBuildJob(SubmitBuildJobRequest) returns (SubmitBuildJobResponse);
+  rpc SubmitBuildJob(SubmitBuildJobRequest) returns (SubmitJobResponse);
 
   // GetBuildJob retrieves the current state and progress of a build job.
-  rpc GetBuildJob(GetBuildJobRequest) returns (GetBuildJobResponse);
+  rpc GetBuildJob(GetJobRequest) returns (GetJobResponse);
 
   // GetBuildJobResult retrieves the results of a completed build job.
-  rpc GetBuildJobResult(GetBuildJobResultRequest) returns (GetBuildJobResultResponse);
+  rpc GetBuildJobResult(GetJobResultRequest) returns (GetBuildJobResultResponse);
 
   // CancelBuildJob requests cancellation of a running or pending build job.
-  rpc CancelBuildJob(CancelBuildJobRequest) returns (CancelBuildJobResponse);
+  rpc CancelBuildJob(CancelJobRequest) returns (CancelJobResponse);
 }
 
 // DataBindingKind enumerates the source types that may back a data binding.
@@ -117,22 +117,9 @@ message ValidateBuildRequest {
   BuildSpec spec = 1;
 }
 
-// ValidateBuildResponse returns the validation outcome.
-message ValidateBuildResponse {
-  bool valid = 1;
-  repeated PlanValidationIssue issues = 2;
-}
-
 // DryRunBuildRequest asks the server to estimate build execution impact.
 message DryRunBuildRequest {
   BuildSpec spec = 1;
-}
-
-// DryRunBuildResponse contains the validation outcome and dry-run estimation.
-message DryRunBuildResponse {
-  bool valid = 1;
-  repeated PlanValidationIssue issues = 2;
-  DryRunResult result = 3;
 }
 
 // ExecuteBuildRequest submits a build for synchronous or streaming execution.
@@ -192,29 +179,6 @@ message SubmitBuildJobRequest {
   string idempotency_key = 3;
 }
 
-// SubmitBuildJobResponse confirms build job submission.
-message SubmitBuildJobResponse {
-  string job_id = 1;
-  JobState state = 2;
-}
-
-// GetBuildJobRequest retrieves the current state of a build job.
-message GetBuildJobRequest {
-  string job_id = 1;
-}
-
-// GetBuildJobResponse returns the build job state and progress.
-message GetBuildJobResponse {
-  string job_id = 1;
-  JobState state = 2;
-  JobProgress progress = 3;
-}
-
-// GetBuildJobResultRequest retrieves the results of a completed build job.
-message GetBuildJobResultRequest {
-  string job_id = 1;
-}
-
 // GetBuildJobResultResponse returns the build job result.
 // The gRPC status is OK regardless of job outcome. For failed jobs, the
 // error field carries the structured ErrorDetail.
@@ -224,15 +188,4 @@ message GetBuildJobResultResponse {
     BuildResult result = 2;
     ErrorDetail error = 3;
   }
-}
-
-// CancelBuildJobRequest requests cancellation of a build job.
-message CancelBuildJobRequest {
-  string job_id = 1;
-}
-
-// CancelBuildJobResponse confirms the build cancellation outcome.
-message CancelBuildJobResponse {
-  string job_id = 1;
-  JobState state = 2;
 }
