@@ -32,6 +32,13 @@ BOUND_REQUESTS = {
     "ProcessService/CancelJob": {"jobId": "{{capture:job_to_cancel}}"},
     "SpecService/CancelApply": {"jobId": "{{capture:applied_spec}}"},
 }
+# Runners execute each scenario's negative case before its positive call, so
+# the oracle rejects the first call of those operations (ApplyEdits keeps its
+# explicit marker, because its read-back uses QueryFeatures).
+FIRST_CALL_NEGATIVE = {
+    name for name, scenario in CALLS.items()
+    if "negative" in scenario and name != "FeatureService/ApplyEdits"
+}
 STREAMING = {name for name, scenario in CALLS.items() if scenario["kind"] == "server_stream"}
 # Server-assigned ids the oracle returns so captures resolve (field 1 of
 # SubmitJobResponse; field 10 of ApplySpecEvent).
@@ -103,20 +110,31 @@ class RunnerTransportContract:
         raise NotImplementedError
 
     def execute(self, response=None, abort=False, edits_response=None,
-                negative_status=grpc.StatusCode.NOT_FOUND, verify_response=None, unimplemented=(), captured=None, cancel_races=0):
+                negative_status=grpc.StatusCode.NOT_FOUND, verify_response=None, unimplemented=(), captured=None, cancel_races=0,
+                negative_first_call=True):
         requests = {}
         captured_ids = CAPTURED_IDS if captured is None else captured
         races = {"left": cancel_races}
+        seen = set()
         server = grpc.server(ThreadPoolExecutor(max_workers=2))
 
         def handler(operation):
+            def reject_negative(context):
+                if negative_first_call and operation in FIRST_CALL_NEGATIVE and operation not in seen:
+                    seen.add(operation)
+                    context.abort(grpc.StatusCode.NOT_FOUND, "oracle negative case")
+                seen.add(operation)
+
             def invoke_stream(request, context):
+                reject_negative(context)
                 requests[operation] = request
                 if operation in unimplemented:
                     context.abort(grpc.StatusCode.UNIMPLEMENTED, "Service is unimplemented.")
                 yield captured_ids.get(operation, b"")
 
             def invoke(request, context):
+                if VERIFY_MARKER.encode() not in request:
+                    reject_negative(context)
                 if VERIFY_MARKER.encode() not in request:
                     requests[operation] = request
                 if operation in unimplemented:
@@ -166,6 +184,10 @@ class RunnerTransportContract:
                         (fixtures / scenario["response"]).write_text(json.dumps(expected))
                     if "setup" in scenario:
                         (fixtures / scenario["setup"]["request"]).write_text(json.dumps({}))
+                    if operation in FIRST_CALL_NEGATIVE:
+                        (fixtures / scenario["negative"]["request"]).write_text(json.dumps({}))
+                        (fixtures / scenario["negative"]["status"]).write_text(
+                            json.dumps({"code": 5, "name": "NOT_FOUND"}))
                 (fixtures / "feature_apply_edits_missing_target_request.json").write_text(
                     json.dumps({"serviceId": NEGATIVE_MARKER, "deletes": ["7", "8"]}))
                 (fixtures / "feature_apply_edits_missing_target_status.json").write_text(
@@ -298,6 +320,30 @@ class RunnerTransportContract:
         self.assertEqual(1, completed.returncode, report)
         self.assertEqual("fail", report["operations"]["ProcessService/CancelJob"]["result"])
         self.assertIn("terminal state before cancellation", report["operations"]["ProcessService/CancelJob"]["reason"])
+
+    def test_governed_scenarios_report_all_three_facets(self):
+        completed, report = self.execute()
+        self.assertEqual(0, completed.returncode, report)
+        for operation, scenario in CALLS.items():
+            if "negative" in scenario:
+                self.assertEqual({"positive": "pass", "negative": "pass", "media-schema": "pass"},
+                                 report["operations"][operation]["facet_results"], operation)
+
+    def test_negative_case_that_succeeds_fails_only_the_negative_facet(self):
+        completed, report = self.execute(negative_first_call=False)
+        self.assertEqual(1, completed.returncode, report)
+        outcome = report["operations"]["ProcessService/ValidatePlan"]
+        self.assertEqual("fail", outcome["result"])
+        self.assertEqual({"positive": "pass", "negative": "fail", "media-schema": "pass"}, outcome["facet_results"])
+        self.assertIn("succeeded", outcome["reason"])
+
+    def test_field_unknown_to_the_installed_schema_fails_media_schema(self):
+        # Field 99 (varint) is not in QueryFeaturesResponse.
+        completed, report = self.execute(query_response() + b"\xf8\x06\x01")
+        self.assertEqual(1, completed.returncode, report)
+        outcome = report["operations"]["FeatureService/QueryFeatures"]
+        self.assertEqual({"positive": "pass", "negative": "pass", "media-schema": "fail"}, outcome["facet_results"])
+        self.assertIn("unknown to the installed schema", outcome["reason"])
 
     def test_rpc_exception_fails_without_losing_other_results(self):
         completed, report = self.execute(abort=True)

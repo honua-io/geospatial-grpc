@@ -5,6 +5,36 @@ client packages are recorded here. A single git release tag (`v<version>`)
 identifies the matching NuGet, PyPI, npm, BSR, and `conformance/VERSION`
 coordinates.
 
+## v1.0.5
+
+Conformance fixture and certification-harness release. There are no `.proto`,
+wire-surface or generated-API changes from `v1.0.4`.
+
+### Negative cases for every governed RPC
+
+Each governed 2026.1 scenario now carries a negative case,
+`<name>_invalid_request.json`, and the gRPC status it must fail with,
+`<name>_invalid_status.json`. The failures are an unknown service
+(`NOT_FOUND`), a missing plan, spec document or job id (`INVALID_ARGUMENT`), an
+unknown job id (`NOT_FOUND`), a missing elevation point, and a profile with
+fewer than two samples (`INVALID_ARGUMENT`). ApplyEdits keeps its
+missing-target batch and read-back.
+
+### Facet results
+
+The .NET, Python and TypeScript runners report `facet_results` for every
+scenario that has a negative case:
+
+- `positive`: the call and every comparison pass.
+- `negative`: the negative case fails with the recorded status, before or while
+  reading a stream.
+- `media-schema`: every positive response message decodes as the installed
+  generated type and carries no field unknown to that schema, at any depth.
+
+The operation passes only when all three pass. The wire oracle covers a
+negative case that succeeds, an unknown field on the wire, and the all-pass
+case in every lane.
+
 ## v1.0.4
 
 Conformance fixture and certification-harness release. There are no `.proto`,

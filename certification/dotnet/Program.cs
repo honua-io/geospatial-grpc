@@ -61,15 +61,6 @@ JsonNode Masked(string operation, JsonNode document)
     return MaskServerAssigned(document, patterns, optional);
 }
 
-async Task<JsonNode> Unary(string operation, string requestFixture)
-{
-    var rpc = Rpc.For(operation);
-    var request = Parse(requestFixture, rpc.Descriptor.InputType);
-    var response = await invoker.AsyncUnaryCall(
-        rpc.Method, null, new CallOptions(headers, DateTime.UtcNow.AddSeconds(30)), request).ResponseAsync;
-    return Canonical(response);
-}
-
 string? CompareUnary(string operation, string responseFixture, JsonNode response)
 {
     var expected = Canonical(Parse(responseFixture, Rpc.For(operation).Descriptor.OutputType));
@@ -93,61 +84,81 @@ void Capture(JsonElement scenario, string property, JsonNode document)
     }
 }
 
-async Task Run(JsonElement scenario)
+// Invoke one RPC and return its raw response messages (one for unary).
+async Task<List<IMessage>> Call(string operation, string requestFixture, int timeoutSeconds = 30)
+{
+    var rpc = Rpc.For(operation);
+    var request = Parse(requestFixture, rpc.Descriptor.InputType);
+    var options = new CallOptions(headers, DateTime.UtcNow.AddSeconds(timeoutSeconds));
+    if (rpc.Descriptor.IsServerStreaming)
+    {
+        using var stream = invoker.AsyncServerStreamingCall(rpc.Method, null, options, request);
+        var messages = new List<IMessage>();
+        while (await stream.ResponseStream.MoveNext(CancellationToken.None))
+        {
+            messages.Add(stream.ResponseStream.Current);
+        }
+        return messages;
+    }
+    return [await invoker.AsyncUnaryCall(rpc.Method, null, options, request).ResponseAsync];
+}
+
+string Describe(Exception exception) => exception is ScenarioFailure
+    ? exception.Message
+    : $"Canonical published client executed and failed: {exception.GetType().Name}: {exception.Message}";
+
+async Task RunNegative(JsonElement scenario)
+{
+    var operation = scenario.GetProperty("operation").GetString()!;
+    var negative = scenario.GetProperty("negative");
+    var negativeRequest = negative.GetProperty("request").GetString()!;
+    using var expectedStatus = JsonDocument.Parse(ReadFixture(negative.GetProperty("status").GetString()!));
+    var expectedCode = expectedStatus.RootElement.GetProperty("code").GetInt32();
+    var expectedName = expectedStatus.RootElement.GetProperty("name").GetString();
+    RpcException? rejection = null;
+    try
+    {
+        await Call(operation, negativeRequest);
+    }
+    catch (RpcException exception)
+    {
+        rejection = exception;
+    }
+    if (rejection is null)
+    {
+        throw new ScenarioFailure($"Negative case {negativeRequest} succeeded; expected it to fail with status {expectedName}");
+    }
+    if ((int)rejection.StatusCode != expectedCode)
+    {
+        throw new ScenarioFailure($"Negative case {negativeRequest} expected status {expectedName}, got {rejection.StatusCode}: {rejection.Status.Detail}");
+    }
+    if (negative.TryGetProperty("verify", out var verify))
+    {
+        var verifyOperation = verify.GetProperty("operation").GetString()!;
+        var verifyResponse = (await Call(verifyOperation, verify.GetProperty("request").GetString()!))[0];
+        var verifyDivergence = CompareUnary(verifyOperation, verify.GetProperty("response").GetString()!, Canonical(verifyResponse));
+        if (verifyDivergence is not null)
+        {
+            throw new ScenarioFailure($"Negative case {negativeRequest} was rejected, but reading its targets back does not match the unchanged state at {verifyDivergence}");
+        }
+    }
+}
+
+async Task<List<IMessage>> RunPositiveOnce(JsonElement scenario)
 {
     var operation = scenario.GetProperty("operation").GetString()!;
     if (scenario.TryGetProperty("setup", out var setup))
     {
-        Capture(setup, "capture", await Unary(setup.GetProperty("operation").GetString()!, setup.GetProperty("request").GetString()!));
+        var created = (await Call(setup.GetProperty("operation").GetString()!, setup.GetProperty("request").GetString()!))[0];
+        Capture(setup, "capture", Canonical(created));
     }
-    if (scenario.TryGetProperty("negative", out var negative))
-    {
-        var negativeRequest = negative.GetProperty("request").GetString()!;
-        using var expectedStatus = JsonDocument.Parse(ReadFixture(negative.GetProperty("status").GetString()!));
-        var expectedCode = expectedStatus.RootElement.GetProperty("code").GetInt32();
-        var expectedName = expectedStatus.RootElement.GetProperty("name").GetString();
-        RpcException? rejection = null;
-        try
-        {
-            await Unary(operation, negativeRequest);
-        }
-        catch (RpcException exception)
-        {
-            rejection = exception;
-        }
-        if (rejection is null)
-        {
-            throw new ScenarioFailure($"Negative case {negativeRequest} succeeded; expected the whole batch to fail with status {expectedName}");
-        }
-        if ((int)rejection.StatusCode != expectedCode)
-        {
-            throw new ScenarioFailure($"Negative case {negativeRequest} expected status {expectedName}, got {rejection.StatusCode}: {rejection.Status.Detail}");
-        }
-        if (negative.TryGetProperty("verify", out var verify))
-        {
-            var verifyOperation = verify.GetProperty("operation").GetString()!;
-            var verifyDivergence = CompareUnary(
-                verifyOperation, verify.GetProperty("response").GetString()!,
-                await Unary(verifyOperation, verify.GetProperty("request").GetString()!));
-            if (verifyDivergence is not null)
-            {
-                throw new ScenarioFailure($"Negative case {negativeRequest} was rejected, but reading its targets back does not match the unchanged state at {verifyDivergence}");
-            }
-        }
-    }
+    var rpc = Rpc.For(operation);
+    List<IMessage> messages;
     string? divergence;
     if (scenario.GetProperty("kind").GetString() == "server_stream")
     {
-        var rpc = Rpc.For(operation);
         var prefix = scenario.GetProperty("responses").GetString()!;
-        using var call = invoker.AsyncServerStreamingCall(
-            rpc.Method, null, new CallOptions(headers, DateTime.UtcNow.AddSeconds(60)),
-            Parse(scenario.GetProperty("request").GetString()!, rpc.Descriptor.InputType));
-        var messages = new List<JsonNode>();
-        while (await call.ResponseStream.MoveNext(CancellationToken.None))
-        {
-            messages.Add(Canonical(call.ResponseStream.Current));
-        }
+        messages = await Call(operation, scenario.GetProperty("request").GetString()!, 60);
         var expected = new JsonArray();
         for (var index = 1; File.Exists(Path.Combine(fixtureDirectory, $"{prefix}.{index}.json")); index++)
         {
@@ -159,15 +170,15 @@ async Task Run(JsonElement scenario)
         }
         if (messages.Count > 0)
         {
-            Capture(scenario, "capture", messages[0]);
+            Capture(scenario, "capture", Canonical(messages[0]));
         }
-        var actual = new JsonArray(messages.Select(message => (JsonNode?)Masked(operation, message.DeepClone())).ToArray());
+        var actual = new JsonArray(messages.Select(message => (JsonNode?)Masked(operation, Canonical(message))).ToArray());
         divergence = Divergence(expected, actual);
     }
     else
     {
         var request = scenario.GetProperty("request").GetString()!;
-        var response = await Unary(operation, request);
+        var response = (await Call(operation, request))[0];
         if (scenario.TryGetProperty("poll_until", out var poll))
         {
             var pollPath = poll.GetProperty("path").GetString()!;
@@ -175,55 +186,97 @@ async Task Run(JsonElement scenario)
             var timeout = double.Parse(pollTimeoutOverride ?? poll.GetProperty("timeout_seconds").GetRawText(),
                 System.Globalization.CultureInfo.InvariantCulture);
             var deadline = DateTime.UtcNow.AddSeconds(timeout);
-            while (!terminal.Contains((ReadPath(response, pollPath) as JsonValue)?.ToString()) && DateTime.UtcNow < deadline)
+            while (!terminal.Contains((ReadPath(Canonical(response), pollPath) as JsonValue)?.ToString()) && DateTime.UtcNow < deadline)
             {
                 await Task.Delay(TimeSpan.FromSeconds(1));
-                response = await Unary(operation, request);
+                response = (await Call(operation, request))[0];
             }
         }
-        Capture(scenario, "capture", response);
-        divergence = CompareUnary(operation, scenario.GetProperty("response").GetString()!, response);
+        Capture(scenario, "capture", Canonical(response));
+        messages = [response];
+        divergence = CompareUnary(operation, scenario.GetProperty("response").GetString()!, Canonical(response));
     }
     if (divergence is not null)
     {
         throw new ScenarioFailure($"Canonical response mismatch at {divergence}");
+    }
+    return messages;
+}
+
+async Task<List<IMessage>> RunPositive(JsonElement scenario)
+{
+    var attempts = scenario.TryGetProperty("setup_race_retry", out var retry) ? retry.GetProperty("attempts").GetInt32() : 1;
+    for (var attempt = 1; ; attempt++)
+    {
+        try
+        {
+            return await RunPositiveOnce(scenario);
+        }
+        // The setup produced a job that finished before the call (outside the
+        // contract under test); redo setup and call.
+        catch (RpcException race) when (attempt < attempts
+            && (int)race.StatusCode == retry.GetProperty("status_code").GetInt32())
+        {
+        }
     }
 }
 
 foreach (var scenario in scenarioDocument.RootElement.GetProperty("scenarios").EnumerateArray())
 {
     var operation = scenario.GetProperty("operation").GetString()!;
+    var hasNegative = scenario.TryGetProperty("negative", out _);
+    var facets = new Dictionary<string, string>();
+    var reasons = new List<string>();
+    if (hasNegative)
+    {
+        try
+        {
+            await RunNegative(scenario);
+            facets["negative"] = "pass";
+        }
+        catch (Exception exception)
+        {
+            facets["negative"] = "fail";
+            reasons.Add($"negative: {Describe(exception)}");
+        }
+    }
+    List<IMessage>? messages = null;
     try
     {
-        var attempts = scenario.TryGetProperty("setup_race_retry", out var retry) ? retry.GetProperty("attempts").GetInt32() : 1;
-        for (var attempt = 1; ; attempt++)
-        {
-            try
-            {
-                await Run(scenario);
-                break;
-            }
-            // The setup produced a job that finished before the call (outside the
-            // contract under test); redo setup and call.
-            catch (RpcException race) when (attempt < attempts
-                && (int)race.StatusCode == retry.GetProperty("status_code").GetInt32())
-            {
-            }
-        }
-        outcomes[operation] = new { result = "pass" };
-    }
-    catch (ScenarioFailure failure)
-    {
-        outcomes[operation] = new { result = "fail", reason = failure.Message };
+        messages = await RunPositive(scenario);
+        facets["positive"] = "pass";
     }
     catch (Exception exception)
     {
-        outcomes[operation] = new
-        {
-            result = "fail",
-            reason = $"Canonical published client executed and failed: {exception.GetType().Name}: {exception.Message}",
-        };
+        facets["positive"] = "fail";
+        reasons.Add(hasNegative ? $"positive: {Describe(exception)}" : Describe(exception));
     }
+    if (!hasNegative)
+    {
+        outcomes[operation] = facets["positive"] == "pass"
+            ? new { result = "pass" }
+            : new { result = "fail", reason = reasons[0] };
+        continue;
+    }
+    var unknown = (messages ?? []).SelectMany(message => UnknownFieldPaths(message, "$")).ToList();
+    if (messages is null)
+    {
+        facets["media-schema"] = "fail";
+        reasons.Add("media-schema: no positive response to check");
+    }
+    else if (unknown.Count > 0)
+    {
+        facets["media-schema"] = "fail";
+        reasons.Add($"media-schema: fields unknown to the installed schema at {string.Join(", ", unknown)}");
+    }
+    else
+    {
+        facets["media-schema"] = "pass";
+    }
+    var passed = facets.Values.All(value => value == "pass");
+    outcomes[operation] = passed
+        ? new { result = "pass", facet_results = facets }
+        : new { result = "fail", facet_results = facets, reason = string.Join("; ", reasons) };
 }
 
 Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
@@ -367,6 +420,58 @@ static JsonNode MaskServerAssigned(JsonNode root, string[] patterns, string[] op
         else
         {
             obj[head] = JsonValue.Create("<server-assigned>");
+        }
+    }
+}
+
+// Paths of fields the installed generated schema does not define, at any depth.
+static IEnumerable<string> UnknownFieldPaths(IMessage message, string path)
+{
+    var unknown = message.GetType().GetField("_unknownFields", BindingFlags.Instance | BindingFlags.NonPublic)
+        ?.GetValue(message) as UnknownFieldSet;
+    if (unknown is not null && unknown.CalculateSize() > 0)
+    {
+        yield return path;
+    }
+    foreach (var field in message.Descriptor.Fields.InDeclarationOrder())
+    {
+        if (field.FieldType != Google.Protobuf.Reflection.FieldType.Message)
+        {
+            continue;
+        }
+        var value = field.Accessor.GetValue(message);
+        var child = $"{path}.{field.JsonName}";
+        if (field.IsMap)
+        {
+            if (field.MessageType.FindFieldByName("value").FieldType != Google.Protobuf.Reflection.FieldType.Message)
+            {
+                continue;
+            }
+            foreach (System.Collections.DictionaryEntry entry in (System.Collections.IDictionary)value)
+            {
+                foreach (var found in UnknownFieldPaths((IMessage)entry.Value!, $"{child}[{entry.Key}]"))
+                {
+                    yield return found;
+                }
+            }
+        }
+        else if (field.IsRepeated)
+        {
+            var index = 0;
+            foreach (var item in (System.Collections.IEnumerable)value)
+            {
+                foreach (var found in UnknownFieldPaths((IMessage)item, $"{child}[{index++}]"))
+                {
+                    yield return found;
+                }
+            }
+        }
+        else if (value is IMessage nested)
+        {
+            foreach (var found in UnknownFieldPaths(nested, child))
+            {
+                yield return found;
+            }
         }
     }
 }

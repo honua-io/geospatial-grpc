@@ -1,0 +1,5 @@
+{
+  "code": 3,
+  "name": "INVALID_ARGUMENT",
+  "description": "A profile needs at least two samples."
+}

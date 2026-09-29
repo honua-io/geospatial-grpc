@@ -135,6 +135,23 @@ export function firstDivergence(expected, actual, at = "$") {
   return Object.is(expected, actual) || expected === actual ? null : at;
 }
 
+// Paths of fields the installed generated schema does not define, at any depth.
+// protobuf-es keeps them in a message's $unknown list.
+export function unknownFieldPaths(node, at = "$") {
+  if (node === null || typeof node !== "object" || node instanceof Uint8Array) return [];
+  const found = Array.isArray(node.$unknown) && node.$unknown.length ? [at] : [];
+  for (const [key, value] of Object.entries(node)) {
+    if (key === "$unknown" || key === "$typeName") continue;
+    if (Array.isArray(value)) value.forEach((item, index) => found.push(...unknownFieldPaths(item, `${at}.${key}[${index}]`)));
+    else if (value instanceof Map) for (const [k, item] of value) found.push(...unknownFieldPaths(item, `${at}.${key}[${k}]`));
+    else if (value && typeof value === "object") {
+      // oneof groups are {case, value}; maps are plain objects of messages.
+      found.push(...unknownFieldPaths(value, `${at}.${key}`));
+    }
+  }
+  return found;
+}
+
 const serviceModules = {};
 async function methodFor(operation) {
   const [service, name] = operation.split("/");
@@ -192,12 +209,6 @@ async function main(argv) {
     return { method, invoke: clients.get(descriptor.typeName)[method.localName] };
   }
 
-  async function unary(operation, requestFixture) {
-    const { method, invoke } = await bind(operation);
-    const response = await invoke(await parse(requestFixture, method.input), { headers, timeoutMs: 30_000 });
-    return toJson(method.output, response);
-  }
-
   async function compareUnary(operation, responseFixture, response) {
     const { method } = await bind(operation);
     const expected = toJson(method.output, await parse(responseFixture, method.output));
@@ -214,93 +225,149 @@ async function main(argv) {
     }
   }
 
-  async function run(scenario) {
+  function describe(error) {
+    if (error instanceof ScenarioFailure) return error.message;
+    const name = error instanceof ConnectError ? "ConnectError" : error?.constructor?.name ?? "Error";
+    return `Canonical published client executed and failed: ${name}: ${error?.message ?? String(error)}`;
+  }
+
+  // Invoke one RPC and return its raw response messages (one for unary).
+  async function call(operation, requestFixture, timeoutMs = 30_000) {
+    const { method, invoke } = await bind(operation);
+    const request = await parse(requestFixture, method.input);
+    if (method.methodKind === "server_streaming") {
+      const messages = [];
+      for await (const message of invoke(request, { headers, timeoutMs })) messages.push(message);
+      return messages;
+    }
+    return [await invoke(request, { headers, timeoutMs })];
+  }
+
+  async function asJson(operation, message) {
+    const { method } = await bind(operation);
+    return toJson(method.output, message);
+  }
+
+  async function runNegative(scenario) {
     const operation = scenario.operation;
-    if (scenario.setup) capture(scenario.setup.capture, await unary(scenario.setup.operation, scenario.setup.request));
-    if (scenario.negative) {
-      const negative = scenario.negative;
-      const expectedStatus = JSON.parse(await readFixture(negative.status));
-      let rejection = null;
-      try {
-        await unary(operation, negative.request);
-      } catch (error) {
-        if (!(error instanceof ConnectError)) throw error;
-        rejection = error;
-      }
-      if (rejection === null) {
-        throw new ScenarioFailure(`Negative case ${negative.request} succeeded; expected the whole batch to fail with status ${expectedStatus.name}`);
-      }
-      if (rejection.code !== expectedStatus.code) {
-        throw new ScenarioFailure(`Negative case ${negative.request} expected status ${expectedStatus.name}, got code ${rejection.code}: ${rejection.rawMessage}`);
-      }
-      if (negative.verify) {
-        const divergence = await compareUnary(
-          negative.verify.operation, negative.verify.response,
-          await unary(negative.verify.operation, negative.verify.request));
-        if (divergence !== null) {
-          throw new ScenarioFailure(`Negative case ${negative.request} was rejected, but reading its targets back does not match the unchanged state at ${divergence}`);
-        }
+    const negative = scenario.negative;
+    const expectedStatus = JSON.parse(await readFixture(negative.status));
+    let rejection = null;
+    try {
+      await call(operation, negative.request);
+    } catch (error) {
+      if (!(error instanceof ConnectError)) throw error;
+      rejection = error;
+    }
+    if (rejection === null) {
+      throw new ScenarioFailure(`Negative case ${negative.request} succeeded; expected it to fail with status ${expectedStatus.name}`);
+    }
+    if (rejection.code !== expectedStatus.code) {
+      throw new ScenarioFailure(`Negative case ${negative.request} expected status ${expectedStatus.name}, got code ${rejection.code}: ${rejection.rawMessage}`);
+    }
+    if (negative.verify) {
+      const [response] = await call(negative.verify.operation, negative.verify.request);
+      const divergence = await compareUnary(
+        negative.verify.operation, negative.verify.response, await asJson(negative.verify.operation, response));
+      if (divergence !== null) {
+        throw new ScenarioFailure(`Negative case ${negative.request} was rejected, but reading its targets back does not match the unchanged state at ${divergence}`);
       }
     }
+  }
+
+  async function runPositiveOnce(scenario) {
+    const operation = scenario.operation;
+    if (scenario.setup) {
+      const [created] = await call(scenario.setup.operation, scenario.setup.request);
+      capture(scenario.setup.capture, await asJson(scenario.setup.operation, created));
+    }
+    const { method } = await bind(operation);
+    let messages;
     let divergence;
     if (scenario.kind === "server_stream") {
-      const { method, invoke } = await bind(operation);
-      const messages = [];
-      for await (const message of invoke(await parse(scenario.request, method.input), { headers, timeoutMs: 60_000 })) {
-        messages.push(toJson(method.output, message));
-      }
+      messages = await call(operation, scenario.request, 60_000);
+      const actual = messages.map((message) => masked(operation, toJson(method.output, message)));
       const expected = [];
       for (let index = 1; existsSync(path.join(fixtureDirectory, `${scenario.responses}.${index}.json`)); index++) {
         expected.push(masked(operation, toJson(method.output,
           await parse(`${scenario.responses}.${index}.json`, method.output))));
       }
       if (expected.length === 0) throw new ScenarioFailure(`no ${scenario.responses}.N.json fixtures`);
-      if (messages.length) capture(scenario.capture, structuredClone(messages[0]));
-      divergence = firstDivergence(expected, messages.map((message) => masked(operation, message)));
+      if (messages.length) capture(scenario.capture, toJson(method.output, messages[0]));
+      divergence = firstDivergence(expected, actual);
     } else {
-      let response = await unary(operation, scenario.request);
+      let [response] = await call(operation, scenario.request);
       const poll = scenario.poll_until;
       if (poll) {
         const deadline = Date.now() + 1000 * Number(pollTimeoutOverride ?? poll.timeout_seconds);
-        while (!poll.values.includes(readPath(response, poll.path)) && Date.now() < deadline) {
+        while (!poll.values.includes(readPath(toJson(method.output, response), poll.path)) && Date.now() < deadline) {
           await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-          response = await unary(operation, scenario.request);
+          [response] = await call(operation, scenario.request);
         }
       }
-      capture(scenario.capture, response);
-      divergence = await compareUnary(operation, scenario.response, response);
+      capture(scenario.capture, toJson(method.output, response));
+      messages = [response];
+      divergence = await compareUnary(operation, scenario.response, toJson(method.output, response));
     }
     if (divergence !== null) throw new ScenarioFailure(`Canonical response mismatch at ${divergence}`);
+    return messages;
+  }
+
+  async function runPositive(scenario) {
+    const retry = scenario.setup_race_retry;
+    const attempts = retry ? retry.attempts : 1;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await runPositiveOnce(scenario);
+      } catch (race) {
+        // The setup produced a job that finished before the call (outside the
+        // contract under test); redo setup and call.
+        if (!retry || !(race instanceof ConnectError) || race.code !== retry.status_code || attempt >= attempts) {
+          throw race;
+        }
+      }
+    }
   }
 
   for (const scenario of scenarios) {
-    try {
-      const retry = scenario.setup_race_retry;
-      const attempts = retry ? retry.attempts : 1;
-      for (let attempt = 1; ; attempt++) {
-        try {
-          await run(scenario);
-          break;
-        } catch (race) {
-          // The setup produced a job that finished before the call (outside the
-          // contract under test); redo setup and call.
-          if (!retry || !(race instanceof ConnectError) || race.code !== retry.status_code || attempt >= attempts) {
-            throw race;
-          }
-        }
+    const operation = scenario.operation;
+    const facets = {};
+    const reasons = [];
+    const hasNegative = Boolean(scenario.negative);
+    if (hasNegative) {
+      try {
+        await runNegative(scenario);
+        facets.negative = "pass";
+      } catch (error) {
+        facets.negative = "fail";
+        reasons.push(`negative: ${describe(error)}`);
       }
-      outcomes[scenario.operation] = { result: "pass" };
-    } catch (error) {
-      if (error instanceof ScenarioFailure) {
-        outcomes[scenario.operation] = { result: "fail", reason: error.message };
-        continue;
-      }
-      const name = error instanceof ConnectError ? "ConnectError" : error?.constructor?.name ?? "Error";
-      outcomes[scenario.operation] = {
-        result: "fail",
-        reason: `Canonical published client executed and failed: ${name}: ${error?.message ?? String(error)}`,
-      };
     }
+    let messages = null;
+    try {
+      messages = await runPositive(scenario);
+      facets.positive = "pass";
+    } catch (error) {
+      facets.positive = "fail";
+      reasons.push(hasNegative ? `positive: ${describe(error)}` : describe(error));
+    }
+    if (!hasNegative) {
+      outcomes[operation] = facets.positive === "pass" ? { result: "pass" } : { result: "fail", reason: reasons[0] };
+      continue;
+    }
+    const unknown = (messages ?? []).flatMap((message) => unknownFieldPaths(message));
+    if (messages === null) {
+      facets["media-schema"] = "fail";
+      reasons.push("media-schema: no positive response to check");
+    } else if (unknown.length) {
+      facets["media-schema"] = "fail";
+      reasons.push(`media-schema: fields unknown to the installed schema at ${unknown.join(", ")}`);
+    } else {
+      facets["media-schema"] = "pass";
+    }
+    const passed = Object.values(facets).every((value) => value === "pass");
+    outcomes[operation] = { result: passed ? "pass" : "fail", facet_results: facets };
+    if (!passed) outcomes[operation].reason = reasons.join("; ");
   }
 
   const packageRoot = installedPackageRoot();

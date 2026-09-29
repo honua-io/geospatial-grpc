@@ -45,6 +45,9 @@ Canonical fixtures exist for the core workflows of the primary services:
 | `ElevationService` | Point and profile elevation       | `elevation_get_*`, `elevation_profile_*`              |
 | `WorkspaceService` | Create workspace                  | `workspace_create_{request,response}.json`            |
 
+Each governed workflow also has a negative case: `<name>_invalid_request.json`
+must fail with the gRPC status (`code`, `name`) in `<name>_invalid_status.json`.
+
 A server-streaming response is stored one message per file, `<name>.N.json`
 numbered from 1 in stream order. A request may carry a `{{capture:<name>}}`
 token for an id assigned earlier in the workflow (for example the job id

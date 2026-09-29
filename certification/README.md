@@ -56,7 +56,12 @@ All three runners execute the scenarios declared in `scenarios.v1.json`:
 unary and server-streaming calls, captured ids bound into later requests and
 expected responses, setup calls, polling for terminal job states
 (`HONUA_CERTIFICATION_POLL_TIMEOUT_SECONDS` overrides the bound), and the
-ApplyEdits negative case. The fixtures cover all 14 governed RPCs.
+negative case of every governed scenario. The fixtures cover all 14 governed
+RPCs. For each scenario with a negative case a runner reports `facet_results`
+for `positive`, `negative` and `media-schema` (the response decodes as the
+installed generated type with no unknown fields, at any depth). The fragment
+builder emits a receipt only when every facet passes against the governed
+client version.
 
 Response comparison is exact except for the values listed in
 `server-assigned-fields.v1.json`, which a server assigns and a fixture cannot
