@@ -322,7 +322,7 @@ jobs:
       # unresolvable or incompatible pin set fails here instead of in onboarding.
       - name: Install Example Dependencies
         working-directory: examples/python
-        run: python -m pip install --disable-pip-version-check --only-binary=:all: -r requirements.txt
+        run: python -m pip install --disable-pip-version-check "--only-binary=:all:" -r requirements.txt
 
       - name: Generate Python Stubs
         working-directory: examples/python
