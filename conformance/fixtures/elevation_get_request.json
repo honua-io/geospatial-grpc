@@ -1,0 +1,11 @@
+{
+  "datasetId": "sf-parks",
+  "layerId": 4701,
+  "point": {
+    "x": -122.486,
+    "y": 37.769
+  },
+  "spatialReference": {
+    "wkid": 4326
+  }
+}

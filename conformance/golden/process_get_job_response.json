@@ -1,0 +1,1 @@
+{"jobId":"{{capture:submitted_job}}","state":"JOB_STATE_COMPLETED","progress":{"jobId":"{{capture:submitted_job}}","state":"JOB_STATE_COMPLETED","progressPercent":100,"startedAt":"1748520000000","updatedAt":"1748520003000","message":"Completed"}}

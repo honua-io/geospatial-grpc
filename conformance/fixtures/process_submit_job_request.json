@@ -1,0 +1,36 @@
+{
+  "plan": {
+    "planId": "plan-buffer-golden-gate",
+    "specVersion": "1.0",
+    "workflowFamily": "WORKFLOW_FAMILY_ANALYZE",
+    "steps": [
+      {
+        "stepId": "buffer",
+        "kind": "geoprocess",
+        "inputs": {
+          "processId": {
+            "stringValue": "geometry.buffer"
+          },
+          "wkb": {
+            "stringValue": "AQEAAADJdr6fGp9ewN9PjZdu4kJA"
+          },
+          "srid": {
+            "stringValue": "4326"
+          },
+          "distance": {
+            "stringValue": "0.001"
+          }
+        }
+      }
+    ],
+    "expectedOutputs": [
+      "feature_layer"
+    ]
+  },
+  "context": {
+    "timeoutSeconds": "120",
+    "metadata": {
+      "requested_by": "analyst-3"
+    }
+  }
+}

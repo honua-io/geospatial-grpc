@@ -1,0 +1,17 @@
+{
+  "elevation": 47.0,
+  "x": -122.486,
+  "y": 37.769,
+  "mosaicRule": "newest",
+  "source": {
+    "rasterIds": [
+      "1"
+    ],
+    "sourceSpatialReference": {
+      "wkid": 4326,
+      "latestWkid": 4326
+    },
+    "pixelType": "32BF",
+    "noDataValue": -9999.0
+  }
+}

@@ -5,6 +5,50 @@ client packages are recorded here. A single git release tag (`v<version>`)
 identifies the matching NuGet, PyPI, npm, BSR, and `conformance/VERSION`
 coordinates.
 
+## v1.0.4
+
+Conformance fixture and certification-harness release. There are no `.proto`,
+wire-surface or generated-API changes from `v1.0.3`.
+
+### Fixtures for every governed 2026.1 RPC
+
+The 2026.1 scope ruling (#88) governs the 14 RPCs that honua-server implements.
+v1.0.3 had live fixtures for only QueryFeatures and ApplyEdits. v1.0.4 adds the
+other twelve:
+
+- `FeatureService/QueryFeaturesStream`: `feature_query_stream_{request,response.1}.json`.
+- `ProcessService/ValidatePlan`, `DryRunPlan`, `SubmitJob`, `GetJob`,
+  `GetJobResult` and `CancelJob`: a one-step `geometry.buffer` plan, with
+  `process_*` request and response fixtures for each RPC.
+- `SpecService/PlanSpec`, `ApplySpec` and `CancelApply`: a two-node
+  `compute.noop` document where `report` depends on `source` through `@source`.
+  `spec_apply_response.N.json` holds one file per streamed event.
+- `ElevationService/GetElevation` and `GetElevationProfile`, sampled over a
+  synthetic elevation layer.
+
+Streamed responses are stored one message per file (`<name>.N.json`), in order,
+so every file is still a single protobuf message in the manifest. Requests may
+carry `{{capture:<name>}}` tokens for ids a server assigns earlier in a
+workflow, for example the job id `SubmitJob` returns. The certification runners
+substitute the captured value into the request and into the expected response,
+so an echoed id is compared exactly.
+
+### Certification harness
+
+- `certification/scenarios.v1.json` declares every scenario the .NET, Python and
+  TypeScript runners execute: unary and server-streaming calls, captures, setup
+  calls, polling until a job reaches a terminal state, and the ApplyEdits
+  negative case. The runners are driven by that file and the installed
+  package's own descriptors, so the three lanes execute the same scenarios.
+- `server-assigned-fields.v1.json` lists the new server-assigned values (job
+  and result ids, plan ids, spec content hashes, timestamps, raster ids and
+  measured durations and bytes). Test coverage extends to every scenario, and
+  bound echoes are never masked.
+- `certification/seed/sf-parks.sql` seeds elevation layer 4701 (10 x column +
+  row metres on a 0.01 degree grid). The certification workflow adds the Redis
+  job substrate and runs the server with `Licensing__Mode=Disabled`, the 2026.1
+  supported deployment mode.
+
 ## v1.0.3
 
 Conformance fixture and certification-harness release. There are no `.proto`,

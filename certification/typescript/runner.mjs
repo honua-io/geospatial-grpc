@@ -1,17 +1,17 @@
 // Execute the promoted @honua/geospatial-grpc package against a live target.
 //
-// TypeScript/JavaScript counterpart of certification/dotnet/Program.cs. It runs
-// the same six conformance fixtures through the installed generated client
-// (never a source checkout) over a real gRPC (HTTP/2) transport, compares each
+// TypeScript/JavaScript counterpart of certification/dotnet/Program.cs and
+// certification/python/runner.py. It runs every scenario in
+// certification/scenarios.v1.json through the installed generated client (never
+// a source checkout) over a real gRPC (HTTP/2) transport, compares each
 // canonical response with the fixture, and writes a lane report consumed by
 // scripts/build_protocol_certification_fragment.py.
 //
 // The installed package version is reported exactly as installed. The fragment
-// builder decides whether it satisfies the governed cell; a promoted package
-// that is not the governed client_version stays an attributable execution
-// result and never a governed pass.
+// builder decides whether it satisfies the governed cell.
 //
 // usage: node runner.mjs <absolute-channel-target> <fixture-directory> <report-path>
+import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -20,36 +20,29 @@ import { fileURLToPath } from "node:url";
 import { fromJson, toJson } from "@bufbuild/protobuf";
 import { ConnectError, createClient } from "@connectrpc/connect";
 import { createGrpcTransport } from "@connectrpc/connect-node";
-import {
-  ApplyEditsRequestSchema,
-  ApplyEditsResponseSchema,
-  FeatureService,
-  QueryFeaturesRequestSchema,
-  QueryFeaturesResponseSchema,
-} from "@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js";
-import {
-  FormService,
-  GetFormDefinitionRequestSchema,
-  GetFormDefinitionResponseSchema,
-  SubmitFormDataRequestSchema,
-  SubmitFormDataResponseSchema,
-} from "@honua/geospatial-grpc/geospatial/v1/form_service_pb.js";
-import {
-  ExecutePlanRequestSchema,
-  ExecutePlanResponseSchema,
-  ProcessService,
-} from "@honua/geospatial-grpc/geospatial/v1/process_service_pb.js";
-import {
-  CreateWorkspaceRequestSchema,
-  CreateWorkspaceResponseSchema,
-  WorkspaceService,
-} from "@honua/geospatial-grpc/geospatial/v1/workspace_service_pb.js";
 
 const PACKAGE = "@honua/geospatial-grpc";
 const PACKAGE_SOURCE = "https://registry.npmjs.org/@honua/geospatial-grpc";
-const SERVER_ASSIGNED_FIELDS = fileURLToPath(new URL("../server-assigned-fields.v1.json", import.meta.url));
+const certificationFile = (name) => fileURLToPath(new URL(`../${name}`, import.meta.url));
+const SERVER_ASSIGNED_FIELDS = certificationFile("server-assigned-fields.v1.json");
+const SCENARIOS = certificationFile("scenarios.v1.json");
+const CATALOG = certificationFile("protocol-certification-catalog.v1.json");
 const SERVER_ASSIGNED = "<server-assigned>";
-const CATALOG = fileURLToPath(new URL("../protocol-certification-catalog.v1.json", import.meta.url));
+const CAPTURE = /\{\{capture:([A-Za-z0-9_]+)\}\}/g;
+const POLL_INTERVAL_MS = 1000;
+
+class ScenarioFailure extends Error {}
+
+async function loadJson(file, schema) {
+  const document = JSON.parse(await readFile(file, "utf8"));
+  if (document.schema !== schema) throw new Error(`unsupported document ${file}`);
+  return document;
+}
+
+export async function loadServerAssignedFields(file = SERVER_ASSIGNED_FIELDS) {
+  const document = await loadJson(file, "honua.grpc-certification-server-assigned-fields/v1");
+  return { required: document.operations, optional: document.optional_operations ?? {} };
+}
 
 // Operations the 2026.1 scope ruling excludes from the governed cells (#88).
 async function loadExcludedOperations(file = CATALOG) {
@@ -57,25 +50,43 @@ async function loadExcludedOperations(file = CATALOG) {
   return new Set((catalog.excluded_operations ?? []).map((operation) => operation.operation));
 }
 
-export async function loadServerAssignedFields(file = SERVER_ASSIGNED_FIELDS) {
-  const document = JSON.parse(await readFile(file, "utf8"));
-  if (document.schema !== "honua.grpc-certification-server-assigned-fields/v1") {
-    throw new Error(`unsupported server-assigned field list: ${file}`);
+function installedPackageRoot() {
+  // The package's exports map does not expose package.json, so resolve it from
+  // the installed module directory rather than trusting a hard-coded version.
+  const entry = fileURLToPath(import.meta.resolve("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js"));
+  let directory = path.dirname(entry);
+  while (path.basename(directory) !== "geospatial-grpc") {
+    const parent = path.dirname(directory);
+    if (parent === directory) throw new Error(`cannot locate ${PACKAGE} package root from ${entry}`);
+    directory = parent;
   }
-  return { required: document.operations, optional: document.optional_operations ?? {} };
+  return directory;
 }
 
 function pathTokens(pattern) {
-  if (!pattern.startsWith("$.")) throw new Error(`server-assigned path must start with '$.': ${pattern}`);
+  if (!pattern.startsWith("$.")) throw new Error(`path must start with '$.': ${pattern}`);
   const tokens = [];
   for (const part of pattern.slice(2).split(".")) {
     if (part.endsWith("[*]")) tokens.push(part.slice(0, -3), "[*]");
     else tokens.push(part);
   }
-  if (tokens.length === 0 || tokens.some((token) => token === "")) {
-    throw new Error(`malformed server-assigned path: ${pattern}`);
-  }
+  if (tokens.length === 0 || tokens.some((token) => token === "")) throw new Error(`malformed path: ${pattern}`);
   return tokens;
+}
+
+function kind(value) {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
+function readPath(document, pattern) {
+  let node = document;
+  for (const token of pathTokens(pattern)) {
+    if (token === "[*]" || kind(node) !== "object" || !(token in node)) return undefined;
+    node = node[token];
+  }
+  return node;
 }
 
 // Replace each present server-assigned value with a placeholder. Absent values
@@ -101,25 +112,6 @@ export function maskServerAssigned(document, patterns, optional = []) {
   return document;
 }
 
-function installedPackageRoot() {
-  // The package's exports map does not expose package.json, so resolve it from
-  // the installed module directory rather than trusting a hard-coded version.
-  const entry = fileURLToPath(import.meta.resolve("@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js"));
-  let directory = path.dirname(entry);
-  while (path.basename(directory) !== "geospatial-grpc") {
-    const parent = path.dirname(directory);
-    if (parent === directory) throw new Error(`cannot locate ${PACKAGE} package root from ${entry}`);
-    directory = parent;
-  }
-  return directory;
-}
-
-function kind(value) {
-  if (value === null) return "null";
-  if (Array.isArray(value)) return "array";
-  return typeof value;
-}
-
 export function firstDivergence(expected, actual, at = "$") {
   if (kind(expected) !== kind(actual)) return at;
   if (kind(expected) === "object") {
@@ -143,6 +135,19 @@ export function firstDivergence(expected, actual, at = "$") {
   return Object.is(expected, actual) || expected === actual ? null : at;
 }
 
+const serviceModules = {};
+async function methodFor(operation) {
+  const [service, name] = operation.split("/");
+  if (!serviceModules[service]) {
+    const snake = service.replace(/(?<!^)(?=[A-Z])/g, "_").toLowerCase();
+    serviceModules[service] = await import(`@honua/geospatial-grpc/geospatial/v1/${snake}_pb.js`);
+  }
+  const descriptor = serviceModules[service][service];
+  const method = Object.values(descriptor.method).find((candidate) => candidate.name === name);
+  if (!method) throw new Error(`${operation} is not in the installed ${PACKAGE}`);
+  return { descriptor, method };
+}
+
 async function main(argv) {
   if (argv.length !== 3) {
     console.error("usage: runner.mjs <absolute-channel-target> <fixture-directory> <report-path>");
@@ -157,109 +162,146 @@ async function main(argv) {
   const reportPath = path.resolve(argv[2]);
   const apiKey = process.env.HONUA_PROTOCOL_API_KEY;
   if (!apiKey) throw new Error("HONUA_PROTOCOL_API_KEY is required");
+  const pollTimeoutOverride = process.env.HONUA_CERTIFICATION_POLL_TIMEOUT_SECONDS;
   const headers = { "x-api-key": apiKey };
   const transport = createGrpcTransport({ baseUrl: target.origin });
   const outcomes = {};
-  let failures = 0;
+  const captures = {};
   const startedAt = new Date();
   const serverAssigned = await loadServerAssignedFields();
+  const scenarios = (await loadJson(SCENARIOS, "honua.grpc-certification-scenarios/v1")).scenarios;
+  const clients = new Map();
 
-  // Call once and return the first divergence from the fixture, or null.
-  async function compare(operation, requestFixture, responseFixture, requestSchema, responseSchema, invoke) {
-    const requestJson = JSON.parse(await readFile(path.join(fixtureDirectory, requestFixture), "utf8"));
-    const request = fromJson(requestSchema, requestJson);
-    const response = await invoke(request, { headers, timeoutMs: 30_000 });
-    const expectedJson = JSON.parse(await readFile(path.join(fixtureDirectory, responseFixture), "utf8"));
-    const expected = fromJson(responseSchema, expectedJson);
-    const patterns = serverAssigned.required[operation] ?? [];
-    const optional = serverAssigned.optional[operation] ?? [];
-    return firstDivergence(
-      maskServerAssigned(toJson(responseSchema, expected), patterns, optional),
-      maskServerAssigned(toJson(responseSchema, response), patterns, optional),
-    );
+  async function readFixture(name) {
+    const text = await readFile(path.join(fixtureDirectory, name), "utf8");
+    return text.replace(CAPTURE, (_, key) => {
+      if (!(key in captures)) {
+        throw new ScenarioFailure(`${name} needs capture '${key}', which an earlier scenario did not provide`);
+      }
+      return captures[key];
+    });
   }
 
-  async function execute(operation, requestFixture, responseFixture, requestSchema, responseSchema, invoke,
-    negative = null) {
+  const parse = async (name, schema) => fromJson(schema, JSON.parse(await readFixture(name)));
+  const masked = (operation, document) => maskServerAssigned(
+    document, serverAssigned.required[operation] ?? [], serverAssigned.optional[operation] ?? []);
+
+  async function bind(operation) {
+    const { descriptor, method } = await methodFor(operation);
+    if (!clients.has(descriptor.typeName)) clients.set(descriptor.typeName, createClient(descriptor, transport));
+    return { method, invoke: clients.get(descriptor.typeName)[method.localName] };
+  }
+
+  async function unary(operation, requestFixture) {
+    const { method, invoke } = await bind(operation);
+    const response = await invoke(await parse(requestFixture, method.input), { headers, timeoutMs: 30_000 });
+    return toJson(method.output, response);
+  }
+
+  async function compareUnary(operation, responseFixture, response) {
+    const { method } = await bind(operation);
+    const expected = toJson(method.output, await parse(responseFixture, method.output));
+    return firstDivergence(masked(operation, expected), masked(operation, response));
+  }
+
+  function capture(spec, document) {
+    for (const [key, pattern] of Object.entries(spec ?? {})) {
+      const value = readPath(document, pattern);
+      if (typeof value !== "string" || value === "") {
+        throw new ScenarioFailure(`response has no value at ${pattern} to capture as '${key}'`);
+      }
+      captures[key] = value;
+    }
+  }
+
+  async function run(scenario) {
+    const operation = scenario.operation;
+    if (scenario.setup) capture(scenario.setup.capture, await unary(scenario.setup.operation, scenario.setup.request));
+    if (scenario.negative) {
+      const negative = scenario.negative;
+      const expectedStatus = JSON.parse(await readFixture(negative.status));
+      let rejection = null;
+      try {
+        await unary(operation, negative.request);
+      } catch (error) {
+        if (!(error instanceof ConnectError)) throw error;
+        rejection = error;
+      }
+      if (rejection === null) {
+        throw new ScenarioFailure(`Negative case ${negative.request} succeeded; expected the whole batch to fail with status ${expectedStatus.name}`);
+      }
+      if (rejection.code !== expectedStatus.code) {
+        throw new ScenarioFailure(`Negative case ${negative.request} expected status ${expectedStatus.name}, got code ${rejection.code}: ${rejection.rawMessage}`);
+      }
+      if (negative.verify) {
+        const divergence = await compareUnary(
+          negative.verify.operation, negative.verify.response,
+          await unary(negative.verify.operation, negative.verify.request));
+        if (divergence !== null) {
+          throw new ScenarioFailure(`Negative case ${negative.request} was rejected, but reading its targets back does not match the unchanged state at ${divergence}`);
+        }
+      }
+    }
+    let divergence;
+    if (scenario.kind === "server_stream") {
+      const { method, invoke } = await bind(operation);
+      const messages = [];
+      for await (const message of invoke(await parse(scenario.request, method.input), { headers, timeoutMs: 60_000 })) {
+        messages.push(toJson(method.output, message));
+      }
+      const expected = [];
+      for (let index = 1; existsSync(path.join(fixtureDirectory, `${scenario.responses}.${index}.json`)); index++) {
+        expected.push(masked(operation, toJson(method.output,
+          await parse(`${scenario.responses}.${index}.json`, method.output))));
+      }
+      if (expected.length === 0) throw new ScenarioFailure(`no ${scenario.responses}.N.json fixtures`);
+      if (messages.length) capture(scenario.capture, structuredClone(messages[0]));
+      divergence = firstDivergence(expected, messages.map((message) => masked(operation, message)));
+    } else {
+      let response = await unary(operation, scenario.request);
+      const poll = scenario.poll_until;
+      if (poll) {
+        const deadline = Date.now() + 1000 * Number(pollTimeoutOverride ?? poll.timeout_seconds);
+        while (!poll.values.includes(readPath(response, poll.path)) && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+          response = await unary(operation, scenario.request);
+        }
+      }
+      capture(scenario.capture, response);
+      divergence = await compareUnary(operation, scenario.response, response);
+    }
+    if (divergence !== null) throw new ScenarioFailure(`Canonical response mismatch at ${divergence}`);
+  }
+
+  for (const scenario of scenarios) {
     try {
-      if (negative !== null) {
-        const [negativeRequestFixture, negativeStatusFixture, verify] = negative;
-        const negativeRequest = fromJson(requestSchema,
-          JSON.parse(await readFile(path.join(fixtureDirectory, negativeRequestFixture), "utf8")));
-        const expectedStatus = JSON.parse(await readFile(path.join(fixtureDirectory, negativeStatusFixture), "utf8"));
-        let rejection = null;
+      const retry = scenario.setup_race_retry;
+      const attempts = retry ? retry.attempts : 1;
+      for (let attempt = 1; ; attempt++) {
         try {
-          await invoke(negativeRequest, { headers, timeoutMs: 30_000 });
-        } catch (error) {
-          if (!(error instanceof ConnectError)) throw error;
-          rejection = error;
-        }
-        if (rejection === null) {
-          failures++;
-          outcomes[operation] = {
-            result: "fail",
-            reason: `Negative case ${negativeRequestFixture} succeeded; expected the whole batch to fail with status ${expectedStatus.name}`,
-          };
-          return;
-        }
-        if (rejection.code !== expectedStatus.code) {
-          failures++;
-          outcomes[operation] = {
-            result: "fail",
-            reason: `Negative case ${negativeRequestFixture} expected status ${expectedStatus.name}, got code ${rejection.code}: ${rejection.rawMessage}`,
-          };
-          return;
-        }
-        // The rejected batch must have applied nothing: read its targets back.
-        const verifyDivergence = await verify();
-        if (verifyDivergence !== null) {
-          failures++;
-          outcomes[operation] = {
-            result: "fail",
-            reason: `Negative case ${negativeRequestFixture} was rejected, but reading its targets back does not match the unchanged state at ${verifyDivergence}`,
-          };
-          return;
+          await run(scenario);
+          break;
+        } catch (race) {
+          // The setup produced a job that finished before the call (outside the
+          // contract under test); redo setup and call.
+          if (!retry || !(race instanceof ConnectError) || race.code !== retry.status_code || attempt >= attempts) {
+            throw race;
+          }
         }
       }
-      const divergence = await compare(operation, requestFixture, responseFixture, requestSchema, responseSchema, invoke);
-      if (divergence !== null) {
-        failures++;
-        outcomes[operation] = { result: "fail", reason: `Canonical response mismatch at ${divergence}` };
-        return;
-      }
-      outcomes[operation] = { result: "pass" };
+      outcomes[scenario.operation] = { result: "pass" };
     } catch (error) {
-      failures++;
+      if (error instanceof ScenarioFailure) {
+        outcomes[scenario.operation] = { result: "fail", reason: error.message };
+        continue;
+      }
       const name = error instanceof ConnectError ? "ConnectError" : error?.constructor?.name ?? "Error";
-      outcomes[operation] = {
+      outcomes[scenario.operation] = {
         result: "fail",
         reason: `Canonical published client executed and failed: ${name}: ${error?.message ?? String(error)}`,
       };
     }
   }
-
-  const feature = createClient(FeatureService, transport);
-  const form = createClient(FormService, transport);
-  const processClient = createClient(ProcessService, transport);
-  const workspace = createClient(WorkspaceService, transport);
-
-  await execute("FeatureService/QueryFeatures", "feature_query_request.json", "feature_query_response.json",
-    QueryFeaturesRequestSchema, QueryFeaturesResponseSchema, (r, o) => feature.queryFeatures(r, o));
-  await execute("FeatureService/ApplyEdits", "feature_apply_edits_request.json", "feature_apply_edits_response.json",
-    ApplyEditsRequestSchema, ApplyEditsResponseSchema, (r, o) => feature.applyEdits(r, o),
-    ["feature_apply_edits_missing_target_request.json", "feature_apply_edits_missing_target_status.json",
-      () => compare("FeatureService/QueryFeatures",
-        "feature_apply_edits_missing_target_verify_request.json",
-        "feature_apply_edits_missing_target_verify_response.json",
-        QueryFeaturesRequestSchema, QueryFeaturesResponseSchema, (r, o) => feature.queryFeatures(r, o))]);
-  await execute("FormService/GetFormDefinition", "form_get_definition_request.json", "form_get_definition_response.json",
-    GetFormDefinitionRequestSchema, GetFormDefinitionResponseSchema, (r, o) => form.getFormDefinition(r, o));
-  await execute("FormService/SubmitFormData", "form_submit_request.json", "form_submit_response.json",
-    SubmitFormDataRequestSchema, SubmitFormDataResponseSchema, (r, o) => form.submitFormData(r, o));
-  await execute("ProcessService/ExecutePlan", "process_execute_plan_request.json", "process_execute_plan_response.json",
-    ExecutePlanRequestSchema, ExecutePlanResponseSchema, (r, o) => processClient.executePlan(r, o));
-  await execute("WorkspaceService/CreateWorkspace", "workspace_create_request.json", "workspace_create_response.json",
-    CreateWorkspaceRequestSchema, CreateWorkspaceResponseSchema, (r, o) => workspace.createWorkspace(r, o));
 
   const packageRoot = installedPackageRoot();
   const packageVersion = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8")).version;

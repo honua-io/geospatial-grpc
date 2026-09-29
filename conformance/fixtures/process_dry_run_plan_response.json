@@ -1,0 +1,15 @@
+{
+  "valid": true,
+  "result": {
+    "estimatedArtifacts": [
+      {
+        "artifactClass": "ARTIFACT_CLASS_FEATURE_LAYER"
+      }
+    ],
+    "sideEffects": [
+      {
+        "description": "No duration estimate is available: the dry-run path does not model runtime cost, so estimatedDurationSeconds is a placeholder (0), not a prediction (durationEstimateAvailable=false)."
+      }
+    ]
+  }
+}

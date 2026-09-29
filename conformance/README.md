@@ -38,7 +38,18 @@ Canonical fixtures exist for the core workflows of the primary services:
 | `FormService`      | Get form definition               | `form_get_definition_{request,response}.json`         |
 | `FormService`      | Submit form data                  | `form_submit_{request,response}.json`                 |
 | `ProcessService`   | Execute plan (synchronous)        | `process_execute_plan_{request,response}.json`        |
+| `FeatureService`   | Query features (server stream)    | `feature_query_stream_request.json`, `feature_query_stream_response.1.json` |
+| `ProcessService`   | Validate plan, dry run            | `process_validate_plan_*`, `process_dry_run_plan_*`   |
+| `ProcessService`   | Async job: submit, get, result, cancel | `process_submit_job_*`, `process_get_job_*`, `process_get_job_result_*`, `process_cancel_job_*` |
+| `SpecService`      | Plan, apply (server stream), cancel | `spec_plan_*`, `spec_apply_request.json` + `spec_apply_response.N.json`, `spec_cancel_apply_*` |
+| `ElevationService` | Point and profile elevation       | `elevation_get_*`, `elevation_profile_*`              |
 | `WorkspaceService` | Create workspace                  | `workspace_create_{request,response}.json`            |
+
+A server-streaming response is stored one message per file, `<name>.N.json`
+numbered from 1 in stream order. A request may carry a `{{capture:<name>}}`
+token for an id assigned earlier in the workflow (for example the job id
+`SubmitJob` returns). `certification/scenarios.v1.json` records which response
+supplies each capture.
 
 Fixtures use the canonical [protobuf JSON
 mapping](https://protobuf.dev/programming-guides/proto3/#json) (camelCase field
