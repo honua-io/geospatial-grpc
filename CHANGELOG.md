@@ -8,9 +8,10 @@ coordinates.
 ## v1.0.1
 
 Patch release for the conformance fixture set. There are no `.proto`,
-wire-surface or generated-API changes from `v1.0.0`; the packages are rebuilt
-only so `conformance/VERSION`, the release tag and every package version stay a
-single coordinate.
+wire-surface or generated-API changes from `v1.0.0`. The packages are rebuilt so
+`conformance/VERSION`, the release tag and every package version stay a single
+coordinate, and they pick up the dependency and packaging changes merged since
+`v1.0.0` (listed below).
 
 ### Fixes
 
@@ -20,6 +21,17 @@ single coordinate.
   goldens silently recorded an empty `defaultRetention`. They now set
   `defaultRetention.retentionPolicyId`. A regression test fails CI when any
   fixture value is dropped as an unknown key (#88).
+
+### Dependency and packaging changes
+
+- `Geospatial.Grpc` raises its minimum runtime dependencies:
+  `Google.Protobuf` 3.35.1 to 3.36.2 and `Grpc.Core.Api` 2.80.0 to 2.84.0. The
+  private build-time `Grpc.Tools` compiler moves from 2.81.1 to 2.84.0.
+- The `Geospatial.Grpc` package now includes the `LICENSE` file.
+- The Python package builds with `setuptools` 83.0.0 and `wheel` 0.46.2, and
+  declares its license as `license = { text = "Apache-2.0" }`.
+- Install examples in the package READMEs, the root README and
+  `docs/getting-started.md` reference 1.0.1.
 
 ## v1.0.0
 

@@ -55,7 +55,7 @@ The stable schema is also public on the BSR. To generate from its immutable
 release coordinate while using this checkout's generation template:
 
 ```bash
-buf generate buf.build/honua-io/geospatial-grpc:v1.0.0
+buf generate buf.build/honua-io/geospatial-grpc:v1.0.1
 ```
 
 ## Step 3: Generate Client Libraries
@@ -132,7 +132,7 @@ cd GeospatialGrpcExample
 2. **Add gRPC packages**:
 ```bash
 dotnet add package Grpc.Net.Client
-dotnet add package Geospatial.Grpc --version 1.0.0
+dotnet add package Geospatial.Grpc --version 1.0.1
 ```
 
 This restore uses nuget.org; no GitHub Packages credential or source checkout is
