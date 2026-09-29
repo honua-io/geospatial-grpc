@@ -28,9 +28,12 @@ python3 -m unittest tests/test_protocol_certification_fragment.py -v
 The scheduled and dispatched workflow owns exact-image verification, fixture
 seeding, and the live generated-client execution.
 
-Fixture seeding applies the candidate server's own `tests/seed/base-schema.sql`
-(fetched at the exact server source SHA), then `seed/sf-parks.sql`, before the
-server starts. That seed registers the `sf-parks` service with layer 0, the
+The workflow provisions the PostGIS extensions and starts the candidate image,
+which runs its own migrations. Once the server is ready, it applies the candidate's
+own `tests/seed/base-schema.sql` (fetched at the exact server source SHA) and then
+`seed/sf-parks.sql`. This is the order honua-server's `setup-honua-server` action
+uses. Current servers refuse migration-owned tables created before their
+migrations run. That seed registers the `sf-parks` service with layer 0, the
 target of the FeatureService fixtures, through the same catalog tables and
 `honua.seed_metadata_v2_compat_snapshot()` path that base-schema.sql uses.
 Honua layer ids are global, so the seed rebinds layer 0 from base-schema's

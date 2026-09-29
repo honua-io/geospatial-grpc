@@ -31,8 +31,8 @@ on:
 
 env:
   DOTNET_VERSION: "10.0.x"
-  PINNED_SERVER_IMAGE: "ghcr.io/honua-io/honua-server@sha256:d7a45c871bf318b4882ec8e1c32004803e6d0210246be30120751f05dee1a14d"
-  PINNED_SERVER_SOURCE_SHA: "e3ab87cebb7bf2d32c4e8cdb145f8d626b864d8e"
+  PINNED_SERVER_IMAGE: "ghcr.io/honua-io/honua-server@sha256:80d66658bc93501cffba3d23ac4a1012980039ed906e3036c58d80da05d2fe62"
+  PINNED_SERVER_SOURCE_SHA: "2db24e648350927c3dada3eb00638bcec1e5cc3e"
   GRPC_TARGET: "http://localhost:8081"
 
 permissions:
@@ -134,19 +134,16 @@ jobs:
           path: .certification-source
           persist-credentials: false
 
-      - name: Seed exact server fixtures
+      # honua-server owns its schema: it runs its migrations on boot and
+      # refuses migration-owned tables that exist without a journal row. Match
+      # its own setup-honua-server action: provision the PostGIS extensions,
+      # start the server, then seed once it is ready.
+      - name: Provision PostGIS extensions
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
           PGPASSWORD: honua
-        run: |
-          mkdir -p artifacts
-          gh api "repos/honua-io/honua-server/contents/tests/seed/base-schema.sql?ref=${SERVER_SOURCE_SHA}" \
-            -H "Accept: application/vnd.github.raw" > artifacts/base-schema.sql
-          psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -f artifacts/base-schema.sql
-          # The fixtures target serviceId sf-parks, layerId 0. Seed it through
-          # the same catalog + Metadata v2 compat path as base-schema.sql.
-          psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -f certification/seed/sf-parks.sql
+        run: >-
+          psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1
+          -c "CREATE EXTENSION IF NOT EXISTS postgis; CREATE EXTENSION IF NOT EXISTS postgis_raster;"
 
       - name: Start exact Honua Server image
         id: server
@@ -173,10 +170,26 @@ jobs:
           docker logs honua-server || true
           exit 1
 
+      - name: Seed exact server fixtures
+        id: seed
+        if: ${{ !cancelled() && steps.server.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
+          PGPASSWORD: honua
+        run: |
+          mkdir -p artifacts
+          gh api "repos/honua-io/honua-server/contents/tests/seed/base-schema.sql?ref=${SERVER_SOURCE_SHA}" \
+            -H "Accept: application/vnd.github.raw" > artifacts/base-schema.sql
+          psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -f artifacts/base-schema.sql
+          # The fixtures target serviceId sf-parks, layerId 0. Seed it through
+          # the same catalog + Metadata v2 compat path as base-schema.sql.
+          psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -f certification/seed/sf-parks.sql
+
       # Each lane executes independently: a failing lane must not stop the
       # other installed clients from producing their own attributable results.
       - name: Execute promoted .NET client fixtures
-        if: ${{ !cancelled() && steps.server.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         env:
           PGPASSWORD: honua
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
@@ -189,7 +202,7 @@ jobs:
           dotnet run --project certification/dotnet/GrpcCertificationRunner.csproj --configuration Release --no-self-contained -- "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-dotnet.json
 
       - name: Execute promoted Python client fixtures
-        if: ${{ !cancelled() && steps.server.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         env:
           PGPASSWORD: honua
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
@@ -202,7 +215,7 @@ jobs:
           python3 certification/python/runner.py "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-python.json
 
       - name: Execute promoted TypeScript client fixtures
-        if: ${{ !cancelled() && steps.server.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         env:
           PGPASSWORD: honua
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"

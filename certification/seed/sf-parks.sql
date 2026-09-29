@@ -1,7 +1,8 @@
 -- sf-parks certification service for the geospatial-grpc conformance fixtures.
 --
--- Apply after the candidate server's own tests/seed/base-schema.sql (fetched at
--- the exact server source SHA) and BEFORE the server starts. It uses the same
+-- Apply after the candidate server has started (and run its migrations) and
+-- after its own tests/seed/base-schema.sql, fetched at the exact server source
+-- SHA. The running server picks up the new Metadata v2 snapshot. It uses the same
 -- seed path as honua-server CI: rows in the honua.services / honua.layers /
 -- honua.layer_fields catalog, features in the shared `features` table, and
 -- honua.seed_metadata_v2_compat_snapshot() to compile the Metadata v2 graph
