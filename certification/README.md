@@ -46,10 +46,13 @@ Response comparison is exact except for the values listed in
 `server-assigned-fields.v1.json`, which a server assigns and a fixture cannot
 predict (created ids, timestamps, job and result ids). Each runner replaces
 those values in both documents with a placeholder before comparing, so the
-value must be present but is not compared. ApplyEdits also runs the negative
-`feature_apply_edits_missing_target` batch first. It must fail as a whole with
-the recorded gRPC status, and the positive batch that follows must still find
-feature 7.
+value must be present but is not compared. `optional_operations` values, which
+may validly be the proto3 default, are removed from both documents instead.
+ApplyEdits also runs the negative `feature_apply_edits_missing_target` batch
+first. It must fail as a whole with the recorded gRPC status. The runner then
+reads the batch's targets back and requires them unchanged
+(`feature_apply_edits_missing_target_verify_*`) before running the positive
+batch.
 
 Executed failures are also retained in `execution_failures`, attributed by lane
 and operation. Both the .NET runner and fragment CLI return nonzero on an

@@ -56,6 +56,15 @@ service FeatureService {
 }
 ```
 
+#### ApplyEdits batch semantics
+
+With `rollback_on_failure = true` an `ApplyEdits` batch is all-or-nothing:
+
+- If every edit succeeds, the gRPC status is `OK` and `add_results`, `update_results` and `delete_results` report each edit with `success = true`. Created feature ids in `add_results` are server-assigned.
+- If an update or delete names a feature that does not exist, the server rejects the whole batch with gRPC status `NOT_FOUND` and returns no response message. It applies no edit: no add is created, and no other update or delete in the batch takes effect.
+
+The conformance fixtures pin both cases: `feature_apply_edits_{request,response}.json` is the successful batch, and `feature_apply_edits_missing_target_request.json` with `feature_apply_edits_missing_target_status.json` is the rejected batch. The certification runners then read the named features back (`feature_apply_edits_missing_target_verify_{request,response}.json`) to prove that nothing was applied.
+
 #### Spatial Reference Handling
 
 All geometry coordinates are assumed to be in the spatial reference specified by the layer's metadata. Clients can request output in a different spatial reference using the `out_sr` parameter.

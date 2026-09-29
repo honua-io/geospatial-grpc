@@ -34,7 +34,7 @@ Canonical fixtures exist for the core workflows of the primary services:
 | ------------------ | --------------------------------- | ----------------------------------------------------- |
 | `FeatureService`   | Query features                    | `feature_query_{request,response}.json`               |
 | `FeatureService`   | Apply edits (add/update/delete)   | `feature_apply_edits_{request,response}.json`         |
-| `FeatureService`   | Apply edits, missing target (negative: the batch fails as a whole) | `feature_apply_edits_missing_target_request.json`, `feature_apply_edits_missing_target_status.json` |
+| `FeatureService`   | Apply edits, missing target (negative: the batch fails as a whole and changes nothing) | `feature_apply_edits_missing_target_request.json`, `feature_apply_edits_missing_target_status.json`, `feature_apply_edits_missing_target_verify_{request,response}.json` |
 | `FormService`      | Get form definition               | `form_get_definition_{request,response}.json`         |
 | `FormService`      | Submit form data                  | `form_submit_{request,response}.json`                 |
 | `ProcessService`   | Execute plan (synchronous)        | `process_execute_plan_{request,response}.json`        |

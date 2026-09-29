@@ -1,5 +1,5 @@
 {
   "code": 5,
   "name": "NOT_FOUND",
-  "description": "The batch names feature 8, which does not exist. The whole batch must fail with this gRPC status and apply no edit: the update to 42 and the delete of 7 must not happen. The positive ApplyEdits fixture, run next, proves it by deleting 7 successfully."
+  "description": "The batch names feature 8, which does not exist. The whole batch must fail with this gRPC status and apply no edit. The update to 42 and the delete of 7 must not happen: the runners read 7 and 42 back with feature_apply_edits_missing_target_verify_request.json and require feature_apply_edits_missing_target_verify_response.json exactly."
 }

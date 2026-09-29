@@ -14,8 +14,7 @@
       "$.result.resultId",
       "$.result.artifacts[*].artifactId",
       "$.result.artifacts[*].producerRef",
-      "$.result.provenance.executedAt",
-      "$.result.provenance.durationSeconds"
+      "$.result.provenance.executedAt"
     ],
     "WorkspaceService/CreateWorkspace": [
       "$.workspace.ref.workspaceId",
@@ -23,5 +22,11 @@
       "$.workspace.createdAt",
       "$.workspace.updatedAt"
     ]
-  }
+  },
+  "optional_operations": {
+    "ProcessService/ExecutePlan": [
+      "$.result.provenance.durationSeconds"
+    ]
+  },
+  "optional_rule": "optional_operations lists server-assigned values that may validly equal their proto3 default (for example a zero-second duration), which the proto3 JSON mapping omits. The runners remove these paths from both documents before comparing, so neither the value nor its presence is compared."
 }

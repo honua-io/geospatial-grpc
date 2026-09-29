@@ -48,19 +48,29 @@ class ServerAssignedFieldsTests(unittest.TestCase):
         document = json.loads(FIELDS.read_text(encoding="utf-8"))
         self.assertEqual("honua.grpc-certification-server-assigned-fields/v1", document["schema"])
         self.operations = document["operations"]
+        self.optional = document.get("optional_operations", {})
+        self.every = {
+            operation: [*self.operations.get(operation, []), *self.optional.get(operation, [])]
+            for operation in {*self.operations, *self.optional}
+        }
 
     def test_every_operation_has_a_response_fixture(self):
-        self.assertEqual(set(RESPONSES), set(self.operations))
+        self.assertEqual(set(RESPONSES), set(self.every))
+        self.assertEqual(set(), set(self.optional) - set(RESPONSES))
+
+    def test_no_path_is_both_required_and_optional(self):
+        for operation, patterns in self.optional.items():
+            self.assertEqual(set(), set(patterns) & set(self.operations.get(operation, [])))
 
     def test_every_path_selects_a_value_in_the_expected_response(self):
-        for operation, patterns in self.operations.items():
+        for operation, patterns in self.every.items():
             response = json.loads((FIXTURES / f"{RESPONSES[operation]}_response.json").read_text(encoding="utf-8"))
             for pattern in patterns:
                 with self.subTest(operation=operation, pattern=pattern):
                     self.assertTrue(resolve(response, pattern), f"{pattern} selects nothing")
 
     def test_no_path_covers_a_value_the_client_supplied(self):
-        for operation, patterns in self.operations.items():
+        for operation, patterns in self.every.items():
             name = RESPONSES[operation]
             request = json.loads((FIXTURES / f"{name}_request.json").read_text(encoding="utf-8"))
             response = json.loads((FIXTURES / f"{name}_response.json").read_text(encoding="utf-8"))
@@ -72,7 +82,7 @@ class ServerAssignedFieldsTests(unittest.TestCase):
 
     def test_query_features_is_compared_exactly(self):
         # Every QueryFeatures value is seeded or requested; none is server-assigned.
-        self.assertNotIn("FeatureService/QueryFeatures", self.operations)
+        self.assertNotIn("FeatureService/QueryFeatures", self.every)
 
 
 if __name__ == "__main__":

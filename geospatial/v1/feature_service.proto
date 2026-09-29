@@ -83,7 +83,12 @@ message ApplyEditsRequest {
   repeated Feature adds = 3; // Features to create
   repeated Feature updates = 4; // Features to update
   repeated int64 deletes = 5; // Feature IDs to delete
-  bool rollback_on_failure = 6; // Transactional behavior
+  // Transactional behavior. When true the batch is all-or-nothing: if any edit
+  // cannot be applied, the server applies none of them. A batch whose update
+  // or delete names a feature that does not exist fails as a whole with gRPC
+  // status NOT_FOUND and no response message (see docs/specification.md,
+  // "ApplyEdits batch semantics").
+  bool rollback_on_failure = 6;
   bool force_write = 7; // Override optimistic locking
   // Optional client-generated idempotency key. When set, the server MUST treat
   // a retry carrying the same key within its dedup window as the same operation

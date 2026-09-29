@@ -20,8 +20,14 @@ wire-surface or generated-API changes from `v1.0.2`.
 - New negative case `feature_apply_edits_missing_target_request.json`. A batch
   that updates 42 and deletes 7 and the missing 8 must fail as a whole with the
   gRPC status in `feature_apply_edits_missing_target_status.json` (`NOT_FOUND`)
-  and apply no edit. The positive batch runs next and deletes 7 successfully,
-  which proves the failed batch left it in place.
+  and apply no edit. The runners then read 7 and 42 back with
+  `feature_apply_edits_missing_target_verify_{request,response}.json` and
+  require the seeded values exactly, which proves the rejected batch left every
+  target unchanged.
+- `feature_service.proto` documents the `rollback_on_failure` contract (comment
+  only, no wire change), and `docs/specification.md` gains an "ApplyEdits batch
+  semantics" section. A batch whose update or delete names a missing feature
+  fails as a whole with gRPC status `NOT_FOUND` and applies no edit.
 
 ### Certification harness
 
@@ -30,6 +36,9 @@ wire-surface or generated-API changes from `v1.0.2`.
   ids and revisions, timestamps, job, result and artifact ids, and durations.
   The .NET, Python and TypeScript runners replace those values, and only
   those, with a placeholder before comparing. The value must still be present.
+  `optional_operations` lists server-assigned values that may validly be the
+  proto3 default, which the JSON mapping omits (an execution duration of zero
+  seconds). Those paths are removed from both documents instead.
   `tests/test_server_assigned_fields.py` checks that every listed path resolves
   in the expected response and never covers a value the request supplied. The
   wire-oracle suite checks that a listed value may differ, that a listed value

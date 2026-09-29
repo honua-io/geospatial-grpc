@@ -20,6 +20,8 @@ feature_apply_edits_response.json   geospatial.v1.ApplyEditsResponse
 # feature_apply_edits_missing_target_status.json (not a protobuf message, so it
 # is not listed here).
 feature_apply_edits_missing_target_request.json  geospatial.v1.ApplyEditsRequest
+feature_apply_edits_missing_target_verify_request.json   geospatial.v1.QueryFeaturesRequest
+feature_apply_edits_missing_target_verify_response.json  geospatial.v1.QueryFeaturesResponse
 
 # FormService — mobile data collection workflow.
 form_get_definition_request.json    geospatial.v1.GetFormDefinitionRequest
