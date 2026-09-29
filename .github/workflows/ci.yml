@@ -449,17 +449,63 @@ jobs:
           python3 scripts/pack_dotnet_release.py \
             --tag "v1.0.0-pr.${GITHUB_RUN_ID}" --output nupkgs
 
-      # The tag-only publish workflow binds this reviewed consumer lock to the
-      # release package and refuses to publish when the package's dependencies
-      # drift from it. Check the same binding on every change so a dependency
-      # bump cannot reach a release tag with a stale lock.
-      - name: Verify the release smoke lock matches the package dependencies
+      # The tag-only publish workflow restores a consumer smoke project in
+      # locked mode against the reviewed .github/requirements/dotnet-smoke.lock.json
+      # and refuses to publish when it does not match the package. Run the same
+      # binding and locked restore on every change, so a dependency bump that
+      # leaves the lock stale fails here instead of on an immutable release tag.
+      # Keep the smoke project in step with publish-dotnet-protocol.yml.
+      - name: Verify the release smoke lock with a locked restore
+        shell: bash
         run: |
           version="1.0.0-pr.${GITHUB_RUN_ID}"
+          smoke_dir="$(mktemp -d)"
+          trap 'rm -rf "${smoke_dir}"' EXIT
+          cat > "${smoke_dir}/NuGet.config" <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="local-geospatial" value="${GITHUB_WORKSPACE}/nupkgs" />
+              <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
+            </packageSources>
+            <packageSourceMapping>
+              <packageSource key="local-geospatial">
+                <package pattern="Geospatial.Grpc" />
+              </packageSource>
+              <packageSource key="nuget.org">
+                <package pattern="*" />
+              </packageSource>
+            </packageSourceMapping>
+          </configuration>
+          EOF
+          cat > "${smoke_dir}/Smoke.csproj" <<EOF
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net10.0</TargetFramework>
+              <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="Geospatial.Grpc" Version="${version}" />
+              <PackageReference Include="Grpc.Net.Client" Version="2.80.0" />
+            </ItemGroup>
+          </Project>
+          EOF
+          cat > "${smoke_dir}/Program.cs" <<'EOF'
+          using Geospatial.V1;
+          using Grpc.Net.Client;
+
+          using var channel = GrpcChannel.ForAddress("https://example.invalid");
+          _ = new FeatureService.FeatureServiceClient(channel);
+          EOF
           python3 .github/scripts/prepare-nuget-smoke-lock.py \
             --package "nupkgs/Geospatial.Grpc.${version}.nupkg" \
-            --version "${version}" \
-            --output "${RUNNER_TEMP}/dotnet-smoke.lock.json"
+            --version "${version}" --output "${smoke_dir}/packages.lock.json"
+          dotnet restore "${smoke_dir}/Smoke.csproj" \
+            --configfile "${smoke_dir}/NuGet.config" --no-cache --locked-mode
+          dotnet build "${smoke_dir}/Smoke.csproj" \
+            --configuration Release --no-restore /p:TreatWarningsAsErrors=true
 
       - name: Upload .NET package artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
