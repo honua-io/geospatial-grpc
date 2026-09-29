@@ -7,9 +7,7 @@
       "hardTtlSeconds": "2592000"
     },
     "defaultRetention": {
-      "ref": {
-        "retentionPolicyId": "standard-30d"
-      }
+      "retentionPolicyId": "standard-30d"
     },
     "labels": {
       "team": "parks-ops",

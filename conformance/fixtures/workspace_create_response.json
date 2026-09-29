@@ -19,9 +19,7 @@
       "artifactsAvailable": "500"
     },
     "defaultRetention": {
-      "ref": {
-        "retentionPolicyId": "standard-30d"
-      }
+      "retentionPolicyId": "standard-30d"
     },
     "createdAt": "1748520000000",
     "updatedAt": "1748520000000",
