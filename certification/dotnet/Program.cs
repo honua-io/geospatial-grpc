@@ -103,7 +103,7 @@ async Task Execute<TRequest, TResponse>(
                 outcomes[operation] = new
                 {
                     result = "fail",
-                    reason = $"Negative case {negativeCase.Request} was rejected but changed state: read-back mismatch at {verifyDivergence}",
+                    reason = $"Negative case {negativeCase.Request} was rejected, but reading its targets back does not match the unchanged state at {verifyDivergence}",
                 };
                 return;
             }

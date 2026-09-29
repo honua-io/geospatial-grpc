@@ -230,8 +230,8 @@ def main(argv: list[str]) -> int:
                     outcomes[operation] = {
                         "result": "fail",
                         "reason": (
-                            f"Negative case {negative_request_fixture} was rejected but changed state: "
-                            f"read-back mismatch at {verify_divergence}"
+                            f"Negative case {negative_request_fixture} was rejected, but reading its targets back "
+                            f"does not match the unchanged state at {verify_divergence}"
                         ),
                     }
                     return

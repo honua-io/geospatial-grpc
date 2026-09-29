@@ -227,7 +227,7 @@ class RunnerTransportContract:
         self.assertEqual(1, completed.returncode, report)
         outcome = report["operations"]["FeatureService/ApplyEdits"]
         self.assertEqual("fail", outcome["result"])
-        self.assertIn("changed state", outcome["reason"])
+        self.assertIn("does not match the unchanged state", outcome["reason"])
         self.assertIn("features[0].id", outcome["reason"])
         self.assertEqual(5, sum(item["result"] == "pass" for item in report["operations"].values()))
 

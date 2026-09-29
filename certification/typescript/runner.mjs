@@ -209,7 +209,7 @@ async function main(argv) {
           failures++;
           outcomes[operation] = {
             result: "fail",
-            reason: `Negative case ${negativeRequestFixture} was rejected but changed state: read-back mismatch at ${verifyDivergence}`,
+            reason: `Negative case ${negativeRequestFixture} was rejected, but reading its targets back does not match the unchanged state at ${verifyDivergence}`,
           };
           return;
         }
