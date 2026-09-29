@@ -24,6 +24,24 @@ runner from PR head `12b28922693349106af4d5f2acd01d29334a7a31`, the seven
 failure cases fail their exit-status assertions because that runner returns 0.
 The matching-response case passes against both versions.
 
+## Federation status after rebinding to the governed denominator
+
+Promoted packages now exist (`Geospatial.Grpc` 1.0.0, `geospatial-grpc` 1.0.0,
+`@honua/geospatial-grpc` 1.0.0). They are not the governed client version.
+Observations again use the honua-release identity
+`source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c` with contract
+`geospatial-grpc@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c` and fixture
+`geospatial-grpc-conformance@0.2.0-alpha.1+73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`.
+An installed 1.0.0 failure stays in `execution_failures`, attributed by lane
+and operation, and the required cell remains an evidence-free skip.
+
+`tests/test_protocol_certification_fragment.py` loads the sibling
+honua-evidence aggregator and honua-release protocol gate. The 240 skip
+observations join. The release-tier gate fails closed because those cells are
+not passes. honua-evidence trunk still accepts receipt schema v1 only, so a
+future passing v2 receipt remains owned by issue #99 and is not emitted for
+these unexecuted cells.
+
 ## Remaining pre-cut blockers
 
 1. **The previous green run executed zero successful operations.** Its
@@ -34,36 +52,31 @@ The matching-response case passes against both versions.
    `Unknown field: ref`. These are actual installed-client results against the
    pinned image, not inferred from an absent artifact. The restored failure
    signal must remain red until these execution prerequisites are repaired.
-2. **The claimed multi-client matrix cannot execute from published artifacts.**
-   Public registry probes on the observation date return HTTP 404 for both
-   `https://pypi.org/pypi/geospatial-grpc/1.0.0/json` and
-   `https://registry.npmjs.org/@honua%2fgeospatial-grpc/1.0.0`. The catalog has
-   80 operations for each of three clients, but only six .NET positive calls
-   exist and none has the full required facets. The .NET GitHub Packages
-   publication workflow in this PR does not publish the other client packages.
-3. **Federation does not currently accept this producer's package identities.**
-   Running honua-evidence's aggregator at
-   `808d659404d895cc5672ac7b19c7b451fb89112d` against honua-release requirements
-   at `ffc92bc348e155fbd80b6ac6d44721fb9e632561` and the prior CI fragment fails
-   with `observations do not resolve to requirements`. The first rejected cell
-   is `ArtifactService/GetArtifact`, `.NET`, version `1.0.0`. All 240 governed
-   gRPC requirements still pin `source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`
-   and the old `0.2.0-alpha.1` fixture, while this producer records installed
-   package 1.0.0. The pinned aggregator also accepts receipt schema v1 only,
-   while the release requirements specify `receipt_schema_min: v2` and this
-   producer emits v2. Aligning the governed contracts must precede an acceptance
-   claim; syntactic generation of 240 skips is insufficient.
+   Those 1.0.0 results still do not satisfy the governed `source@73fc882` cell.
+2. **Python and TypeScript lanes execute, but not the governed pin.** The
+   workflow now installs promoted `geospatial-grpc` 1.0.0 (PyPI) and
+   `@honua/geospatial-grpc` 1.0.0 (npm) and runs the same six fixtures through
+   each, independently of the .NET lane. Their failures are attributed in
+   `execution_failures` by lane and operation. Because 1.0.0 is not
+   `source@73fc882…`, the governed cells stay evidence-free skips until the
+   denominator's client version and the executed package agree.
+3. **Passing cells still cannot be ingested until receipt v2 lands in
+   honua-evidence.** The release gate requires
+   `honua.certification-evidence-receipt/v2`. The current evidence aggregator
+   accepts v1 only. Issue #99 tracks that producer/consumer mismatch. Skip
+   fragments do not carry receipts and are the fragments this producer emits
+   for unexecuted cells.
 
 ## Acceptance criteria
 
 | Criterion | Disposition |
 |---|---|
-| Named/versioned requirements for every supported operation | 240 catalog cells exist; package identities still differ from the release denominator as described above. |
-| Fixture version and schema revision recorded | Present in each observation and digest-bound receipt. |
-| Failures independently attributable by client and operation | Repaired and challenged by the CLI and installed-client transport regressions. |
+| Named/versioned requirements for every supported operation | 240 observations use the honua-release generated-client version, contract, and fixture pin. |
+| Fixture version and schema revision recorded | Present on every observation. Receipts are emitted only when every governed facet is executed. |
+| Failures independently attributable by client and operation | Installed-client failures remain in `execution_failures` by lane and operation, including when the package version is not the governed pin. |
 | Release rejects floating/mismatched/stale/missing evidence | Repaired and covered by precise regression tests. |
-| Fragment accepted by honua-evidence and enforced by release gate | Blocked by the pinned cross-repository contract mismatch and missing execution. |
-| Bounded PR CI | Retains six live requests, adds bounded producer tests, and does not execute the full 240-cell matrix. Full nightly execution remains incomplete. |
+| Fragment accepted by honua-evidence and enforced by release gate | Skip fragments join the current denominator. The release-tier gate fails closed on the non-passing cells. Passing v2 receipts remain issue #99. |
+| Bounded PR CI | Retains six live .NET requests and does not execute the full 240-cell matrix. |
 
 Only execution and receipt federation **against the exact future candidate** is
 released until the candidate is cut: there is no frozen candidate digest/cut to
