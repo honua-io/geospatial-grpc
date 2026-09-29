@@ -81,6 +81,25 @@ def validate_identity(args: argparse.Namespace) -> tuple[str, str]:
     return parsed.geturl().rstrip("/"), match.group("digest")
 
 
+def _report_bound_to_run(report: dict, target: str, args: argparse.Namespace, catalog: dict, now: str) -> bool:
+    """True when a lane report names this run's target, image, source and fixtures and falls inside it."""
+    expected_identity = {
+        "channel_target": target,
+        "server_image": args.server_image,
+        "server_source_sha": args.server_source_sha,
+        "fixture_revision": catalog["fixture_revision"],
+    }
+    if report.get("execution_identity") != expected_identity:
+        return False
+    try:
+        started = timestamp(report.get("started_at"), "report started_at")
+        completed = timestamp(report.get("completed_at"), "report completed_at")
+        return (timestamp(args.started_at, "started_at") <= started <= completed
+                <= timestamp(now, "completed_at"))
+    except (TypeError, ValueError):
+        return False
+
+
 def build_fragment(args: argparse.Namespace) -> dict:
     target, image_digest = validate_identity(args)
     catalog = json.loads(CATALOG.read_text())
@@ -88,6 +107,7 @@ def build_fragment(args: argparse.Namespace) -> dict:
     now = args.completed_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     validate_times(args.started_at, now, args.candidate_cut, tier)
     reports = {}
+    report_provenance = {}
     payloads = []
     for report_path in args.report:
         raw = report_path.read_bytes()
@@ -95,7 +115,8 @@ def build_fragment(args: argparse.Namespace) -> dict:
         lane = report["runner_lane"]
         if lane not in CLIENT_IDS or lane in reports:
             raise ValueError(f"invalid or duplicate runner lane: {lane}")
-        unknown = set(report.get("operations", {})) - {op["operation"] for op in catalog["operations"]}
+        excluded_names = {op["operation"] for op in catalog.get("excluded_operations", [])}
+        unknown = set(report.get("operations", {})) - {op["operation"] for op in catalog["operations"]} - excluded_names
         if unknown:
             raise ValueError(f"unknown operations for {lane}: {sorted(unknown)}")
         client = next(item for item in catalog["clients"] if item["client_lane"] == lane)
@@ -121,6 +142,13 @@ def build_fragment(args: argparse.Namespace) -> dict:
                     or timestamp(report["completed_at"], "report completed_at") > timestamp(now, "completed_at")):
                 raise ValueError(f"execution report for {lane} is outside this run")
         reports[lane] = report
+        report_provenance[lane] = {
+            "package_version": package_version,
+            "execution_identity": report.get("execution_identity"),
+            "started_at": report.get("started_at"),
+            "completed_at": report.get("completed_at"),
+            "identity_verified": _report_bound_to_run(report, target, args, catalog, now),
+        }
         payloads.append({"name": report_path.name, "content_base64": base64.b64encode(raw).decode()})
 
     payload_base64 = base64.b64encode(canonical_bytes(payloads)).decode()
@@ -316,6 +344,35 @@ def build_fragment(args: argparse.Namespace) -> dict:
         narrowing_decision,
     ):
         raise ValueError("claim narrowing decision must be a recorded issue #88 comment URL")
+    excluded_operations = []
+    for excluded in catalog.get("excluded_operations", []):
+        results = {}
+        for lane in CLIENT_IDS:
+            outcome = reports.get(lane, {}).get("operations", {}).get(excluded["operation"])
+            if outcome is None:
+                results[lane] = {"result": "not-executed", "reason": None}
+                continue
+            if outcome.get("result") not in {"pass", "fail", "skip"}:
+                raise ValueError(f"unsupported result for {lane}/{excluded['operation']}: {outcome.get('result')}")
+            results[lane] = {
+                "result": outcome["result"],
+                "reason": outcome.get("reason"),
+                # A result is only as current as its report: consumers must treat
+                # identity_verified=false as unverified evidence.
+                **report_provenance[lane],
+            }
+        # Reported for visibility only: an excluded operation is not a governed
+        # cell, so it never becomes an observation, a receipt, an
+        # execution_failure or part of the client rollup.
+        excluded_operations.append({
+            "capability_key": excluded["capability_key"],
+            "operation": excluded["operation"],
+            "maturity": excluded["maturity"],
+            "owner_issue": excluded["owner_issue"],
+            "target_release": excluded["target_release"],
+            "counts_toward_ga": False,
+            "results": results,
+        })
     all_claimed_clients_executed = all(state == "executed" for state in lane_states.values())
     all_claimed_cells_passed = all(item["result"] == "pass" for item in observations)
     # A comment URL is provenance for a decision, not a waiver for failed cells.
@@ -325,6 +382,7 @@ def build_fragment(args: argparse.Namespace) -> dict:
         "schema": "honua.protocol-certification-fragment/v1",
         "producer": PRODUCER,
         "execution_failures": execution_failures,
+        "excluded_operations": excluded_operations,
         "generated_at": now,
         "candidate": {"source_sha": args.server_source_sha, "image_digest": image_digest, "cut_at": args.candidate_cut},
         "operation_scope": {

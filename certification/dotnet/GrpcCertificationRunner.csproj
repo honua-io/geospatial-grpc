@@ -12,5 +12,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="../server-assigned-fields.v1.json" CopyToOutputDirectory="PreserveNewest" Link="server-assigned-fields.v1.json" />
+    <None Include="../protocol-certification-catalog.v1.json" CopyToOutputDirectory="PreserveNewest" Link="protocol-certification-catalog.v1.json" />
   </ItemGroup>
 </Project>

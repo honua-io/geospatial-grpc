@@ -20,6 +20,11 @@ assert SPEC and SPEC.loader
 SPEC.loader.exec_module(MODULE)
 
 GOVERNED_CLIENT_VERSION = "source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c"
+# 2026.1 gRPC scope ruling (#88, honua-release#376): only the RPCs honua-server
+# implements are governed cells; the other 66 are excluded_operations.
+IN_SCOPE_RPCS = 14
+IN_SCOPE_CELLS = 3 * IN_SCOPE_RPCS
+EXCLUDED_RPCS = 66
 RELEASE_ROOT = Path(os.environ.get("HONUA_RELEASE_ROOT", "/home/mike/honua-io/honua-release"))
 EVIDENCE_ROOT = Path(os.environ.get("HONUA_EVIDENCE_ROOT", "/home/mike/honua-io/honua-evidence"))
 
@@ -61,9 +66,9 @@ class FragmentTests(unittest.TestCase):
 
     def test_materializes_exact_release_denominator_and_truthful_identity(self):
         fragment = self.build()
-        self.assertEqual(240, len(fragment["observations"]))
+        self.assertEqual(IN_SCOPE_CELLS, len(fragment["observations"]))
         for lane in MODULE.CLIENT_IDS:
-            self.assertEqual(80, sum(o["runner_lane"] == lane for o in fragment["observations"]))
+            self.assertEqual(IN_SCOPE_RPCS, sum(o["runner_lane"] == lane for o in fragment["observations"]))
         for observation in fragment["observations"]:
             self.assertEqual("skip", observation["result"])
             self.assertEqual(observation["canonical_client"], observation["client_id"])
@@ -189,7 +194,7 @@ class FragmentTests(unittest.TestCase):
         fragment = self.build()
         self.assertEqual([], MODULE.certification_errors(fragment, "pr"))
         for tier in ("nightly", "release"):
-            self.assertEqual([f"{tier} certification has 240 non-passing required cells"],
+            self.assertEqual([f"{tier} certification has {IN_SCOPE_CELLS} non-passing required cells"],
                              MODULE.certification_errors(fragment, tier))
 
     def test_rejects_floating_image_and_source_mismatch(self):
@@ -272,7 +277,7 @@ class FragmentTests(unittest.TestCase):
             self.assertIn("grpc-dotnet/FeatureService/QueryFeatures", result.stderr)
             self.assertIn("geometry.point.x", result.stderr)
             fragment = json.loads(output.read_text())
-            self.assertEqual(240, len(fragment["observations"]))
+            self.assertEqual(IN_SCOPE_CELLS, len(fragment["observations"]))
             self.assertEqual(1, len(fragment["execution_failures"]))
 
     def test_recorded_narrowing_url_does_not_waive_failed_required_cells(self):
@@ -398,23 +403,23 @@ class FragmentTests(unittest.TestCase):
                     "package_source": source,
                     "operations": {
                         "FeatureService/QueryFeatures": {"result": "pass"},
-                        "FormService/GetFormDefinition": {
+                        "ProcessService/SubmitJob": {
                             "result": "fail",
-                            "reason": f"{lane}: StatusCode.UNIMPLEMENTED",
+                            "reason": f"{lane}: StatusCode.UNAVAILABLE",
                         },
                     },
                 }))
                 reports.append(report)
             fragment = self.build(reports)
         self.assertEqual([
-            {"runner_lane": "grpc-python", "operation": "FormService/GetFormDefinition",
-             "reason": "grpc-python: StatusCode.UNIMPLEMENTED"},
-            {"runner_lane": "grpc-typescript", "operation": "FormService/GetFormDefinition",
-             "reason": "grpc-typescript: StatusCode.UNIMPLEMENTED"},
+            {"runner_lane": "grpc-python", "operation": "ProcessService/SubmitJob",
+             "reason": "grpc-python: StatusCode.UNAVAILABLE"},
+            {"runner_lane": "grpc-typescript", "operation": "ProcessService/SubmitJob",
+             "reason": "grpc-typescript: StatusCode.UNAVAILABLE"},
         ], fragment["execution_failures"])
         for lane in ("grpc-python", "grpc-typescript"):
             cells = [o for o in fragment["observations"] if o["runner_lane"] == lane]
-            self.assertEqual(80, len(cells))
+            self.assertEqual(IN_SCOPE_RPCS, len(cells))
             # Promoted 1.0.0 bytes executed, but they are not the governed pin:
             # every governed cell stays an evidence-free skip that names why.
             self.assertEqual({"skip"}, {o["result"] for o in cells})
@@ -423,6 +428,104 @@ class FragmentTests(unittest.TestCase):
             self.assertIn("positive execution pass", query["skip_reason"])
             self.assertIn(GOVERNED_CLIENT_VERSION, query["skip_reason"])
         self.assertEqual("red", fragment["client_rollup"]["state"])
+
+    def test_catalog_scope_is_the_ruled_split_of_the_full_inventory(self):
+        catalog = json.loads(MODULE.CATALOG.read_text())
+        governed = {operation["operation"] for operation in catalog["operations"]}
+        excluded = {operation["operation"] for operation in catalog["excluded_operations"]}
+        self.assertEqual(IN_SCOPE_RPCS, len(governed))
+        self.assertEqual(EXCLUDED_RPCS, len(excluded))
+        self.assertEqual(set(), governed & excluded)
+        self.assertIn("FeatureService/ApplyEdits", governed)
+        for name in ("FormService/SubmitFormData", "WorkspaceService/CreateWorkspace",
+                     "ProcessService/ExecutePlan", "SceneService/GetScene"):
+            self.assertIn(name, excluded)
+        for operation in catalog["excluded_operations"]:
+            self.assertIn(operation["maturity"], {"preview", "experimental"})
+            self.assertTrue(operation["owner_issue"].startswith("https://github.com/honua-io/"))
+            self.assertTrue(operation["rationale"].strip())
+            self.assertEqual("2026.2", operation["target_release"])
+
+    def test_excluded_operation_results_are_reported_but_never_governed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "grpc-python.json"
+            report.write_text(json.dumps({
+                "runner_lane": "grpc-python",
+                "package": "geospatial-grpc",
+                "package_version": GOVERNED_CLIENT_VERSION,
+                "package_source": "https://pypi.org/pypi/geospatial-grpc/json",
+                "operations": {
+                    "FeatureService/QueryFeatures": {"result": "pass"},
+                    "FormService/SubmitFormData": {"result": "pass"},
+                    "ProcessService/ExecutePlan": {
+                        "result": "fail", "reason": "UNIMPLEMENTED: synchronous execution",
+                    },
+                },
+            }))
+            fragment = self.build([report])
+        by_operation = {item["operation"]: item for item in fragment["excluded_operations"]}
+        self.assertEqual(EXCLUDED_RPCS, len(by_operation))
+        self.assertTrue(all(item["counts_toward_ga"] is False for item in by_operation.values()))
+        submitted = by_operation["FormService/SubmitFormData"]["results"]["grpc-python"]
+        self.assertEqual(("pass", None), (submitted["result"], submitted["reason"]))
+        # The report carries no execution identity, so its result is labelled unverified.
+        self.assertFalse(submitted["identity_verified"])
+        self.assertEqual(GOVERNED_CLIENT_VERSION, submitted["package_version"])
+        self.assertEqual("fail", by_operation["ProcessService/ExecutePlan"]["results"]["grpc-python"]["result"])
+        self.assertEqual("not-executed",
+                         by_operation["ProcessService/ExecutePlan"]["results"]["grpc-dotnet"]["result"])
+        self.assertEqual("https://github.com/honua-io/honua-server/issues/4632",
+                         by_operation["ProcessService/ExecutePlan"]["owner_issue"])
+        # Excluded results never become governed observations or failures.
+        governed = {observation["operation"] for observation in fragment["observations"]}
+        self.assertNotIn("FormService/SubmitFormData", governed)
+        self.assertNotIn("ProcessService/ExecutePlan", governed)
+        self.assertEqual([], fragment["execution_failures"])
+        self.assertEqual("red", fragment["client_rollup"]["state"])
+
+    def test_excluded_result_is_verified_only_when_bound_to_this_run(self):
+        catalog = json.loads(MODULE.CATALOG.read_text())
+        identity = {
+            "channel_target": "http://localhost:8081",
+            "server_image": "ghcr.io/honua-io/honua-server@sha256:" + "c" * 64,
+            "server_source_sha": "b" * 40,
+            "fixture_revision": catalog["fixture_revision"],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "grpc-python.json"
+            report.write_text(json.dumps({
+                "runner_lane": "grpc-python", "package_version": "1.0.0",
+                "started_at": "2026-08-26T00:00:10Z", "completed_at": "2026-08-26T00:00:50Z",
+                "execution_identity": identity,
+                "operations": {"WorkspaceService/CreateWorkspace": {"result": "fail", "reason": "UNIMPLEMENTED"}},
+            }))
+            fragment = self.build([report])
+            stale = Path(directory) / "stale" / "grpc-python.json"
+            stale.parent.mkdir()
+            stale.write_text(json.dumps({
+                "runner_lane": "grpc-python", "package_version": "1.0.0",
+                "started_at": "2026-08-25T00:00:10Z", "completed_at": "2026-08-25T00:00:50Z",
+                "execution_identity": identity,
+                "operations": {"WorkspaceService/CreateWorkspace": {"result": "pass"}},
+            }))
+            stale_fragment = self.build([stale])
+        result = next(item for item in fragment["excluded_operations"]
+                      if item["operation"] == "WorkspaceService/CreateWorkspace")["results"]["grpc-python"]
+        self.assertTrue(result["identity_verified"])
+        self.assertEqual(identity, result["execution_identity"])
+        stale_result = next(item for item in stale_fragment["excluded_operations"]
+                            if item["operation"] == "WorkspaceService/CreateWorkspace")["results"]["grpc-python"]
+        self.assertFalse(stale_result["identity_verified"])
+
+    def test_an_operation_in_neither_scope_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "grpc-python.json"
+            report.write_text(json.dumps({
+                "runner_lane": "grpc-python", "package_version": "1.0.0",
+                "operations": {"NoSuchService/Nothing": {"result": "pass"}},
+            }))
+            with self.assertRaisesRegex(ValueError, "unknown operations"):
+                self.build([report])
 
     def test_skip_fragment_is_accepted_by_evidence_and_enforced_by_release_gate(self):
         requirements_path = RELEASE_ROOT / "certification/protocol-certification-requirements.v1.json"
@@ -435,7 +538,7 @@ class FragmentTests(unittest.TestCase):
             row for row in requirements["requirements"]
             if row["surface"] == "grpc" and str(row["canonical_client"]).startswith("Generated gRPC")
         ]
-        self.assertEqual(240, len(rows))
+        self.assertEqual(IN_SCOPE_CELLS, len(rows))
         catalog = json.loads(MODULE.CATALOG.read_text())
         for row in rows:
             client = next(item for item in catalog["clients"] if item["client_lane"] == row["client_lane"])
@@ -482,7 +585,7 @@ class FragmentTests(unittest.TestCase):
             candidate,
             now=datetime(2026, 9, 26, tzinfo=timezone.utc),
         )
-        self.assertEqual(240, len(ledger["cells"]))
+        self.assertEqual(IN_SCOPE_CELLS, len(ledger["cells"]))
         for cell in ledger["cells"]:
             self.assertEqual("skip", cell["result"])
             self.assertNotEqual("no producer evidence for required certification cell", cell["skip_reason"])
@@ -509,7 +612,7 @@ class FragmentTests(unittest.TestCase):
             requirements=filtered,
         )
         self.assertEqual("fail", report["overall_status"])
-        self.assertEqual(240, report["required_cells"])
+        self.assertEqual(IN_SCOPE_CELLS, report["required_cells"])
         self.assertTrue(any("expected 'pass'" in finding["why"] for finding in report["findings"]))
         self.assertFalse(any("do not resolve" in finding["why"] for finding in report["findings"]))
 

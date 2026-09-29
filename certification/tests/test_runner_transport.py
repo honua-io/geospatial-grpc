@@ -95,7 +95,7 @@ class RunnerTransportContract:
         raise NotImplementedError
 
     def execute(self, response=None, abort=False, edits_response=None,
-                negative_status=grpc.StatusCode.NOT_FOUND, verify_response=None):
+                negative_status=grpc.StatusCode.NOT_FOUND, verify_response=None, unimplemented=()):
         requests = {}
         server = grpc.server(ThreadPoolExecutor(max_workers=2))
 
@@ -103,6 +103,8 @@ class RunnerTransportContract:
             def invoke(request, context):
                 if VERIFY_MARKER.encode() not in request:
                     requests[operation] = request
+                if operation in unimplemented:
+                    context.abort(grpc.StatusCode.UNIMPLEMENTED, "Service is unimplemented.")
                 if operation == "FeatureService/QueryFeatures" and VERIFY_MARKER.encode() in request:
                     requests["FeatureService/QueryFeatures#read-back"] = request
                     return query_response() if verify_response is None else verify_response
@@ -230,6 +232,15 @@ class RunnerTransportContract:
         self.assertIn("does not match the unchanged state", outcome["reason"])
         self.assertIn("features[0].id", outcome["reason"])
         self.assertEqual(5, sum(item["result"] == "pass" for item in report["operations"].values()))
+
+    def test_excluded_operation_failure_is_reported_but_does_not_fail_the_lane(self):
+        # FormService and ExecutePlan are excluded by the 2026.1 scope ruling (#88).
+        completed, report = self.execute(
+            unimplemented=("FormService/GetFormDefinition", "ProcessService/ExecutePlan"))
+        self.assertEqual(0, completed.returncode, report)
+        for operation in ("FormService/GetFormDefinition", "ProcessService/ExecutePlan"):
+            self.assertEqual("fail", report["operations"][operation]["result"])
+            self.assertIn("unimplemented", report["operations"][operation]["reason"].lower())
 
     def test_rpc_exception_fails_without_losing_other_results(self):
         completed, report = self.execute(abort=True)

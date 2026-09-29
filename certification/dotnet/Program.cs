@@ -322,4 +322,14 @@ await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(new
     },
     operations = outcomes,
 }, new JsonSerializerOptions { WriteIndented = true }));
-return failures == 0 ? 0 : 1;
+// Excluded operations are still executed and reported, but only a governed
+// failure fails the lane (the fragment reports excluded results separately).
+using var catalog = JsonDocument.Parse(
+    await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "protocol-certification-catalog.v1.json")));
+var excludedOperations = catalog.RootElement.TryGetProperty("excluded_operations", out var excludedList)
+    ? excludedList.EnumerateArray().Select(operation => operation.GetProperty("operation").GetString()!).ToHashSet()
+    : [];
+var governedFailures = outcomes.Count(outcome =>
+    !excludedOperations.Contains(outcome.Key)
+    && JsonSerializer.SerializeToElement(outcome.Value).GetProperty("result").GetString() == "fail");
+return governedFailures == 0 ? 0 : 1;

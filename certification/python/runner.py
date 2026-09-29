@@ -40,6 +40,13 @@ PACKAGE = "geospatial-grpc"
 PACKAGE_SOURCE = "https://pypi.org/pypi/geospatial-grpc/json"
 SERVER_ASSIGNED_FIELDS = Path(__file__).resolve().parents[1] / "server-assigned-fields.v1.json"
 SERVER_ASSIGNED = "<server-assigned>"
+CATALOG = Path(__file__).resolve().parents[1] / "protocol-certification-catalog.v1.json"
+
+
+def load_excluded_operations(path: Path = CATALOG) -> set[str]:
+    """Operations the 2026.1 scope ruling excludes from the governed cells (#88)."""
+    catalog = json.loads(path.read_text(encoding="utf-8"))
+    return {operation["operation"] for operation in catalog.get("excluded_operations", [])}
 
 
 def load_server_assigned_fields(
@@ -307,7 +314,13 @@ def main(argv: list[str]) -> int:
     }
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    return 0 if failures == 0 else 1
+    # Excluded operations are still executed and reported, but only a governed
+    # failure fails the lane (the fragment reports excluded results separately).
+    excluded = load_excluded_operations()
+    governed_failures = sum(
+        1 for name, outcome in outcomes.items() if outcome["result"] == "fail" and name not in excluded
+    )
+    return 0 if governed_failures == 0 else 1
 
 
 if __name__ == "__main__":

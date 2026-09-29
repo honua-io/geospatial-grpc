@@ -1,7 +1,17 @@
 # Protocol certification producer
 
-This producer snapshots the 240-cell gRPC denominator frozen by
-`honua-release` (80 RPCs for each generated-client lane). Every observation
+This producer snapshots the 42-cell gRPC denominator frozen by
+`honua-release` (revision `2026-09-29-complete.14`: 14 RPCs for each
+generated-client lane). The 2026.1 scope ruling
+([#88](https://github.com/honua-io/geospatial-grpc/issues/88#issuecomment-5896448868),
+honua-release#376) keeps only the RPCs honua-server implements. The other 66 of
+the 80 inventoried RPCs are listed in the catalog's `excluded_operations` with
+maturity, rationale, owner issue and target release. Runners still execute the
+fixtures for excluded operations. The fragment reports those results under
+`excluded_operations` (`counts_toward_ga: false`, and each lane result carries
+its report provenance and `identity_verified`). An excluded result never
+becomes an observation, a receipt or an `execution_failure`, and never fails a
+lane's exit status. Every observation
 uses that denominator's governed identity: client version
 `source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`, contract
 `geospatial-grpc@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`, and fixture
