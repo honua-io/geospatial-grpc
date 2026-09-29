@@ -324,13 +324,30 @@ jobs:
         with:
           python-version: "3.13"
 
-      # Follow examples/python/README.md exactly: install the example's own
-      # requirements, generate stubs with grpcio-tools, then import the example.
-      # The requirements are the ones users are told to install, so an
-      # unresolvable or incompatible pin set fails here instead of in onboarding.
+      # Follow examples/python/README.md: install the example's requirements,
+      # generate stubs with grpcio-tools, then import the example. CI installs
+      # the hash-locked equivalent, and first proves its top-level pins equal
+      # the requirements.txt users are told to install, so an unresolvable or
+      # stale pin set fails here instead of in onboarding.
+      - name: Verify hash lock matches the example requirements
+        run: |
+          python - <<'PY'
+          import re
+          def pins(path):
+              return {m.group(1).lower(): m.group(2) for m in
+                      re.finditer(r"^([A-Za-z0-9_.-]+)==([^\s\\]+)", open(path).read(), re.M)}
+          example = pins("examples/python/requirements.txt")
+          lock = pins(".github/requirements/python-example.txt")
+          drift = {name: (version, lock.get(name)) for name, version in example.items() if lock.get(name) != version}
+          if drift:
+              raise SystemExit(f"python-example.txt is stale vs examples/python/requirements.txt: {drift}")
+          print("hash lock matches", example)
+          PY
+
       - name: Install Example Dependencies
-        working-directory: examples/python
-        run: python -m pip install --disable-pip-version-check "--only-binary=:all:" -r requirements.txt
+        run: >-
+          python -m pip install --disable-pip-version-check --require-hashes
+          "--only-binary=:all:" --requirement .github/requirements/python-example.txt
 
       - name: Generate Python Stubs
         working-directory: examples/python
