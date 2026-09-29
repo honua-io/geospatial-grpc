@@ -20,3 +20,4 @@ __pycache__/
 # .NET build artifacts
 **/bin/
 **/obj/
+/certification/typescript/node_modules/
