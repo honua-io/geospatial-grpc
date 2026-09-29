@@ -1,0 +1,5 @@
+{
+  "code": 3,
+  "name": "INVALID_ARGUMENT",
+  "description": "The request carries no spec document; the stream fails before any event."
+}

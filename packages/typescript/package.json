@@ -1,6 +1,6 @@
 {
   "name": "@honua/geospatial-grpc",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Generated TypeScript bindings for the geospatial.v1 gRPC protocol",
   "type": "module",
   "sideEffects": false,

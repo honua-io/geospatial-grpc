@@ -26,7 +26,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import grpc
-from google.protobuf import json_format, message_factory
+from google.protobuf import json_format, message_factory, unknown_fields
 
 PACKAGE = "geospatial-grpc"
 PACKAGE_SOURCE = "https://pypi.org/pypi/geospatial-grpc/json"
@@ -171,6 +171,26 @@ def _canonical(message) -> object:
     return json.loads(json_format.MessageToJson(message))
 
 
+def unknown_field_paths(message, path: str = "$") -> list[str]:
+    """Paths of fields the installed generated schema does not define, at any depth."""
+    found = [path] if len(unknown_fields.UnknownFieldSet(message)) else []
+    for field, value in message.ListFields():
+        if field.message_type is None:
+            continue
+        child = f"{path}.{field.json_name}"
+        if field.message_type.GetOptions().map_entry:
+            value_field = field.message_type.fields_by_name["value"]
+            if value_field.message_type is not None:
+                for key, item in value.items():
+                    found += unknown_field_paths(item, f"{child}[{key!r}]")
+        elif field.is_repeated:
+            for index, item in enumerate(value):
+                found += unknown_field_paths(item, f"{child}[{index}]")
+        else:
+            found += unknown_field_paths(value, child)
+    return found
+
+
 def _module_for(service: str):
     snake = re.sub(r"(?<!^)(?=[A-Z])", "_", service).lower()
     return importlib.import_module(f"geospatial.v1.{snake}_pb2")
@@ -244,10 +264,6 @@ def main(argv: list[str]) -> int:
         return mask_server_assigned(
             document, server_assigned.get(operation, []), optional_server_assigned.get(operation, []))
 
-    def unary(operation: str, request_fixture: str):
-        rpc = method(operation)
-        return rpc.call(parse(request_fixture, rpc.request_type), metadata=call_metadata, timeout=30)
-
     def compare_unary(operation: str, response_fixture: str, response) -> str | None:
         expected = parse(response_fixture, method(operation).response_type)
         return first_divergence(masked(operation, _canonical(expected)), masked(operation, _canonical(response)))
@@ -259,37 +275,54 @@ def main(argv: list[str]) -> int:
                 raise ScenarioFailure(f"response has no value at {pattern} to capture as '{key}'")
             captures[key] = value
 
-    def run(scenario: dict) -> None:
+    def describe(exception: Exception) -> str:
+        if isinstance(exception, ScenarioFailure):
+            return str(exception)
+        detail = exception.details() if isinstance(exception, grpc.RpcError) else str(exception)
+        code = f"{exception.code().name}: " if isinstance(exception, grpc.RpcError) else ""
+        return f"Canonical published client executed and failed: {type(exception).__name__}: {code}{detail}"
+
+    def call(operation: str, request_fixture: str, timeout: int = 30) -> list:
+        """Invoke one RPC and return its response messages (one for unary)."""
+        rpc = method(operation)
+        request = parse(request_fixture, rpc.request_type)
+        if rpc.streaming:
+            return list(rpc.call(request, metadata=call_metadata, timeout=timeout))
+        return [rpc.call(request, metadata=call_metadata, timeout=timeout)]
+
+    def run_negative(scenario: dict) -> None:
+        operation = scenario["operation"]
+        negative = scenario["negative"]
+        expected_status = json.loads(read_fixture(negative["status"]))
+        try:
+            call(operation, negative["request"])
+        except grpc.RpcError as rejection:
+            if rejection.code().value[0] != expected_status["code"]:
+                raise ScenarioFailure(
+                    f"Negative case {negative['request']} expected status {expected_status['name']}, "
+                    f"got {rejection.code().name}: {rejection.details()}") from None
+        else:
+            raise ScenarioFailure(
+                f"Negative case {negative['request']} succeeded; expected it to fail "
+                f"with status {expected_status['name']}")
+        verify = negative.get("verify")
+        if verify is not None:
+            response = call(verify["operation"], verify["request"])[0]
+            divergence = compare_unary(verify["operation"], verify["response"], response)
+            if divergence is not None:
+                raise ScenarioFailure(
+                    f"Negative case {negative['request']} was rejected, but reading its targets back "
+                    f"does not match the unchanged state at {divergence}")
+
+    def run_positive_once(scenario: dict, decoded: list) -> list:
         operation = scenario["operation"]
         setup = scenario.get("setup")
         if setup is not None:
-            capture(setup.get("capture"), _canonical(unary(setup["operation"], setup["request"])))
-        negative = scenario.get("negative")
-        if negative is not None:
-            expected_status = json.loads(read_fixture(negative["status"]))
-            try:
-                unary(operation, negative["request"])
-            except grpc.RpcError as rejection:
-                if rejection.code().value[0] != expected_status["code"]:
-                    raise ScenarioFailure(
-                        f"Negative case {negative['request']} expected status {expected_status['name']}, "
-                        f"got {rejection.code().name}: {rejection.details()}") from None
-            else:
-                raise ScenarioFailure(
-                    f"Negative case {negative['request']} succeeded; expected the whole batch to fail "
-                    f"with status {expected_status['name']}")
-            verify = negative.get("verify")
-            if verify is not None:
-                divergence = compare_unary(
-                    verify["operation"], verify["response"], unary(verify["operation"], verify["request"]))
-                if divergence is not None:
-                    raise ScenarioFailure(
-                        f"Negative case {negative['request']} was rejected, but reading its targets back "
-                        f"does not match the unchanged state at {divergence}")
+            capture(setup.get("capture"), _canonical(call(setup["operation"], setup["request"])[0]))
+        rpc = method(operation)
         if scenario["kind"] == "server_stream":
-            rpc = method(operation)
-            messages = list(rpc.call(
-                parse(scenario["request"], rpc.request_type), metadata=call_metadata, timeout=60))
+            messages = call(operation, scenario["request"], timeout=60)
+            decoded.extend(messages)
             actual = [masked(operation, _canonical(message)) for message in messages]
             expected = []
             index = 1
@@ -304,47 +337,75 @@ def main(argv: list[str]) -> int:
             divergence = first_divergence(expected, actual)
         else:
             poll = scenario.get("poll_until")
-            response = unary(operation, scenario["request"])
+            response = call(operation, scenario["request"])[0]
+            decoded.append(response)
             if poll is not None:
                 timeout = float(poll_timeout_override or poll["timeout_seconds"])
                 deadline = time.monotonic() + timeout
                 while read_path(_canonical(response), poll["path"]) not in poll["values"] \
                         and time.monotonic() < deadline:
                     time.sleep(POLL_INTERVAL_SECONDS)
-                    response = unary(operation, scenario["request"])
+                    response = call(operation, scenario["request"])[0]
+                    decoded.append(response)
             capture(scenario.get("capture"), _canonical(response))
+            messages = [response]
             divergence = compare_unary(operation, scenario["response"], response)
         if divergence is not None:
             raise ScenarioFailure(f"Canonical response mismatch at {divergence}")
+        return messages
+
+    def run_positive(scenario: dict, decoded: list) -> list:
+        retry = scenario.get("setup_race_retry")
+        attempts = retry["attempts"] if retry else 1
+        for attempt in range(1, attempts + 1):
+            try:
+                return run_positive_once(scenario, decoded)
+            except grpc.RpcError as race:
+                # The setup produced a job that finished before the call
+                # (outside the contract under test); redo setup and call.
+                if not retry or race.code().value[0] != retry["status_code"] or attempt == attempts:
+                    raise
+        raise AssertionError("unreachable")
 
     with channel:
         for scenario in load_scenarios():
             operation = scenario["operation"]
+            facets: dict[str, str] = {}
+            reasons: list[str] = []
+            if "negative" in scenario:
+                try:
+                    run_negative(scenario)
+                    facets["negative"] = "pass"
+                except Exception as exception:  # noqa: BLE001 - every failure is a recorded outcome
+                    facets["negative"] = "fail"
+                    reasons.append(f"negative: {describe(exception)}")
+            decoded: list = []
             try:
-                retry = scenario.get("setup_race_retry")
-                attempts = retry["attempts"] if retry else 1
-                for attempt in range(1, attempts + 1):
-                    try:
-                        run(scenario)
-                        break
-                    except grpc.RpcError as race:
-                        # The setup produced a job that finished before the call
-                        # (outside the contract under test); redo setup and call.
-                        if not retry or race.code().value[0] != retry["status_code"] or attempt == attempts:
-                            raise
-                outcomes[operation] = {"result": "pass"}
-            except ScenarioFailure as failure:
-                outcomes[operation] = {"result": "fail", "reason": str(failure)}
+                run_positive(scenario, decoded)
+                facets["positive"] = "pass"
             except Exception as exception:  # noqa: BLE001 - every failure is a recorded outcome
-                detail = exception.details() if isinstance(exception, grpc.RpcError) else str(exception)
-                code = f"{exception.code().name}: " if isinstance(exception, grpc.RpcError) else ""
-                outcomes[operation] = {
-                    "result": "fail",
-                    "reason": (
-                        "Canonical published client executed and failed: "
-                        f"{type(exception).__name__}: {code}{detail}"
-                    ),
-                }
+                facets["positive"] = "fail"
+                reasons.append(describe(exception) if "negative" not in scenario else f"positive: {describe(exception)}")
+            if "negative" not in scenario:
+                outcomes[operation] = (
+                    {"result": "pass"} if facets["positive"] == "pass" else {"result": "fail", "reason": reasons[0]}
+                )
+                continue
+            # media-schema covers every positive response the client decoded,
+            # including polled ones, whether or not the comparison passed.
+            unknown = [path for message in decoded for path in unknown_field_paths(message)]
+            if not decoded:
+                facets["media-schema"] = "fail"
+                reasons.append("media-schema: no positive response to check")
+            elif unknown:
+                facets["media-schema"] = "fail"
+                reasons.append(f"media-schema: fields unknown to the installed schema at {', '.join(unknown)}")
+            else:
+                facets["media-schema"] = "pass"
+            passed = all(value == "pass" for value in facets.values())
+            outcomes[operation] = {"result": "pass" if passed else "fail", "facet_results": facets}
+            if not passed:
+                outcomes[operation]["reason"] = "; ".join(reasons)
 
     report = {
         "runner_lane": "grpc-python",

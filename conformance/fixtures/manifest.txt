@@ -76,3 +76,19 @@ elevation_get_request.json        geospatial.v1.GetElevationRequest
 elevation_get_response.json       geospatial.v1.GetElevationResponse
 elevation_profile_request.json    geospatial.v1.GetElevationProfileRequest
 elevation_profile_response.json   geospatial.v1.GetElevationProfileResponse
+
+# Negative cases: each request must fail with the gRPC status in the matching
+# *_invalid_status.json (not a protobuf message, so not listed here).
+feature_query_invalid_request.json  geospatial.v1.QueryFeaturesRequest
+feature_query_stream_invalid_request.json  geospatial.v1.QueryFeaturesRequest
+process_validate_plan_invalid_request.json  geospatial.v1.ValidatePlanRequest
+process_dry_run_plan_invalid_request.json  geospatial.v1.DryRunPlanRequest
+process_submit_job_invalid_request.json  geospatial.v1.SubmitJobRequest
+process_get_job_invalid_request.json  geospatial.v1.GetJobRequest
+process_get_job_result_invalid_request.json  geospatial.v1.GetJobResultRequest
+process_cancel_job_invalid_request.json  geospatial.v1.CancelJobRequest
+spec_plan_invalid_request.json  geospatial.v1.PlanSpecRequest
+spec_apply_invalid_request.json  geospatial.v1.ApplySpecRequest
+spec_cancel_apply_invalid_request.json  geospatial.v1.CancelJobRequest
+elevation_get_invalid_request.json  geospatial.v1.GetElevationRequest
+elevation_profile_invalid_request.json  geospatial.v1.GetElevationProfileRequest
