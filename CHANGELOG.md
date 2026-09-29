@@ -5,6 +5,22 @@ client packages are recorded here. A single git release tag (`v<version>`)
 identifies the matching NuGet, PyPI, npm, BSR, and `conformance/VERSION`
 coordinates.
 
+## v1.0.1
+
+Patch release for the conformance fixture set. There are no `.proto`,
+wire-surface or generated-API changes from `v1.0.0`; the packages are rebuilt
+only so `conformance/VERSION`, the release tag and every package version stay a
+single coordinate.
+
+### Fixes
+
+- `workspace_create_request.json` and `workspace_create_response.json` bound the
+  retention policy as `defaultRetention.ref.retentionPolicyId`. `RetentionPolicyRef`
+  has no `ref` field, so generated clients rejected the fixtures and the
+  goldens silently recorded an empty `defaultRetention`. They now set
+  `defaultRetention.retentionPolicyId`. A regression test fails CI when any
+  fixture value is dropped as an unknown key (#88).
+
 ## v1.0.0
 
 **First stable release.** This release promotes the `geospatial.v1` schema
