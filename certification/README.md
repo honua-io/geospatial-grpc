@@ -28,6 +28,17 @@ python3 -m unittest tests/test_protocol_certification_fragment.py -v
 The scheduled and dispatched workflow owns exact-image verification, fixture
 seeding, and the live generated-client execution.
 
+Fixture seeding applies the candidate server's own `tests/seed/base-schema.sql`
+(fetched at the exact server source SHA), then `seed/sf-parks.sql`, before the
+server starts. That seed registers the `sf-parks` service with layer 0, the
+target of the FeatureService fixtures, through the same catalog tables and
+`honua.seed_metadata_v2_compat_snapshot()` path that base-schema.sql uses.
+Honua layer ids are global, so the seed rebinds layer 0 from base-schema's
+`test_service` to `sf-parks`. `seed/sf-parks-reset.sql` runs before every client
+lane and restores features 7 and 42, leaves 8 absent, and pins the next object
+id to 101. Without it, one lane's ApplyEdits would change what the next lane
+reads.
+
 Executed failures are also retained in `execution_failures`, attributed by lane
 and operation. Both the .NET runner and fragment CLI return nonzero on an
 executed failure, including a failure in a cell with incomplete scenario facets.
