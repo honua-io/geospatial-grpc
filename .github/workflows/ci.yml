@@ -24,6 +24,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Enforce maintained documentation command policy
+        run: |
+          # Cover common raw HTTP clients and PowerShell aliases.
+          if git grep -n -i -w -E 'curl|wget|Invoke-WebRequest|Invoke-RestMethod|iwr|irm|httpie|(http|https)[[:space:]]+(https?://|:|--|GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)[^[:space:]]*' -- '*.md' '*.mdx' '*.rst' '*.txt'; then
+            echo "::error::Maintained documentation must use supported SDK, CLI, or API-reference workflows."
+            exit 1
+          fi
+
       - name: Install Buf CLI
         run: |
           curl -fsSL -o "${RUNNER_TEMP}/buf" "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
@@ -215,7 +223,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
           cache: npm
@@ -262,7 +270,7 @@ jobs:
           echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "20"
 
