@@ -382,6 +382,48 @@ class FragmentTests(unittest.TestCase):
             finally:
                 MODULE.CATALOG = original
 
+    def test_python_and_typescript_executions_are_attributed_by_lane(self):
+        with tempfile.TemporaryDirectory() as directory:
+            reports = []
+            for lane, package, source in (
+                ("grpc-python", "geospatial-grpc", "https://pypi.org/pypi/geospatial-grpc/json"),
+                ("grpc-typescript", "@honua/geospatial-grpc",
+                 "https://registry.npmjs.org/@honua/geospatial-grpc"),
+            ):
+                report = Path(directory) / f"{lane}.json"
+                report.write_text(json.dumps({
+                    "runner_lane": lane,
+                    "package": package,
+                    "package_version": "1.0.0",
+                    "package_source": source,
+                    "operations": {
+                        "FeatureService/QueryFeatures": {"result": "pass"},
+                        "FormService/GetFormDefinition": {
+                            "result": "fail",
+                            "reason": f"{lane}: StatusCode.UNIMPLEMENTED",
+                        },
+                    },
+                }))
+                reports.append(report)
+            fragment = self.build(reports)
+        self.assertEqual([
+            {"runner_lane": "grpc-python", "operation": "FormService/GetFormDefinition",
+             "reason": "grpc-python: StatusCode.UNIMPLEMENTED"},
+            {"runner_lane": "grpc-typescript", "operation": "FormService/GetFormDefinition",
+             "reason": "grpc-typescript: StatusCode.UNIMPLEMENTED"},
+        ], fragment["execution_failures"])
+        for lane in ("grpc-python", "grpc-typescript"):
+            cells = [o for o in fragment["observations"] if o["runner_lane"] == lane]
+            self.assertEqual(80, len(cells))
+            # Promoted 1.0.0 bytes executed, but they are not the governed pin:
+            # every governed cell stays an evidence-free skip that names why.
+            self.assertEqual({"skip"}, {o["result"] for o in cells})
+            self.assertTrue(all(o["evidence_receipt"] is None for o in cells))
+            query = next(o for o in cells if o["operation"] == "FeatureService/QueryFeatures")
+            self.assertIn("positive execution pass", query["skip_reason"])
+            self.assertIn(GOVERNED_CLIENT_VERSION, query["skip_reason"])
+        self.assertEqual("red", fragment["client_rollup"]["state"])
+
     def test_skip_fragment_is_accepted_by_evidence_and_enforced_by_release_gate(self):
         requirements_path = RELEASE_ROOT / "certification/protocol-certification-requirements.v1.json"
         aggregate_path = EVIDENCE_ROOT / "scripts/aggregate-certification.py"
