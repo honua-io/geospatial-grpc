@@ -19,7 +19,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
 SPEC.loader.exec_module(MODULE)
 
-GOVERNED_CLIENT_VERSION = "source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c"
+GOVERNED_CLIENT_VERSION = "1.0.3"
 # 2026.1 gRPC scope ruling (#88, honua-release#376): only the RPCs honua-server
 # implements are governed cells; the other 66 are excluded_operations.
 IN_SCOPE_RPCS = 14
@@ -80,7 +80,7 @@ class FragmentTests(unittest.TestCase):
             self.assertTrue(parsed.path.startswith("/geospatial.v1."))
         self.assertEqual("red", fragment["client_rollup"]["state"])
         self.assertEqual(
-            {"grpc-dotnet": "unpublished", "grpc-python": "unpublished", "grpc-typescript": "unpublished"},
+            {"grpc-dotnet": "incomplete", "grpc-python": "incomplete", "grpc-typescript": "incomplete"},
             fragment["client_rollup"]["client_states"],
         )
         catalog = json.loads(MODULE.CATALOG.read_text())
@@ -92,7 +92,7 @@ class FragmentTests(unittest.TestCase):
         self.assertFalse(fragment["client_rollup"]["all_claimed_cells_passed"])
         self.assertIsNone(fragment["client_rollup"]["claim_narrowing_decision"])
         python = next(o for o in fragment["observations"] if o["runner_lane"] == "grpc-python")
-        self.assertEqual("unpublished", python["publication_state"])
+        self.assertEqual("published", python["publication_state"])
         self.assertEqual("skip", python["result"])
 
     def test_executed_positive_result_skips_observation_until_every_facet_passes(self):
@@ -330,7 +330,9 @@ class FragmentTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "published package identity mismatch"):
                 self.build([report])
 
-    def test_promoted_package_bytes_do_not_satisfy_the_governed_cell(self):
+    def test_report_from_other_package_bytes_is_rejected(self):
+        # The governed cells are the published 1.0.3 packages; a lane that ran
+        # other bytes cannot be relabeled as the governed client.
         with tempfile.TemporaryDirectory() as directory:
             report = Path(directory) / "dotnet.json"
             report.write_text(json.dumps({
@@ -338,32 +340,10 @@ class FragmentTests(unittest.TestCase):
                 "package": "Geospatial.Grpc",
                 "package_version": "1.0.0",
                 "package_source": "https://api.nuget.org/v3/index.json",
-                "operations": {"FeatureService/QueryFeatures": {
-                    "result": "fail",
-                    "reason": "Canonical response mismatch at $.features[0].id",
-                }},
+                "operations": {"FeatureService/QueryFeatures": {"result": "pass"}},
             }))
-            fragment = self.build([report])
-        observation = next(
-            item for item in fragment["observations"]
-            if item["runner_lane"] == "grpc-dotnet" and item["operation"] == "FeatureService/QueryFeatures"
-        )
-        self.assertEqual("skip", observation["result"])
-        self.assertEqual(GOVERNED_CLIENT_VERSION, observation["client_version"])
-        self.assertIsNone(observation["evidence_receipt"])
-        self.assertIn("1.0.0", observation["skip_reason"])
-        self.assertIn(GOVERNED_CLIENT_VERSION, observation["skip_reason"])
-        self.assertIn("$.features[0].id", observation["skip_reason"])
-        self.assertEqual([{
-            "runner_lane": "grpc-dotnet",
-            "operation": "FeatureService/QueryFeatures",
-            "reason": "Canonical response mismatch at $.features[0].id",
-        }], fragment["execution_failures"])
-        untouched = next(
-            item for item in fragment["observations"]
-            if item["runner_lane"] == "grpc-dotnet" and item["operation"] == "FeatureService/ApplyEdits"
-        )
-        self.assertIn("not executed against the governed client", untouched["skip_reason"])
+            with self.assertRaisesRegex(ValueError, "published package identity mismatch for grpc-dotnet"):
+                self.build([report])
 
     def test_rejects_placeholder_or_floating_identity(self):
         with self.assertRaisesRegex(ValueError, "absolute HTTP"):
@@ -399,7 +379,7 @@ class FragmentTests(unittest.TestCase):
                 report.write_text(json.dumps({
                     "runner_lane": lane,
                     "package": package,
-                    "package_version": "1.0.0",
+                    "package_version": GOVERNED_CLIENT_VERSION,
                     "package_source": source,
                     "operations": {
                         "FeatureService/QueryFeatures": {"result": "pass"},
@@ -420,13 +400,13 @@ class FragmentTests(unittest.TestCase):
         for lane in ("grpc-python", "grpc-typescript"):
             cells = [o for o in fragment["observations"] if o["runner_lane"] == lane]
             self.assertEqual(IN_SCOPE_RPCS, len(cells))
-            # Promoted 1.0.0 bytes executed, but they are not the governed pin:
-            # every governed cell stays an evidence-free skip that names why.
+            # The governed bytes executed, but without every facet no cell can
+            # carry a receipt: each stays an evidence-free skip that names why.
             self.assertEqual({"skip"}, {o["result"] for o in cells})
             self.assertTrue(all(o["evidence_receipt"] is None for o in cells))
             query = next(o for o in cells if o["operation"] == "FeatureService/QueryFeatures")
             self.assertIn("positive execution pass", query["skip_reason"])
-            self.assertIn(GOVERNED_CLIENT_VERSION, query["skip_reason"])
+            self.assertIn("missing required facet", query["skip_reason"])
         self.assertEqual("red", fragment["client_rollup"]["state"])
 
     def test_catalog_scope_is_the_ruled_split_of_the_full_inventory(self):
@@ -494,7 +474,9 @@ class FragmentTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             report = Path(directory) / "grpc-python.json"
             report.write_text(json.dumps({
-                "runner_lane": "grpc-python", "package_version": "1.0.0",
+                "runner_lane": "grpc-python", "package": "geospatial-grpc",
+                "package_version": GOVERNED_CLIENT_VERSION,
+                "package_source": "https://pypi.org/pypi/geospatial-grpc/json",
                 "started_at": "2026-08-26T00:00:10Z", "completed_at": "2026-08-26T00:00:50Z",
                 "execution_identity": identity,
                 "operations": {"WorkspaceService/CreateWorkspace": {"result": "fail", "reason": "UNIMPLEMENTED"}},
@@ -503,7 +485,9 @@ class FragmentTests(unittest.TestCase):
             stale = Path(directory) / "stale" / "grpc-python.json"
             stale.parent.mkdir()
             stale.write_text(json.dumps({
-                "runner_lane": "grpc-python", "package_version": "1.0.0",
+                "runner_lane": "grpc-python", "package": "geospatial-grpc",
+                "package_version": GOVERNED_CLIENT_VERSION,
+                "package_source": "https://pypi.org/pypi/geospatial-grpc/json",
                 "started_at": "2026-08-25T00:00:10Z", "completed_at": "2026-08-25T00:00:50Z",
                 "execution_identity": identity,
                 "operations": {"WorkspaceService/CreateWorkspace": {"result": "pass"}},

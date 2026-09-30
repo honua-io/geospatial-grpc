@@ -31,8 +31,8 @@ on:
 
 env:
   DOTNET_VERSION: "10.0.x"
-  PINNED_SERVER_IMAGE: "ghcr.io/honua-io/honua-server@sha256:80d66658bc93501cffba3d23ac4a1012980039ed906e3036c58d80da05d2fe62"
-  PINNED_SERVER_SOURCE_SHA: "2db24e648350927c3dada3eb00638bcec1e5cc3e"
+  PINNED_SERVER_IMAGE: "ghcr.io/honua-io/honua-server@sha256:eed00dd4777138abc9981d57f56efa7db32e831a5b23247da0470bee10ce8832"
+  PINNED_SERVER_SOURCE_SHA: "9e15bc044e8245bd1dfcfaa69da6a3dc391b19a9"
   GRPC_TARGET: "http://localhost:8081"
 
 permissions:
@@ -130,14 +130,14 @@ jobs:
       - name: Materialize honest defaults for every client lane
         run: |
           mkdir -p artifacts
-          jq -n '{runner_lane:"grpc-dotnet",unexecuted_reason:"Geospatial.Grpc 1.0.0 did not reach live execution in this run. That package is not governed client_version source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c.",operations:{}}' > artifacts/grpc-dotnet.json
-          jq -n '{runner_lane:"grpc-python",unexecuted_reason:"geospatial-grpc 1.0.0 did not reach live execution in this run. That package is not governed client_version source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c.",operations:{}}' > artifacts/grpc-python.json
-          jq -n '{runner_lane:"grpc-typescript",unexecuted_reason:"@honua/geospatial-grpc 1.0.0 did not reach live execution in this run. That package is not governed client_version source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c.",operations:{}}' > artifacts/grpc-typescript.json
+          jq -n '{runner_lane:"grpc-dotnet",unexecuted_reason:"Geospatial.Grpc 1.0.3 did not reach live execution in this run.",operations:{}}' > artifacts/grpc-dotnet.json
+          jq -n '{runner_lane:"grpc-python",unexecuted_reason:"geospatial-grpc 1.0.3 did not reach live execution in this run.",operations:{}}' > artifacts/grpc-python.json
+          jq -n '{runner_lane:"grpc-typescript",unexecuted_reason:"@honua/geospatial-grpc 1.0.3 did not reach live execution in this run.",operations:{}}' > artifacts/grpc-typescript.json
 
-      - name: Checkout v1.0.3 certification fixtures by immutable source revision
+      - name: Checkout v1.0.5 certification fixtures by immutable source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 00fca4de0334c6e2304354df7b367faeec5780d6 # v1.0.3
+          ref: 18e609cfa23d20ba4f0aa9b3db7ee67f6c451d95 # v1.0.5
           path: .certification-source
           persist-credentials: false
 
@@ -204,7 +204,7 @@ jobs:
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
           SERVER_IMAGE: ${{ steps.identity.outputs.image }}
           SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
-          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.3+00fca4de0334c6e2304354df7b367faeec5780d6
+          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.5+18e609cfa23d20ba4f0aa9b3db7ee67f6c451d95
         run: |
           # ApplyEdits mutates sf-parks; every lane starts from the same rows.
           psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -q -f certification/seed/sf-parks-reset.sql
@@ -217,7 +217,7 @@ jobs:
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
           SERVER_IMAGE: ${{ steps.identity.outputs.image }}
           SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
-          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.3+00fca4de0334c6e2304354df7b367faeec5780d6
+          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.5+18e609cfa23d20ba4f0aa9b3db7ee67f6c451d95
         run: |
           # ApplyEdits mutates sf-parks; every lane starts from the same rows.
           psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -q -f certification/seed/sf-parks-reset.sql
@@ -230,7 +230,7 @@ jobs:
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
           SERVER_IMAGE: ${{ steps.identity.outputs.image }}
           SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
-          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.3+00fca4de0334c6e2304354df7b367faeec5780d6
+          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.5+18e609cfa23d20ba4f0aa9b3db7ee67f6c451d95
         run: |
           # ApplyEdits mutates sf-parks; every lane starts from the same rows.
           psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -q -f certification/seed/sf-parks-reset.sql

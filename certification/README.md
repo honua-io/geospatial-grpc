@@ -1,7 +1,7 @@
 # Protocol certification producer
 
 This producer snapshots the 42-cell gRPC denominator frozen by
-`honua-release` (revision `2026-09-29-complete.14`: 14 RPCs for each
+`honua-release` (revision `2026-09-29-complete.15`: 14 RPCs for each
 generated-client lane). The 2026.1 scope ruling
 ([#88](https://github.com/honua-io/geospatial-grpc/issues/88#issuecomment-5896448868),
 honua-release#376) keeps only the RPCs honua-server implements. The other 66 of
@@ -11,19 +11,16 @@ fixtures for excluded operations. The fragment reports those results under
 `excluded_operations` (`counts_toward_ga: false`, and each lane result carries
 its report provenance and `identity_verified`). An excluded result never
 becomes an observation, a receipt or an `execution_failure`, and never fails a
-lane's exit status. Every observation
-uses that denominator's governed identity: client version
-`source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`, contract
-`geospatial-grpc@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`, and fixture
-`geospatial-grpc-conformance@0.2.0-alpha.1+73fc882b1ae00d0a4a348aeadfba9f48b1a0317c`.
-Promoted `Geospatial.Grpc`, `geospatial-grpc`, and `@honua/geospatial-grpc`
-1.0.0 packages are not that pin. The workflow still installs all three
-promoted packages and executes each against the same six fixtures
-(`certification/dotnet`, `certification/python/runner.py`,
-`certification/typescript/runner.mjs`). Each lane runs independently, so one
-lane failing never hides another lane's results. Those results stay
-attributable `execution_failures` (by lane and operation) or skips, and they do
-not satisfy the governed cell.
+lane's exit status. Every observation uses that denominator's governed identity: the published
+`Geospatial.Grpc` (nuget.org), `geospatial-grpc` (PyPI) and
+`@honua/geospatial-grpc` (npm) **1.0.3** packages, contract
+`geospatial-grpc@00fca4de` (tag v1.0.3) and fixtures
+`geospatial-grpc-conformance@1.0.5+18e609cf` (tag v1.0.5). The workflow installs
+exactly those bytes. The pip requirement hash, the npm lockfile integrity and
+the NuGet lockfile content hash are pinned to the catalog's `package_digest` /
+`package_lock_hash`, and `tests/test_certification_client_pins.py` enforces it.
+Each lane runs independently, so one failing lane never hides another lane's
+results. A report from any other package version is rejected, not relabeled.
 `client_rollup` stays red until every governed cell passes. A
 narrowing-decision URL alone cannot waive cells; any adopted change must be
 reflected in the governed denominator.
