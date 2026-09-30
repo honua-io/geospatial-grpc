@@ -1,41 +1,51 @@
 {
   "schema": "honua.grpc-protocol-certification-catalog/v1",
-  "requirements_revision": "2026-09-29-complete.14",
+  "requirements_revision": "2026-09-29-complete.15",
   "maturity": "supported",
   "required_tier": "nightly",
   "claim_narrowing_decision": null,
-  "contract_revision": "geospatial-grpc@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c",
-  "fixture_revision": "geospatial-grpc-conformance@0.2.0-alpha.1+73fc882b1ae00d0a4a348aeadfba9f48b1a0317c",
+  "contract_revision": "geospatial-grpc@00fca4de0334c6e2304354df7b367faeec5780d6",
+  "fixture_revision": "geospatial-grpc-conformance@1.0.5+18e609cfa23d20ba4f0aa9b3db7ee67f6c451d95",
   "clients": [
     {
       "canonical_client": "Generated gRPC .NET client",
       "client_lane": "grpc-dotnet",
-      "client_version": "source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c",
-      "publication_state": "unpublished",
+      "client_version": "1.0.3",
+      "publication_state": "published",
       "deployment_target": "local-docker",
       "promoted_package": "Geospatial.Grpc",
-      "promoted_package_version": "1.0.0",
-      "promoted_package_source": "https://api.nuget.org/v3/index.json"
+      "promoted_package_version": "1.0.3",
+      "promoted_package_source": "https://api.nuget.org/v3/index.json",
+      "package": "Geospatial.Grpc",
+      "package_source": "https://api.nuget.org/v3/index.json",
+      "package_digest": "sha256:8b26754f72487978759a0f5bc2703f5eff4cf43a77a301943cb6e2328df49b14",
+      "package_lock_hash": "oUQujUcUUg18R0ZsRl9ULYocWFisHmdTdfLAbJiZ4RvSKwJVpPO3aNz9DpBitAh74GzVY8jST6r3GnQKGJPKFw=="
     },
     {
       "canonical_client": "Generated gRPC Python client",
       "client_lane": "grpc-python",
-      "client_version": "source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c",
-      "publication_state": "unpublished",
+      "client_version": "1.0.3",
+      "publication_state": "published",
       "deployment_target": "local-docker",
       "promoted_package": "geospatial-grpc",
-      "promoted_package_version": "1.0.0",
-      "promoted_package_source": "https://pypi.org/pypi/geospatial-grpc/json"
+      "promoted_package_version": "1.0.3",
+      "promoted_package_source": "https://pypi.org/pypi/geospatial-grpc/json",
+      "package": "geospatial-grpc",
+      "package_source": "https://pypi.org/pypi/geospatial-grpc/json",
+      "package_digest": "sha256:9c225843767d60bb82a24a35fc7e4de24299530d24ab4fdb709b6c093a366ebb"
     },
     {
       "canonical_client": "Generated gRPC TypeScript client",
       "client_lane": "grpc-typescript",
-      "client_version": "source@73fc882b1ae00d0a4a348aeadfba9f48b1a0317c",
-      "publication_state": "unpublished",
+      "client_version": "1.0.3",
+      "publication_state": "published",
       "deployment_target": "local-docker",
       "promoted_package": "@honua/geospatial-grpc",
-      "promoted_package_version": "1.0.0",
-      "promoted_package_source": "https://registry.npmjs.org/@honua/geospatial-grpc"
+      "promoted_package_version": "1.0.3",
+      "promoted_package_source": "https://registry.npmjs.org/@honua/geospatial-grpc",
+      "package": "@honua/geospatial-grpc",
+      "package_source": "https://registry.npmjs.org/@honua/geospatial-grpc",
+      "package_digest": "sha512-5Ugjvk89MSgdJ52+bGv6nB7AWhAjTLo0JLmxoWDtbNhK8aYN7lQP9nNpQKI4Y2Hi4T8nPNWhtp+pNs74rE488Q=="
     }
   ],
   "operations": [
