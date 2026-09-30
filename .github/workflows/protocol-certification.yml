@@ -31,8 +31,8 @@ on:
 
 env:
   DOTNET_VERSION: "10.0.x"
-  PINNED_SERVER_IMAGE: "ghcr.io/honua-io/honua-server@sha256:80d66658bc93501cffba3d23ac4a1012980039ed906e3036c58d80da05d2fe62"
-  PINNED_SERVER_SOURCE_SHA: "2db24e648350927c3dada3eb00638bcec1e5cc3e"
+  PINNED_SERVER_IMAGE: "ghcr.io/honua-io/honua-server@sha256:eed00dd4777138abc9981d57f56efa7db32e831a5b23247da0470bee10ce8832"
+  PINNED_SERVER_SOURCE_SHA: "9e15bc044e8245bd1dfcfaa69da6a3dc391b19a9"
   GRPC_TARGET: "http://localhost:8081"
 
 permissions:
