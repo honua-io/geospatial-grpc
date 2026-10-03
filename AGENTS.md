@@ -11,6 +11,11 @@ or pin clients from them and must not own independent copies.
 
 Protocol package: `geospatial.v1`. License: Apache-2.0.
 
+`release/component-versions.json` declares this repository's contract and schema
+versions. The honua-release nightly resolver reads it at the exact selected
+commit and refuses components with missing or invalid declarations. Update this
+file in the same PR as any contract or schema version bump.
+
 ## Tech Stack
 
 - **Protocol Buffers / gRPC** — definitions in `geospatial/v1/*.proto`.
