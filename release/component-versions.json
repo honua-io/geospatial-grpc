@@ -1,0 +1,10 @@
+{
+  "format": "honua.component-versions/v1",
+  "component": "geospatial-grpc",
+  "contractVersions": {
+    "grpc": "v1"
+  },
+  "schemaVersions": {
+    "conformance": "1.0.5"
+  }
+}
