@@ -135,7 +135,7 @@ jobs:
           jq -n '{runner_lane:"grpc-typescript",unexecuted_reason:"@honua/geospatial-grpc 1.0.3 did not reach live execution in this run.",operations:{}}' > artifacts/grpc-typescript.json
 
       - name: Checkout v1.0.5 certification fixtures by immutable source revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: 18e609cfa23d20ba4f0aa9b3db7ee67f6c451d95 # v1.0.5
           path: .certification-source

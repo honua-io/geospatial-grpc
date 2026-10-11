@@ -165,11 +165,14 @@ jobs:
         run: |
           # Trusted Publishing landed in npm 11.5.1; the bundled npm on the
           # runner's Node is older, and would fall back to asking for a token.
-          npm install -g npm@11.5.1
-          npm --version
+          curl -fsSL -o "${RUNNER_TEMP}/npm-11.5.1.tgz" https://registry.npmjs.org/npm/-/npm-11.5.1.tgz
+          printf '%s  %s\n' "232e6f5d9e799bcb486920b3e9ba907fdf96e576cf7e8c9446c8162e33a416096a1d37a9e910d9a918f6b1f606791c99bc6bb61ee2569b496ec74af13d0dbd95" "${RUNNER_TEMP}/npm-11.5.1.tgz" | sha512sum --check --strict
+          mkdir -p "${RUNNER_TEMP}/npm-11.5.1"
+          tar -xzf "${RUNNER_TEMP}/npm-11.5.1.tgz" -C "${RUNNER_TEMP}/npm-11.5.1" --strip-components=1
+          node "${RUNNER_TEMP}/npm-11.5.1/bin/npm-cli.js" --version
       - name: Publish exact build artifact
         if: steps.guard.outputs.skip != 'true'
-        run: npm publish dist/typescript/*.tgz --access public --provenance
+        run: node "${RUNNER_TEMP}/npm-11.5.1/bin/npm-cli.js" publish dist/typescript/*.tgz --access public --provenance
 
   prove-public-consumption:
     name: Prove Clean Public Consumption

@@ -171,7 +171,7 @@ jobs:
           echo "skip=true" >> "${GITHUB_OUTPUT}"
       - name: Publish exact build artifact
         if: steps.guard.outputs.skip != 'true'
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1 (2026-08-20)
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           attestations: true
           packages-dir: dist/python/dist
