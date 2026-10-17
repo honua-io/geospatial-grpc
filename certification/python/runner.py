@@ -407,11 +407,17 @@ def main(argv: list[str]) -> int:
             if not passed:
                 outcomes[operation]["reason"] = "; ".join(reasons)
 
+    measured = {}
+    if artifact_file := os.environ.get("GRPC_CERTIFICATION_ARTIFACTS_FILE"):
+        measured = json.loads(Path(artifact_file).read_text())["clients"]["grpc-python"]
+        if (measured.get("package"), measured.get("package_version"), measured.get("package_source")) != (PACKAGE, metadata.version(PACKAGE), PACKAGE_SOURCE):
+            raise ValueError("measured archive identity differs from loaded Python distribution")
     report = {
         "runner_lane": "grpc-python",
         "package": PACKAGE,
         "package_version": metadata.version(PACKAGE),
         "package_source": PACKAGE_SOURCE,
+        "package_digest": measured.get("package_digest"),
         "started_at": started_at.isoformat().replace("+00:00", "Z"),
         "completed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "execution_identity": {

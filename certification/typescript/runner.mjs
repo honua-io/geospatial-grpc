@@ -377,11 +377,19 @@ async function main(argv) {
 
   const packageRoot = installedPackageRoot();
   const packageVersion = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8")).version;
+  let measured = {};
+  if (process.env.GRPC_CERTIFICATION_ARTIFACTS_FILE) {
+    measured = JSON.parse(await readFile(process.env.GRPC_CERTIFICATION_ARTIFACTS_FILE, "utf8")).clients["grpc-typescript"];
+    if (measured.package !== PACKAGE || measured.package_version !== packageVersion || measured.package_source !== PACKAGE_SOURCE) {
+      throw new Error("measured archive identity differs from loaded TypeScript package");
+    }
+  }
   const report = {
     runner_lane: "grpc-typescript",
     package: PACKAGE,
     package_version: packageVersion,
     package_source: PACKAGE_SOURCE,
+    package_digest: measured.package_digest ?? null,
     started_at: startedAt.toISOString(),
     completed_at: new Date().toISOString(),
     execution_identity: {

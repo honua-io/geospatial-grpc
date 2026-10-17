@@ -106,3 +106,22 @@ python3 -m unittest discover -s certification/tests -v
 
 See [the issue #88 proof disposition](issue-88-proof-disposition.md) for the
 remaining pre-cut blockers and the exact-candidate criterion released until cut.
+
+### Published archive identity
+
+The existing locked installs retain actual package archives before execution.
+Python installs from the same hash-locked downloaded wheels; .NET measures the
+restored nupkg; npm's retained tarball must match the npm-ci lock's integrity.
+`scripts/measure_certification_artifacts.py` hashes their actual bytes and checks
+package/version metadata before writing the retained measurement. Each runtime
+compares that identity with its loaded package coordinate and records the
+measured digest in its lane report. Missing measurements cannot produce an
+executed certification receipt.
+
+The fragment binds that observed value as `client_package_digest` in the v2
+identity. NuGet/PyPI use the existing SHA-256 pins; npm preserves its existing
+SHA-512 SRI. A wrong or missing measured archive fails before receipt emission;
+no package version or catalog value is substituted for missing observations.
+Archive/fragment fixture tests establish producer behavior only, never a live
+Honua candidate verdict. Package pins and the existing 42-cell scope remain
+unchanged; governed requirements/context must also converge before real replay.

@@ -77,10 +77,19 @@ jobs:
 
       - name: Install promoted .NET, Python and TypeScript clients
         run: |
-          python3 -m pip install --require-hashes --only-binary=:all: \
-            --requirement .github/requirements/protocol-certification.txt
+          mkdir -p .certification-artifacts/python .certification-artifacts/npm
+          python3 -m pip download --require-hashes --only-binary=:all: \
+            --dest .certification-artifacts/python --requirement .github/requirements/protocol-certification.txt
+          python3 -m pip install --no-index --find-links .certification-artifacts/python \
+            --require-hashes --only-binary=:all: --requirement .github/requirements/protocol-certification.txt
           dotnet build certification/dotnet/GrpcCertificationRunner.csproj --configuration Release
           npm ci --ignore-scripts --prefix certification/typescript
+          npm pack @honua/geospatial-grpc@1.0.3 --ignore-scripts --pack-destination .certification-artifacts/npm
+          python3 scripts/measure_certification_artifacts.py \
+            --nuget "${NUGET_PACKAGES:-${HOME}/.nuget/packages}/geospatial.grpc/1.0.3/geospatial.grpc.1.0.3.nupkg" \
+            --wheels .certification-artifacts/python --npm .certification-artifacts/npm \
+            --output artifacts/client-artifacts.json
+          echo "GRPC_CERTIFICATION_ARTIFACTS_FILE=${GITHUB_WORKSPACE}/artifacts/client-artifacts.json" >> "${GITHUB_ENV}"
 
       - name: Verify installed client failure signaling against independent wire fixture
         run: python3 -m unittest discover -s certification/tests -v
