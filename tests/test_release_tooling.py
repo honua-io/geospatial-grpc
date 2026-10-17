@@ -453,6 +453,11 @@ class PublicRegistryProbeTests(unittest.TestCase):
 
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
+    def test_artifact_measurement_changes_trigger_public_client_certification(self) -> None:
+        workflow = (ROOT / ".github/workflows/protocol-certification.yml").read_text(encoding="utf-8")
+        paths = workflow.split("    paths:", 1)[1].split("  schedule:", 1)[0]
+        self.assertIn('      - "scripts/measure_certification_artifacts.py"', paths)
+
     def test_certification_fixture_dependency_is_hash_pinned(self) -> None:
         workflow = (ROOT / ".github/workflows/protocol-certification.yml").read_text(
             encoding="utf-8"

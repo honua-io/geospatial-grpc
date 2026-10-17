@@ -8,6 +8,7 @@ on:
       - "conformance/**"
       - "certification/**"
       - "scripts/build_protocol_certification_fragment.py"
+      - "scripts/measure_certification_artifacts.py"
       - "tests/test_protocol_certification_fragment.py"
       - ".github/workflows/protocol-certification.yml"
   schedule:
