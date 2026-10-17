@@ -284,14 +284,42 @@ foreach (var scenario in scenarioDocument.RootElement.GetProperty("scenarios").E
         : new { result = "fail", facet_results = facets, reason = string.Join("; ", reasons) };
 }
 
+var packageVersion = typeof(FeatureService).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+    ?.InformationalVersion.Split('+')[0]
+    ?? typeof(FeatureService).Assembly.GetName().Version!.ToString(3);
+string? packageDigest = null;
+var artifactFile = Environment.GetEnvironmentVariable("GRPC_CERTIFICATION_ARTIFACTS_FILE");
+if (!string.IsNullOrEmpty(artifactFile))
+{
+    using var measurement = JsonDocument.Parse(await File.ReadAllTextAsync(artifactFile));
+    var measured = measurement.RootElement.GetProperty("clients").GetProperty("grpc-dotnet");
+    if (measured.GetProperty("package").GetString() != "Geospatial.Grpc"
+        || measured.GetProperty("package_version").GetString() != packageVersion
+        || measured.GetProperty("package_source").GetString() != "https://api.nuget.org/v3/index.json")
+    {
+        throw new InvalidOperationException("Measured archive identity differs from loaded .NET package.");
+    }
+
+    var loadedAssembly = typeof(FeatureService).Assembly.Location;
+    var expectedRuntimeDigest = measured.GetProperty("runtime_files")
+        .GetProperty(Path.GetFileName(loadedAssembly)).GetString();
+    var actualRuntimeDigest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+        await File.ReadAllBytesAsync(loadedAssembly))).ToLowerInvariant();
+    if (actualRuntimeDigest != expectedRuntimeDigest)
+    {
+        throw new InvalidOperationException("Loaded .NET assembly differs from measured public package bytes.");
+    }
+
+    packageDigest = measured.GetProperty("package_digest").GetString();
+}
+
 Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
 await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(new
 {
     runner_lane = "grpc-dotnet",
     package = "Geospatial.Grpc",
-    package_version = typeof(FeatureService).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-        ?.InformationalVersion.Split('+')[0]
-        ?? typeof(FeatureService).Assembly.GetName().Version!.ToString(3),
+    package_version = packageVersion,
+    package_digest = packageDigest,
     package_source = "https://api.nuget.org/v3/index.json",
     started_at = startedAt,
     completed_at = DateTimeOffset.UtcNow,

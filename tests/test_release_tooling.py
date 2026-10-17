@@ -457,7 +457,9 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/protocol-certification.yml").read_text(
             encoding="utf-8"
         )
-        self.assertIn("python3 -m pip install --require-hashes", workflow)
+        self.assertIn("python3 -m pip download --require-hashes --only-binary=:all:", workflow)
+        self.assertIn("python3 -m pip install --no-index --find-links .certification-artifacts/python", workflow)
+        self.assertIn("--require-hashes --only-binary=:all: --requirement .github/requirements/protocol-certification.txt", workflow)
         self.assertIn("--only-binary=:all:", workflow)
         self.assertIn("--requirement .github/requirements/protocol-certification.txt", workflow)
         requirements = (ROOT / ".github/requirements/protocol-certification.txt").read_text(
