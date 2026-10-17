@@ -113,9 +113,13 @@ The existing locked installs retain actual package archives before execution.
 Python installs from the same hash-locked downloaded wheels; .NET measures the
 restored nupkg; npm's retained tarball must match the npm-ci lock's integrity.
 `scripts/measure_certification_artifacts.py` hashes their actual bytes and checks
-package/version metadata before writing the retained measurement. Each runtime
+package/version metadata and installed payload bytes before writing the retained
+measurement. The .NET check resolves only the selected TFM runtime asset; Python
+and npm compare their installed package files against their admitted archives.
+Each runtime
 compares that identity with its loaded package coordinate and records the
-measured digest in its lane report. Missing measurements cannot produce an
+measured digest in its lane report and rechecks its loaded DLL/module payload.
+Missing or altered runtime payloads cannot produce an
 executed certification receipt.
 
 The fragment binds that observed value as `client_package_digest` in the v2

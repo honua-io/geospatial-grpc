@@ -300,6 +300,16 @@ if (!string.IsNullOrEmpty(artifactFile))
         throw new InvalidOperationException("Measured archive identity differs from loaded .NET package.");
     }
 
+    var loadedAssembly = typeof(FeatureService).Assembly.Location;
+    var expectedRuntimeDigest = measured.GetProperty("runtime_files")
+        .GetProperty(Path.GetFileName(loadedAssembly)).GetString();
+    var actualRuntimeDigest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+        await File.ReadAllBytesAsync(loadedAssembly))).ToLowerInvariant();
+    if (actualRuntimeDigest != expectedRuntimeDigest)
+    {
+        throw new InvalidOperationException("Loaded .NET assembly differs from measured public package bytes.");
+    }
+
     packageDigest = measured.GetProperty("package_digest").GetString();
 }
 

@@ -15,6 +15,7 @@ usage: runner.py <absolute-channel-target> <fixture-directory> <report-path>
 from __future__ import annotations
 
 import importlib
+import hashlib
 import json
 import os
 import re
@@ -412,6 +413,16 @@ def main(argv: list[str]) -> int:
         measured = json.loads(Path(artifact_file).read_text())["clients"]["grpc-python"]
         if (measured.get("package"), measured.get("package_version"), measured.get("package_source")) != (PACKAGE, metadata.version(PACKAGE), PACKAGE_SOURCE):
             raise ValueError("measured archive identity differs from loaded Python distribution")
+        installed_root = Path(metadata.distribution(PACKAGE).locate_file("")).resolve()
+        files = measured["runtime_files"]
+        if not files:
+            raise ValueError("measured Python runtime payload is absent")
+        for name, module in tuple(sys.modules.items()):
+            if name.startswith("geospatial.") and (loaded_path := getattr(module, "__file__", None)):
+                loaded = Path(loaded_path).resolve()
+                relative = loaded.relative_to(installed_root).as_posix()
+                if files.get(relative) != hashlib.sha256(loaded.read_bytes()).hexdigest():
+                    raise ValueError("loaded Python module differs from measured public package bytes")
     report = {
         "runner_lane": "grpc-python",
         "package": PACKAGE,

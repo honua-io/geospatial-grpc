@@ -11,6 +11,7 @@
 // builder decides whether it satisfies the governed cell.
 //
 // usage: node runner.mjs <absolute-channel-target> <fixture-directory> <report-path>
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -382,6 +383,14 @@ async function main(argv) {
     measured = JSON.parse(await readFile(process.env.GRPC_CERTIFICATION_ARTIFACTS_FILE, "utf8")).clients["grpc-typescript"];
     if (measured.package !== PACKAGE || measured.package_version !== packageVersion || measured.package_source !== PACKAGE_SOURCE) {
       throw new Error("measured archive identity differs from loaded TypeScript package");
+    }
+    if (!measured.runtime_files || Object.keys(measured.runtime_files).length === 0) throw new Error("measured TypeScript runtime payload is absent");
+    for (const [relative, expected] of Object.entries(measured.runtime_files)) {
+      const loaded = path.resolve(packageRoot, relative);
+      if (!loaded.startsWith(`${path.resolve(packageRoot)}${path.sep}`)) throw new Error("runtime payload escapes installed package");
+      if (createHash("sha256").update(await readFile(loaded)).digest("hex") !== expected) {
+        throw new Error("loaded TypeScript payload differs from measured public package bytes");
+      }
     }
   }
   const report = {

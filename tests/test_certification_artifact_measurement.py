@@ -22,9 +22,11 @@ def inputs(root):
     npm.mkdir()
     nuget = root / "client.nupkg"
     with zipfile.ZipFile(nuget, "w") as archive:
+        archive.writestr("lib/netstandard2.0/Geospatial.Grpc.dll", b"fixture runtime DLL")
         archive.writestr("Geospatial.Grpc.nuspec", '<package><metadata><id>Geospatial.Grpc</id><version>1.0.3</version></metadata></package>')
     wheel = wheels / "geospatial_grpc-1.0.3-py3-none-any.whl"
     with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("geospatial/v1/client.py", b"# fixture runtime module\n")
         archive.writestr("geospatial_grpc-1.0.3.dist-info/METADATA", "Name: geospatial-grpc\nVersion: 1.0.3\n")
     tarball = npm / "honua-geospatial-grpc-1.0.3.tgz"
     metadata = json.dumps({"name": "@honua/geospatial-grpc", "version": "1.0.3"}).encode()
@@ -43,7 +45,19 @@ def inputs(root):
                         "package_source": "https://registry.example/" + lane, "package_digest": digest})
     lock = {"packages": {"node_modules/@honua/geospatial-grpc": {
         "version": "1.0.3", "integrity": clients[2]["package_digest"]}}}
-    return {"clients": clients}, nuget, wheels, npm, lock
+    installed = {lane: {"root": root / (lane + "-installed")} for lane in ("grpc-dotnet", "grpc-python", "grpc-typescript")}
+    for descriptor in installed.values():
+        descriptor["root"].mkdir()
+    (installed["grpc-dotnet"]["root"] / "Geospatial.Grpc.dll").write_bytes(b"fixture runtime DLL")
+    assets = root / "project.assets.json"
+    assets.write_text(json.dumps({"targets": {"net10.0": {"Geospatial.Grpc/1.0.3": {
+        "runtime": {"lib/netstandard2.0/Geospatial.Grpc.dll": {}}}}}}))
+    installed["grpc-dotnet"]["assets"] = assets
+    python_module = installed["grpc-python"]["root"] / "geospatial/v1/client.py"
+    python_module.parent.mkdir(parents=True)
+    python_module.write_bytes(b"# fixture runtime module\n")
+    (installed["grpc-typescript"]["root"] / "package.json").write_bytes(metadata)
+    return {"clients": clients}, nuget, wheels, npm, lock, installed
 
 
 class ArtifactMeasurementTests(unittest.TestCase):
@@ -85,6 +99,26 @@ class ArtifactMeasurementTests(unittest.TestCase):
             args[0]["clients"][0]["client_version"] = "9.9.9"
             with self.assertRaisesRegex(ValueError, "coordinate"):
                 MODULE.measure(*args)
+
+    def test_installed_payload_cannot_be_replaced_under_a_valid_archive_digest(self):
+        for lane, relative in (("grpc-dotnet", "Geospatial.Grpc.dll"),
+                               ("grpc-python", "geospatial/v1/client.py"),
+                               ("grpc-typescript", "package.json")):
+            with self.subTest(lane=lane), tempfile.TemporaryDirectory() as directory:
+                args = inputs(Path(directory))
+                target = args[5][lane]["root"] / relative
+                target.write_bytes(b"repacked or source-generated runtime payload")
+                with self.assertRaisesRegex(ValueError, "runtime payload differs"):
+                    MODULE.measure(*args)
+
+    def test_nuget_checks_only_the_selected_target_framework_asset(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = inputs(Path(directory))
+            with zipfile.ZipFile(args[1], "a") as archive:
+                archive.writestr("lib/net8.0/Geospatial.Grpc.dll", b"legitimate different TFM")
+            args[0]["clients"][0]["package_digest"] = "sha256:" + hashlib.sha256(args[1].read_bytes()).hexdigest()
+            result = MODULE.measure(*args)
+            self.assertEqual({"Geospatial.Grpc.dll"}, set(result["clients"]["grpc-dotnet"]["runtime_files"]))
 
     def test_multiple_candidate_archives_cannot_be_selected_arbitrarily(self):
         with tempfile.TemporaryDirectory() as directory:
