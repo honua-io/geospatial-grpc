@@ -87,8 +87,8 @@ def measure(catalog, nuget, wheels, npm, lock, installed):
                 if any(not member.isfile() or not member.name.startswith("package/") for member in members):
                     raise ValueError("npm runtime payload contains an unsupported link or member")
                 payloads = {member.name[len("package/"):]: archive.extractfile(member).read() for member in members}
-            installed = lock["packages"]["node_modules/@honua/geospatial-grpc"]
-            if installed.get("integrity") != digest or installed.get("version") != version:
+            locked_package = lock["packages"]["node_modules/@honua/geospatial-grpc"]
+            if locked_package.get("integrity") != digest or locked_package.get("version") != version:
                 raise ValueError("npm locked install does not bind the measured archive bytes")
         if (package, version) != (client["package"], client["client_version"]):
             raise ValueError("retained archive package/version differs from the installed coordinate: " + lane)
