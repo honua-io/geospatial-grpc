@@ -168,6 +168,7 @@ def build_fragment(args: argparse.Namespace) -> dict:
                 "package": client["package"],
                 "package_version": client["client_version"],
                 "package_source": client["package_source"],
+                "package_digest": client["package_digest"],
             }
             actual_package_identity = {
                 field: report.get(field) for field in expected_package_identity
@@ -278,6 +279,7 @@ def build_fragment(args: argparse.Namespace) -> dict:
                         "operation": operation["operation"],
                         "canonical_client": client["canonical_client"],
                         "client_version": client["client_version"],
+                        "client_package_digest": report["package_digest"],
                         "deployment_target": client["deployment_target"],
                         "maturity": catalog["maturity"],
                         "required_tier": catalog["required_tier"],
@@ -311,6 +313,7 @@ def build_fragment(args: argparse.Namespace) -> dict:
                 "request_url": target + method_path,
                 "exercised_capabilities": exercised_capabilities,
                 "client_version": client["client_version"],
+                "client_package_digest": report.get("package_digest"),
                 "publication_state": publication_state,
                 "deployment_target": client["deployment_target"],
                 "result": observation_result,

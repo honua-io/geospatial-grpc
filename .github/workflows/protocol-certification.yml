@@ -8,6 +8,7 @@ on:
       - "conformance/**"
       - "certification/**"
       - "scripts/build_protocol_certification_fragment.py"
+      - "scripts/measure_certification_artifacts.py"
       - "tests/test_protocol_certification_fragment.py"
       - ".github/workflows/protocol-certification.yml"
   schedule:
@@ -77,10 +78,23 @@ jobs:
 
       - name: Install promoted .NET, Python and TypeScript clients
         run: |
-          python3 -m pip install --require-hashes --only-binary=:all: \
-            --requirement .github/requirements/protocol-certification.txt
+          mkdir -p .certification-artifacts/python .certification-artifacts/npm
+          python3 -m pip download --require-hashes --only-binary=:all: \
+            --dest .certification-artifacts/python --requirement .github/requirements/protocol-certification.txt
+          python3 -m pip install --no-index --find-links .certification-artifacts/python \
+            --require-hashes --only-binary=:all: --requirement .github/requirements/protocol-certification.txt
           dotnet build certification/dotnet/GrpcCertificationRunner.csproj --configuration Release
           npm ci --ignore-scripts --prefix certification/typescript
+          npm pack @honua/geospatial-grpc@1.0.3 --ignore-scripts --pack-destination .certification-artifacts/npm
+          python3 scripts/measure_certification_artifacts.py \
+            --nuget "${NUGET_PACKAGES:-${HOME}/.nuget/packages}/geospatial.grpc/1.0.3/geospatial.grpc.1.0.3.nupkg" \
+            --wheels .certification-artifacts/python --npm .certification-artifacts/npm \
+            --dotnet-assets certification/dotnet/obj/project.assets.json \
+            --dotnet-output certification/dotnet/bin/Release/net10.0 \
+            --python-installed "$(python3 -c 'import importlib.metadata; print(importlib.metadata.distribution("geospatial-grpc").locate_file(""))')" \
+            --npm-installed certification/typescript/node_modules/@honua/geospatial-grpc \
+            --output artifacts/client-artifacts.json
+          echo "GRPC_CERTIFICATION_ARTIFACTS_FILE=${GITHUB_WORKSPACE}/artifacts/client-artifacts.json" >> "${GITHUB_ENV}"
 
       - name: Verify installed client failure signaling against independent wire fixture
         run: python3 -m unittest discover -s certification/tests -v
@@ -208,7 +222,7 @@ jobs:
         run: |
           # ApplyEdits mutates sf-parks; every lane starts from the same rows.
           psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -q -f certification/seed/sf-parks-reset.sql
-          dotnet run --project certification/dotnet/GrpcCertificationRunner.csproj --configuration Release --no-self-contained -- "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-dotnet.json
+          dotnet run --project certification/dotnet/GrpcCertificationRunner.csproj --configuration Release --no-self-contained --no-build -- "${GRPC_TARGET}" .certification-source/conformance/fixtures artifacts/grpc-dotnet.json
 
       - name: Execute promoted Python client fixtures
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
