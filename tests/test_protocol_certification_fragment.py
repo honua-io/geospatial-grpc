@@ -64,6 +64,20 @@ class FragmentTests(unittest.TestCase):
         vars(args).update(overrides)
         return MODULE.build_fragment(args)
 
+    def test_missing_or_repacked_package_digest_cannot_produce_receipts(self):
+        for changed in (None, "sha256:" + "0" * 64):
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as directory:
+                report = Path(directory) / "report.json"
+                value = {"runner_lane": "grpc-dotnet", "package": "Geospatial.Grpc",
+                         "package_version": GOVERNED_CLIENT_VERSION,
+                         "package_source": "https://api.nuget.org/v3/index.json",
+                         "operations": {"FeatureService/QueryFeatures": {"result": "pass"}}}
+                if changed is not None:
+                    value["package_digest"] = changed
+                report.write_text(json.dumps(value))
+                with self.assertRaisesRegex(ValueError, "published package identity mismatch"):
+                    self.build([report])
+
     def test_materializes_exact_release_denominator_and_truthful_identity(self):
         fragment = self.build()
         self.assertEqual(IN_SCOPE_CELLS, len(fragment["observations"]))
@@ -103,6 +117,7 @@ class FragmentTests(unittest.TestCase):
                 "package": "Geospatial.Grpc",
                 "package_version": GOVERNED_CLIENT_VERSION,
                 "package_source": "https://api.nuget.org/v3/index.json",
+                "package_digest": "sha256:8b26754f72487978759a0f5bc2703f5eff4cf43a77a301943cb6e2328df49b14",
                 "operations": {"FeatureService/QueryFeatures": {"result": "pass"}},
             }))
             fragment = self.build([report])
@@ -126,6 +141,7 @@ class FragmentTests(unittest.TestCase):
                 "package": "Geospatial.Grpc",
                 "package_version": GOVERNED_CLIENT_VERSION,
                 "package_source": "https://api.nuget.org/v3/index.json",
+                "package_digest": "sha256:8b26754f72487978759a0f5bc2703f5eff4cf43a77a301943cb6e2328df49b14",
                 "operations": {"FeatureService/QueryFeatures": {
                     "result": "fail", "reason": "Canonical response mismatch at $.features[0].id",
                 }},
@@ -159,6 +175,7 @@ class FragmentTests(unittest.TestCase):
                 "package": "Geospatial.Grpc",
                 "package_version": GOVERNED_CLIENT_VERSION,
                 "package_source": "https://api.nuget.org/v3/index.json",
+                "package_digest": "sha256:8b26754f72487978759a0f5bc2703f5eff4cf43a77a301943cb6e2328df49b14",
                 "operations": {"FeatureService/QueryFeatures": {
                     "result": "pass",
                     "facet_results": {
@@ -262,6 +279,7 @@ class FragmentTests(unittest.TestCase):
             path.write_text(json.dumps({
                 "runner_lane": "grpc-dotnet", "package": "Geospatial.Grpc", "package_version": GOVERNED_CLIENT_VERSION,
                 "package_source": "https://api.nuget.org/v3/index.json",
+                "package_digest": "sha256:8b26754f72487978759a0f5bc2703f5eff4cf43a77a301943cb6e2328df49b14",
                 "operations": {"FeatureService/QueryFeatures": {
                     "result": "fail", "reason": "Canonical response mismatch at $.features[0].geometry.point.x",
                 }},
@@ -303,6 +321,7 @@ class FragmentTests(unittest.TestCase):
                 "package": "Geospatial.Grpc",
                 "package_version": GOVERNED_CLIENT_VERSION,
                 "package_source": "https://api.nuget.org/v3/index.json",
+                "package_digest": "sha256:8b26754f72487978759a0f5bc2703f5eff4cf43a77a301943cb6e2328df49b14",
                 "operations": {"FeatureService/QueryFeatures": {
                     "result": "pass", "facet_results": {"positive": "pass"},
                 }},
@@ -340,6 +359,7 @@ class FragmentTests(unittest.TestCase):
                 "package": "Geospatial.Grpc",
                 "package_version": "1.0.0",
                 "package_source": "https://api.nuget.org/v3/index.json",
+                "package_digest": "sha256:8b26754f72487978759a0f5bc2703f5eff4cf43a77a301943cb6e2328df49b14",
                 "operations": {"FeatureService/QueryFeatures": {"result": "pass"}},
             }))
             with self.assertRaisesRegex(ValueError, "published package identity mismatch for grpc-dotnet"):
@@ -381,6 +401,7 @@ class FragmentTests(unittest.TestCase):
                     "package": package,
                     "package_version": GOVERNED_CLIENT_VERSION,
                     "package_source": source,
+                    "package_digest": next(client["package_digest"] for client in json.loads(MODULE.CATALOG.read_text())["clients"] if client["client_lane"] == lane),
                     "operations": {
                         "FeatureService/QueryFeatures": {"result": "pass"},
                         "ProcessService/SubmitJob": {
@@ -434,6 +455,7 @@ class FragmentTests(unittest.TestCase):
                 "package": "geospatial-grpc",
                 "package_version": GOVERNED_CLIENT_VERSION,
                 "package_source": "https://pypi.org/pypi/geospatial-grpc/json",
+                "package_digest": "sha256:9c225843767d60bb82a24a35fc7e4de24299530d24ab4fdb709b6c093a366ebb",
                 "operations": {
                     "FeatureService/QueryFeatures": {"result": "pass"},
                     "FormService/SubmitFormData": {"result": "pass"},
@@ -477,6 +499,7 @@ class FragmentTests(unittest.TestCase):
                 "runner_lane": "grpc-python", "package": "geospatial-grpc",
                 "package_version": GOVERNED_CLIENT_VERSION,
                 "package_source": "https://pypi.org/pypi/geospatial-grpc/json",
+                "package_digest": "sha256:9c225843767d60bb82a24a35fc7e4de24299530d24ab4fdb709b6c093a366ebb",
                 "started_at": "2026-08-26T00:00:10Z", "completed_at": "2026-08-26T00:00:50Z",
                 "execution_identity": identity,
                 "operations": {"WorkspaceService/CreateWorkspace": {"result": "fail", "reason": "UNIMPLEMENTED"}},
@@ -488,6 +511,7 @@ class FragmentTests(unittest.TestCase):
                 "runner_lane": "grpc-python", "package": "geospatial-grpc",
                 "package_version": GOVERNED_CLIENT_VERSION,
                 "package_source": "https://pypi.org/pypi/geospatial-grpc/json",
+                "package_digest": "sha256:9c225843767d60bb82a24a35fc7e4de24299530d24ab4fdb709b6c093a366ebb",
                 "started_at": "2026-08-25T00:00:10Z", "completed_at": "2026-08-25T00:00:50Z",
                 "execution_identity": identity,
                 "operations": {"WorkspaceService/CreateWorkspace": {"result": "pass"}},

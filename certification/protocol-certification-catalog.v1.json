@@ -1,6 +1,6 @@
 {
   "schema": "honua.grpc-protocol-certification-catalog/v1",
-  "requirements_revision": "2026-09-29-complete.15",
+  "requirements_revision": "2026-10-17-complete.24",
   "maturity": "supported",
   "required_tier": "nightly",
   "claim_narrowing_decision": null,
