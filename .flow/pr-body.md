@@ -19,10 +19,10 @@ None.
 ## Testing
 
 - Native Windows actionlint 1.7.12 passes for all workflows.
-- honua-release action-pin validation passes for all workflows.
+- honua-release `tools/check_action_pins.py` (trunk 4642e4d, with the reusable-workflow reachability check enabled) passes for all workflows.
 - Native pip resolves/downloads the entire release-tool lock with --require-hashes --only-binary=:all:.
 - Downloaded npm archive matches the embedded SHA512; its CLI reports 11.5.1 on native Windows.
 - git diff --check passes.
 - Re-verified after merging trunk e6be082 (#147): actionlint, honua-release action-pin validation, Linux-target hash-locked download of the release-tool lock, and the npm 11.5.1 SHA512 against the registry `dist.integrity`.
 
-Staged delivery: do not open a PR here. PR CI and post-merge Scorecard/Dependabot re-evaluation remain for the daemon handoff. Trunk presently has 5 code-scanning alerts (one PinnedDependenciesID, four policy/informational) and 3 Dependabot alerts. No alerts dismissed.
+Trunk e6be082 (2026-10-20) has 5 code-scanning alerts (one PinnedDependenciesID, four policy/informational) and 3 Dependabot alerts. Scorecard and Dependabot re-evaluate on trunk after merge. No alerts dismissed.
