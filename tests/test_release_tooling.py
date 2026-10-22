@@ -458,6 +458,25 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         paths = workflow.split("    paths:", 1)[1].split("  schedule:", 1)[0]
         self.assertIn('      - "scripts/measure_certification_artifacts.py"', paths)
 
+    def test_scheduled_candidate_pin_is_an_immutable_manifest_pair(self) -> None:
+        workflow = (ROOT / ".github/workflows/protocol-certification.yml").read_text(encoding="utf-8")
+        image = re.search(r'^  PINNED_SERVER_IMAGE: "([^"]+)"$', workflow, re.M)
+        source = re.search(r'^  PINNED_SERVER_SOURCE_SHA: "([^"]+)"$', workflow, re.M)
+        self.assertIsNotNone(image)
+        self.assertIsNotNone(source)
+        self.assertRegex(image.group(1), r"^ghcr\.io/honua-io/honua-server@sha256:[0-9a-f]{64}$")
+        self.assertRegex(source.group(1), r"^[0-9a-f]{40}$")
+        # honua-release platform-manifest.yaml components.honua-server (2026.1-rc.2).
+        self.assertEqual(
+            (image.group(1).split("@", 1)[1], source.group(1)),
+            (
+                "sha256:dcf3296f17a456a876c23133fae50b5b32628d4ec710e8bdab58f57d2394d750",
+                "0e03bdd06b3ca3fb1b82388110bb5dfa19b9f8fa",
+            ),
+        )
+        self.assertIn("gh attestation verify \"oci://${image}\" --repo honua-io/honua-server", workflow)
+        self.assertIn('--source-digest "${source_sha}"', workflow)
+
     def test_certification_fixture_dependency_is_hash_pinned(self) -> None:
         workflow = (ROOT / ".github/workflows/protocol-certification.yml").read_text(
             encoding="utf-8"

@@ -151,3 +151,81 @@ SET etag = updated.etag,
 FROM updated
 WHERE current_revision.environment = updated.environment
   AND current_revision.revision = updated.revision;
+
+-- Enable the Elevation protocol on the compiled sf-parks services. Since
+-- honua-server#5824 the gRPC ElevationService refuses a layer whose service
+-- does not enable Elevation ("Elevation is not enabled for this service"),
+-- matching the HTTP elevation surface. The compat compiler's protocol list
+-- predates that guard and omits Elevation, while the production publish path
+-- enables every protocol. Append it to `protocols` and `enabledProtocols` of
+-- each sf-parks service only, then re-derive the etag as above.
+WITH elevation_enabled AS (
+    SELECT
+        snapshot.environment,
+        snapshot.revision,
+        jsonb_set(
+            snapshot.document,
+            '{services}',
+            (
+                SELECT jsonb_agg(
+                    CASE
+                        WHEN service #>> '{metadata,name}' = 'sf-parks' THEN service
+                            || jsonb_build_object(
+                                'protocols',
+                                CASE
+                                    WHEN COALESCE(service -> 'protocols', '[]'::jsonb) ? 'Elevation'
+                                        THEN service -> 'protocols'
+                                    ELSE COALESCE(service -> 'protocols', '[]'::jsonb) || '["Elevation"]'::jsonb
+                                END,
+                                'enabledProtocols',
+                                CASE
+                                    WHEN COALESCE(service -> 'enabledProtocols', '[]'::jsonb) ? 'Elevation'
+                                        THEN service -> 'enabledProtocols'
+                                    ELSE COALESCE(service -> 'enabledProtocols', '[]'::jsonb) || '["Elevation"]'::jsonb
+                                END)
+                        ELSE service
+                    END
+                    ORDER BY service_ordinality
+                )
+                FROM jsonb_array_elements(snapshot.document -> 'services')
+                    WITH ORDINALITY AS s(service, service_ordinality)
+            )
+        ) AS document
+    FROM honua.metadata_v2_snapshots snapshot
+    JOIN honua.metadata_v2_current current_revision
+        ON current_revision.environment = snapshot.environment
+       AND current_revision.revision = snapshot.revision
+    WHERE jsonb_typeof(snapshot.document -> 'services') = 'array'
+),
+updated AS (
+    UPDATE honua.metadata_v2_snapshots snapshot
+    SET document = elevation_enabled.document,
+        etag = '"' || md5(elevation_enabled.document::text) || '"'
+    FROM elevation_enabled
+    WHERE snapshot.environment = elevation_enabled.environment
+      AND snapshot.revision = elevation_enabled.revision
+    RETURNING snapshot.environment, snapshot.revision, snapshot.etag
+)
+UPDATE honua.metadata_v2_current current_revision
+SET etag = updated.etag,
+    activated_at = NOW()
+FROM updated
+WHERE current_revision.environment = updated.environment
+  AND current_revision.revision = updated.revision;
+
+-- Fail the seed, not the client lanes, if the fixture service still lacks it.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM honua.metadata_v2_snapshots snapshot
+        JOIN honua.metadata_v2_current current_revision
+            ON current_revision.environment = snapshot.environment
+           AND current_revision.revision = snapshot.revision,
+            jsonb_array_elements(snapshot.document -> 'services') AS service
+        WHERE service #>> '{metadata,name}' = 'sf-parks'
+          AND service -> 'protocols' ? 'Elevation'
+    ) THEN
+        RAISE EXCEPTION 'sf-parks seed: no current sf-parks service enables Elevation';
+    END IF;
+END $$;
