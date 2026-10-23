@@ -143,7 +143,7 @@ jobs:
           esac
 
       - name: Upload Generated Artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: generated-${{ matrix.language }}-code
           path: generated/${{ matrix.language }}/
@@ -174,7 +174,7 @@ jobs:
         run: buf generate --template buf.gen.yaml --output generated/all
 
       - name: Upload Aggregate Artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: generated-all-code
           path: generated/all/
@@ -223,7 +223,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           cache: npm
@@ -270,7 +270,7 @@ jobs:
           echo "${RUNNER_TEMP}" >> "$GITHUB_PATH"
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "20"
 
@@ -380,7 +380,7 @@ jobs:
           buf build -o descriptors/image.json
 
       - name: Upload Schema Descriptors
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: protocol-descriptors
           path: descriptors/
@@ -424,7 +424,7 @@ jobs:
             "${RUNNER_TEMP}/bundle/conformance-fixtures-${version}/run.sh"
 
       - name: Upload Conformance Fixtures Artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: conformance-fixtures
           path: dist/conformance-fixtures-*
@@ -508,7 +508,7 @@ jobs:
             --configuration Release --no-restore /p:TreatWarningsAsErrors=true
 
       - name: Upload .NET package artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: geospatial-grpc-dotnet-package
           path: nupkgs/
