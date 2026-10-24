@@ -29,7 +29,9 @@ All three checks run in CI and must pass for a PR to merge.
 1. Create a feature branch from `trunk`.
 2. Make proto changes in `geospatial/v1/`.
 3. Run the local validation commands above.
-4. Open a PR against `trunk`.
+4. Open a PR against `trunk`. Only Honua Geo Inc. maintainers can do this: the standard
+   does not take pull requests from outside the organization (they are closed
+   automatically). Propose changes as issues; a maintainer drives the proto change.
 
 ## PR Requirements
 
