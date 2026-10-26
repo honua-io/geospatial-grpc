@@ -6,6 +6,7 @@ import json
 import os
 import tempfile
 import unittest
+import unittest.mock
 import subprocess
 import sys
 from contextlib import contextmanager
@@ -623,6 +624,163 @@ class FragmentTests(unittest.TestCase):
         self.assertEqual(IN_SCOPE_CELLS, report["required_cells"])
         self.assertTrue(any("expected 'pass'" in finding["why"] for finding in report["findings"]))
         self.assertFalse(any("do not resolve" in finding["why"] for finding in report["findings"]))
+
+
+DISPATCH_ID = "nightly-certification-40367649673-1"
+NIGHTLY_ENV = {
+    "HONUA_NIGHTLY_DISPATCH_ID": DISPATCH_ID,
+    "GITHUB_ACTIONS": "true",
+    "GITHUB_EVENT_NAME": "workflow_dispatch",
+    "GITHUB_REPOSITORY": "honua-io/geospatial-grpc",
+    "GITHUB_WORKFLOW_REF": (
+        "honua-io/geospatial-grpc/.github/workflows/protocol-certification.yml"
+        "@refs/tags/nightly-candidate/" + "a" * 40
+    ),
+    "GITHUB_RUN_ID": "40367649673",
+    "GITHUB_RUN_ATTEMPT": "2",
+}
+EXPECTED_PRODUCER_RUN = {
+    "repository": "honua-io/geospatial-grpc",
+    "workflow": "protocol-certification.yml",
+    "run_id": 40367649673,
+    "run_attempt": 2,
+    "dispatch_id": DISPATCH_ID,
+}
+WORKFLOW = Path(__file__).resolve().parents[1] / ".github/workflows/protocol-certification.yml"
+
+
+class NightlyDispatchContractTests(unittest.TestCase):
+    """honua-release nightly dispatches with nightly_dispatch_id and binds receipts to the run."""
+
+    def build(self, environ):
+        def publish_dotnet(document):
+            for client in document["clients"]:
+                if client["client_lane"] == "grpc-dotnet":
+                    client["publication_state"] = "published"
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        started = (now - timedelta(minutes=2)).isoformat().replace("+00:00", "Z")
+        completed = (now - timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
+        catalog = json.loads(MODULE.CATALOG.read_text())
+        dotnet = next(item for item in catalog["clients"] if item["client_lane"] == "grpc-dotnet")
+        image = "ghcr.io/honua-io/honua-server@sha256:" + "c" * 64
+        with patched_catalog(publish_dotnet), tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "dotnet.json"
+            report.write_text(json.dumps({
+                "runner_lane": "grpc-dotnet",
+                "package": dotnet["package"],
+                "package_version": dotnet["client_version"],
+                "package_source": dotnet["package_source"],
+                "package_digest": dotnet["package_digest"],
+                "execution_identity": {
+                    "channel_target": "http://localhost:8081", "server_image": image,
+                    "server_source_sha": "b" * 40, "fixture_revision": catalog["fixture_revision"],
+                },
+                "started_at": started, "completed_at": completed,
+                "operations": {
+                    "FeatureService/QueryFeatures": {"result": "pass", "facet_results": {
+                        "positive": "pass", "negative": "pass", "media-schema": "pass"}},
+                    "FeatureService/ApplyEdits": {"result": "fail", "reason": "mismatch", "facet_results": {
+                        "positive": "fail", "negative": "pass", "media-schema": "pass"}},
+                },
+            }))
+            args = argparse.Namespace(
+                report=[report], channel_target="http://localhost:8081", server_image=image,
+                server_source_sha="b" * 40, image_source_revision="b" * 40,
+                producer_source_sha="a" * 40, candidate_cut=started, started_at=started,
+                completed_at=completed, tier="release",
+            )
+            with unittest.mock.patch.dict(os.environ, environ, clear=True):
+                return MODULE.build_fragment(args)
+
+    def executed(self, fragment):
+        return [o for o in fragment["observations"] if o["result"] != "skip"]
+
+    def test_dispatched_run_binds_every_executed_receipt_inside_its_digest(self):
+        fragment = self.build(NIGHTLY_ENV)
+        executed = self.executed(fragment)
+        self.assertEqual({"pass", "fail"}, {o["result"] for o in executed})
+        for observation in executed:
+            receipt = observation["evidence_receipt"]
+            self.assertEqual(EXPECTED_PRODUCER_RUN, receipt["identity"]["producer_run"])
+            encoded = json.dumps(receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+            digest = "sha256:" + hashlib.sha256(encoded).hexdigest()
+            self.assertEqual(digest, observation["evidence_digest"])
+            self.assertEqual(f"https://evidence.honua.io/data/sha256/{digest[7:]}", observation["evidence_uri"])
+        for observation in fragment["observations"]:
+            if observation["result"] == "skip":
+                self.assertIsNone(observation["evidence_receipt"])
+        # The fragment-level candidate stays exactly the requested candidate.
+        self.assertEqual(
+            {"source_sha": "b" * 40, "image_digest": "sha256:" + "c" * 64,
+             "cut_at": fragment["observations"][0]["started_at"]},
+            fragment["candidate"],
+        )
+
+    def test_producer_run_changes_the_evidence_digest(self):
+        dispatched = {o["operation"]: o["evidence_digest"] for o in self.executed(self.build(NIGHTLY_ENV))}
+        other = dict(NIGHTLY_ENV, GITHUB_RUN_ATTEMPT="3")
+        redispatched = {o["operation"]: o["evidence_digest"] for o in self.executed(self.build(other))}
+        self.assertTrue(dispatched)
+        for operation, digest in dispatched.items():
+            self.assertNotEqual(digest, redispatched[operation])
+
+    def test_undispatched_run_emits_no_producer_run(self):
+        for environ in ({}, dict(NIGHTLY_ENV, HONUA_NIGHTLY_DISPATCH_ID="")):
+            with self.subTest(environ=environ):
+                for observation in self.executed(self.build(environ)):
+                    self.assertNotIn("producer_run", observation["evidence_receipt"]["identity"])
+
+    def test_refuses_dispatch_outside_the_canonical_actions_run(self):
+        workflow = "honua-io/geospatial-grpc/.github/workflows/protocol-certification.yml@"
+        for key, value in (
+            ("HONUA_NIGHTLY_DISPATCH_ID", "nightly-certification-0-1"),
+            ("HONUA_NIGHTLY_DISPATCH_ID", "nightly-certification-1"),
+            ("HONUA_NIGHTLY_DISPATCH_ID", "manual-1-1"),
+            ("GITHUB_ACTIONS", ""),
+            ("GITHUB_EVENT_NAME", "schedule"),
+            ("GITHUB_EVENT_NAME", "pull_request"),
+            ("GITHUB_REPOSITORY", "someone/geospatial-grpc"),
+            ("GITHUB_WORKFLOW_REF", "honua-io/geospatial-grpc/.github/workflows/other.yml@refs/heads/trunk"),
+            ("GITHUB_WORKFLOW_REF", "someone/geospatial-grpc/.github/workflows/protocol-certification.yml@refs/heads/trunk"),
+            ("GITHUB_WORKFLOW_REF", workflow + "refs/pull/1/merge"),
+            ("GITHUB_RUN_ID", "0"),
+            ("GITHUB_RUN_ID", "abc"),
+            ("GITHUB_RUN_ATTEMPT", ""),
+        ):
+            with self.subTest(key=key, value=value):
+                with self.assertRaisesRegex(ValueError, "nightly"):
+                    self.build(dict(NIGHTLY_ENV, **{key: value}))
+
+    def test_trunk_dispatch_is_accepted(self):
+        environ = dict(NIGHTLY_ENV, GITHUB_WORKFLOW_REF=(
+            "honua-io/geospatial-grpc/.github/workflows/protocol-certification.yml@refs/heads/trunk"))
+        for observation in self.executed(self.build(environ)):
+            self.assertEqual(EXPECTED_PRODUCER_RUN, observation["evidence_receipt"]["identity"]["producer_run"])
+
+    def test_workflow_accepts_and_plumbs_the_nightly_dispatch_id(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn(
+            "run-name: ${{ inputs.nightly_dispatch_id && format('gRPC protocol certification [{0}]', "
+            "inputs.nightly_dispatch_id) || 'gRPC protocol certification' }}\n",
+            workflow,
+        )
+        self.assertRegex(workflow, r"^name: gRPC protocol certification\n")
+        dispatch = workflow.split("  workflow_dispatch:\n", 1)[1].split("\nenv:\n", 1)[0]
+        self.assertIn(
+            "      nightly_dispatch_id:\n"
+            "        description: Nightly orchestrator correlation ID (nightly-certification-<run>-<attempt>), "
+            "recorded in each executed evidence receipt\n"
+            "        required: false\n"
+            "        type: string\n",
+            dispatch,
+        )
+        emit = workflow.split("      - name: Emit normalized certification fragment\n", 1)[1].split("      - name:", 1)[0]
+        self.assertIn("HONUA_NIGHTLY_DISPATCH_ID: ${{ inputs.nightly_dispatch_id || '' }}", emit)
+        self.assertIn(
+            "name: grpc-protocol-certification-${{ steps.identity.outputs.tier }}"
+            "-${{ github.run_id }}-${{ github.run_attempt }}\n",
+            workflow,
+        )
 
 
 if __name__ == "__main__":
