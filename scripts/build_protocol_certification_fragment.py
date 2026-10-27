@@ -7,6 +7,7 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 import re
 import sys
 from datetime import datetime, timedelta, timezone
@@ -16,6 +17,9 @@ from urllib.parse import urlsplit
 CATALOG = Path(__file__).resolve().parents[1] / "certification/protocol-certification-catalog.v1.json"
 PRODUCER = "geospatial-grpc"
 OWNER = "https://github.com/honua-io/geospatial-grpc/issues/88"
+REPOSITORY = "honua-io/geospatial-grpc"
+WORKFLOW_FILE = "protocol-certification.yml"
+NIGHTLY_DISPATCH_ID = re.compile(r"nightly-certification-[1-9][0-9]*-[1-9][0-9]*")
 CLIENT_IDS = {
     "grpc-dotnet": "Generated gRPC .NET client",
     "grpc-python": "Generated gRPC Python client",
@@ -63,6 +67,30 @@ def certification_errors(fragment: dict, tier: str) -> list[str]:
     return errors
 
 
+def nightly_producer_run(environ=os.environ) -> dict | None:
+    """Actions-owned run identity, recorded only when the honua-release nightly dispatched this run.
+
+    Fails closed on a dispatch id outside the canonical workflow_dispatch of this
+    repository's workflow, so a receipt can never claim a nightly run it was not.
+    """
+    dispatch = environ.get("HONUA_NIGHTLY_DISPATCH_ID", "")
+    if not dispatch:
+        return None
+    workflow_ref = f"{REPOSITORY}/.github/workflows/{WORKFLOW_FILE}@"
+    if (not NIGHTLY_DISPATCH_ID.fullmatch(dispatch)
+            or environ.get("GITHUB_ACTIONS") != "true"
+            or environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
+            or environ.get("GITHUB_REPOSITORY") != REPOSITORY
+            or not re.fullmatch(re.escape(workflow_ref) + r"refs/(?:heads|tags)/[A-Za-z0-9._/-]+",
+                                environ.get("GITHUB_WORKFLOW_REF", ""))):
+        raise ValueError("nightly identity requires the canonical Actions protocol-certification dispatch")
+    run_id, attempt = environ.get("GITHUB_RUN_ID", ""), environ.get("GITHUB_RUN_ATTEMPT", "")
+    if not re.fullmatch(r"[1-9][0-9]*", run_id) or not re.fullmatch(r"[1-9][0-9]*", attempt):
+        raise ValueError("nightly identity requires positive canonical Actions run and attempt")
+    return {"repository": REPOSITORY, "workflow": WORKFLOW_FILE,
+            "run_id": int(run_id), "run_attempt": int(attempt), "dispatch_id": dispatch}
+
+
 def validate_identity(args: argparse.Namespace) -> tuple[str, str]:
     parsed = urlsplit(args.channel_target)
     if (parsed.scheme not in {"http", "https"} or not parsed.netloc
@@ -102,6 +130,7 @@ def _report_bound_to_run(report: dict, target: str, args: argparse.Namespace, ca
 
 def build_fragment(args: argparse.Namespace) -> dict:
     target, image_digest = validate_identity(args)
+    producer_run = nightly_producer_run()
     catalog = json.loads(CATALOG.read_text())
     tier = getattr(args, "tier", "pr")
     now = args.completed_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -292,6 +321,8 @@ def build_fragment(args: argparse.Namespace) -> dict:
                         "auth_policy_revision": operation["auth_policy_revision"],
                         "started_at": args.started_at,
                         "completed_at": now,
+                        # Inside the hashed identity: evidence_digest binds the receipt to this run.
+                        **({"producer_run": producer_run} if producer_run is not None else {}),
                     },
                     "result": observation_result,
                     "facets": receipt_facets,
