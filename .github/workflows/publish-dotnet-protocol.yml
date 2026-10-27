@@ -402,6 +402,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # Publisher attestations for the verified nuget.org payload (honua-release collector).
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -476,6 +479,49 @@ jobs:
             --delay-seconds 10 \
             --require-existing \
             --output public-registry.json
+
+      # Publisher attestations (honua-release post-gate collector). The collector
+      # downloads Geospatial.Grpc from nuget.org, looks up
+      # repos/<repo>/attestations/sha256:<those bytes>, and verifies the bundle
+      # with --source-digest <tag commit> --signer-workflow this file.
+      # nuget.org repository-signs uploads, so the subject is the public payload
+      # the step above just proved semantically identical to this run's build
+      # (every member except the repository signature), plus the unsigned build.
+      - name: Generate the CycloneDX SBOM for the runtime package
+        shell: bash
+        env:
+          VERSION: ${{ needs.build-and-smoke.outputs.version }}
+        run: |
+          set -euo pipefail
+          dotnet tool install CycloneDX --version 4.2.0 --tool-path "${RUNNER_TEMP}/cyclonedx" >/dev/null
+          "${RUNNER_TEMP}/cyclonedx/dotnet-CycloneDX" src/Geospatial.Grpc/Geospatial.Grpc.csproj \
+            --json \
+            --output "${RUNNER_TEMP}/sbom" \
+            --filename Geospatial.Grpc.cdx.json
+          # actions/attest types SPDX as .../Document/v2.3, which the collector
+          # does not accept; CycloneDX is https://cyclonedx.org/bom.
+          python3 - "${RUNNER_TEMP}/sbom/Geospatial.Grpc.cdx.json" <<'PY'
+          import json, sys
+          bom = json.load(open(sys.argv[1], encoding="utf-8"))
+          if bom.get("bomFormat") != "CycloneDX" or not bom.get("components"):
+              raise SystemExit(f"{sys.argv[1]} is not a non-empty CycloneDX SBOM")
+          PY
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            public-registry/Geospatial.Grpc.${{ needs.build-and-smoke.outputs.version }}.public.nupkg
+            release-inputs/Geospatial.Grpc.${{ needs.build-and-smoke.outputs.version }}.nupkg
+            release-inputs/Geospatial.Grpc.${{ needs.build-and-smoke.outputs.version }}.snupkg
+
+      - name: Attest the SBOM
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: |
+            public-registry/Geospatial.Grpc.${{ needs.build-and-smoke.outputs.version }}.public.nupkg
+            release-inputs/Geospatial.Grpc.${{ needs.build-and-smoke.outputs.version }}.nupkg
+          sbom-path: ${{ runner.temp }}/sbom/Geospatial.Grpc.cdx.json
 
       - name: Consume from clean public-only clients
         shell: bash
