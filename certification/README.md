@@ -15,7 +15,7 @@ lane's exit status. Every observation uses that denominator's governed identity:
 `Geospatial.Grpc` (nuget.org), `geospatial-grpc` (PyPI) and
 `@honua/geospatial-grpc` (npm) **1.0.3** packages, contract
 `geospatial-grpc@00fca4de` (tag v1.0.3) and fixtures
-`geospatial-grpc-conformance@1.0.5+18e609cf` (tag v1.0.5). The workflow installs
+`geospatial-grpc-conformance@1.0.5+a316c50` (v1.0.5 fixtures plus the buffer output coordinate frame). The workflow installs
 exactly those bytes. The pip requirement hash, the npm lockfile integrity and
 the NuGet lockfile content hash are pinned to the catalog's `package_digest` /
 `package_lock_hash`, and `tests/test_certification_client_pins.py` enforces it.

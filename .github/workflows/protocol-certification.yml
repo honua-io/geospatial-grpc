@@ -159,7 +159,7 @@ jobs:
       - name: Checkout v1.0.5 certification fixtures by immutable source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 18e609cfa23d20ba4f0aa9b3db7ee67f6c451d95 # v1.0.5
+          ref: a316c500b15a03749955d725f73fc16d79f9d1f8 # v1.0.5 fixtures plus the buffer coordinate frame
           path: .certification-source
           persist-credentials: false
 
@@ -226,7 +226,7 @@ jobs:
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
           SERVER_IMAGE: ${{ steps.identity.outputs.image }}
           SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
-          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.5+18e609cfa23d20ba4f0aa9b3db7ee67f6c451d95
+          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.5+a316c500b15a03749955d725f73fc16d79f9d1f8
         run: |
           # ApplyEdits mutates sf-parks; every lane starts from the same rows.
           psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -q -f certification/seed/sf-parks-reset.sql
@@ -239,7 +239,7 @@ jobs:
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
           SERVER_IMAGE: ${{ steps.identity.outputs.image }}
           SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
-          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.5+18e609cfa23d20ba4f0aa9b3db7ee67f6c451d95
+          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.5+a316c500b15a03749955d725f73fc16d79f9d1f8
         run: |
           # ApplyEdits mutates sf-parks; every lane starts from the same rows.
           psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -q -f certification/seed/sf-parks-reset.sql
@@ -252,7 +252,7 @@ jobs:
           HONUA_PROTOCOL_API_KEY: "ci-protocol-api-key"
           SERVER_IMAGE: ${{ steps.identity.outputs.image }}
           SERVER_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
-          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.5+18e609cfa23d20ba4f0aa9b3db7ee67f6c451d95
+          FIXTURE_REVISION: geospatial-grpc-conformance@1.0.5+a316c500b15a03749955d725f73fc16d79f9d1f8
         run: |
           # ApplyEdits mutates sf-parks; every lane starts from the same rows.
           psql -h localhost -U honua -d honua_test -v ON_ERROR_STOP=1 -q -f certification/seed/sf-parks-reset.sql
