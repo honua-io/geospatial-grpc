@@ -40,8 +40,8 @@ env:
   # Scheduled runs certify the candidate that honua-release platform-manifest.yaml
   # pins (components.honua-server sha + digest). Move both values together, and
   # only to a manifest snapshot: the attestation step binds digest to source.
-  PINNED_SERVER_IMAGE: "ghcr.io/honua-io/honua-server@sha256:dcf3296f17a456a876c23133fae50b5b32628d4ec710e8bdab58f57d2394d750"
-  PINNED_SERVER_SOURCE_SHA: "0e03bdd06b3ca3fb1b82388110bb5dfa19b9f8fa"
+  PINNED_SERVER_IMAGE: "ghcr.io/honua-io/honua-server@sha256:c8d7aef98761618145725530b6a4e4b25ea4a9ae121da168362f9be4cf5f7d37"
+  PINNED_SERVER_SOURCE_SHA: "a4bde4b8c5ee8cc3dec05ad8b3d4f84470c1ea6e"
   GRPC_TARGET: "http://localhost:8081"
 
 permissions:

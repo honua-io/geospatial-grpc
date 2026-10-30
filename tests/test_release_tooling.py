@@ -466,12 +466,13 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         self.assertIsNotNone(source)
         self.assertRegex(image.group(1), r"^ghcr\.io/honua-io/honua-server@sha256:[0-9a-f]{64}$")
         self.assertRegex(source.group(1), r"^[0-9a-f]{40}$")
-        # honua-release platform-manifest.yaml components.honua-server (2026.1-rc.2).
+        # honua-release platform-manifest.yaml components.honua-server, the
+        # published ghcr.io/honua-io/honua-server:2026.1-rc image (source a4bde4b8).
         self.assertEqual(
             (image.group(1).split("@", 1)[1], source.group(1)),
             (
-                "sha256:dcf3296f17a456a876c23133fae50b5b32628d4ec710e8bdab58f57d2394d750",
-                "0e03bdd06b3ca3fb1b82388110bb5dfa19b9f8fa",
+                "sha256:c8d7aef98761618145725530b6a4e4b25ea4a9ae121da168362f9be4cf5f7d37",
+                "a4bde4b8c5ee8cc3dec05ad8b3d4f84470c1ea6e",
             ),
         )
         self.assertIn("gh attestation verify \"oci://${image}\" --repo honua-io/honua-server", workflow)
