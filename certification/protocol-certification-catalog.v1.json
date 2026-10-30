@@ -5,7 +5,7 @@
   "required_tier": "nightly",
   "claim_narrowing_decision": null,
   "contract_revision": "geospatial-grpc@00fca4de0334c6e2304354df7b367faeec5780d6",
-  "fixture_revision": "geospatial-grpc-conformance@1.0.5+18e609cfa23d20ba4f0aa9b3db7ee67f6c451d95",
+  "fixture_revision": "geospatial-grpc-conformance@1.0.5+a316c500b15a03749955d725f73fc16d79f9d1f8",
   "clients": [
     {
       "canonical_client": "Generated gRPC .NET client",
