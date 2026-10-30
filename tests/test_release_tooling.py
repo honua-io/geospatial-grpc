@@ -578,6 +578,30 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         self.assertNotIn("Publish to Buf Registry", ci)
         self.assertNotIn("BUF_TOKEN is not configured; skipping", ci)
 
+    def test_publisher_attestations_cover_the_verified_public_payload(self) -> None:
+        """honua-release's collector looks up the nuget.org payload digest and this signer workflow."""
+        workflow = (ROOT / ".github/workflows/publish-dotnet-protocol.yml").read_text(
+            encoding="utf-8"
+        )
+        match = re.search(
+            r"(?ms)^  prove-public-consumption:\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
+            workflow,
+        )
+        self.assertIsNotNone(match)
+        body = match.group("body")
+        self.assertIn("id-token: write", body)
+        self.assertIn("attestations: write", body)
+        verify = body.index("- name: Wait for and verify both public registries")
+        provenance = body.index("uses: actions/attest-build-provenance@")
+        sbom = body.index("uses: actions/attest-sbom@")
+        self.assertLess(verify, body.index("dotnet-CycloneDX"))
+        self.assertLess(verify, provenance)
+        self.assertLess(provenance, sbom)
+        public = "public-registry/Geospatial.Grpc.${{ needs.build-and-smoke.outputs.version }}.public.nupkg"
+        self.assertEqual(2, body.count(public))
+        self.assertIn("CycloneDX --version 4.2.0", body)
+        self.assertIn("--require-existing", body)
+
 
 if __name__ == "__main__":
     unittest.main()

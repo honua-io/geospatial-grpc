@@ -1,4 +1,5 @@
 name: gRPC protocol certification
+run-name: ${{ inputs.nightly_dispatch_id && format('gRPC protocol certification [{0}]', inputs.nightly_dispatch_id) || 'gRPC protocol certification' }}
 
 on:
   pull_request:
@@ -29,6 +30,10 @@ on:
       release_cut:
         description: "Frozen ISO-8601 candidate cut (required for release)"
         required: false
+      nightly_dispatch_id:
+        description: Nightly orchestrator correlation ID (nightly-certification-<run>-<attempt>), recorded in each executed evidence receipt
+        required: false
+        type: string
 
 env:
   DOTNET_VERSION: "10.0.x"
@@ -262,6 +267,8 @@ jobs:
           CANDIDATE_CUT: ${{ steps.identity.outputs.candidate_cut }}
           STARTED_AT: ${{ steps.identity.outputs.started_at }}
           CERTIFICATION_TIER: ${{ steps.identity.outputs.tier }}
+          # Set only by the honua-release nightly; recorded as producer_run in every executed receipt.
+          HONUA_NIGHTLY_DISPATCH_ID: ${{ inputs.nightly_dispatch_id || '' }}
         run: >-
           python3 scripts/build_protocol_certification_fragment.py
           --report artifacts/grpc-dotnet.json
@@ -281,7 +288,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: grpc-protocol-certification-${{ steps.identity.outputs.tier }}-${{ github.run_id }}
+          name: grpc-protocol-certification-${{ steps.identity.outputs.tier }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/
           if-no-files-found: error
           retention-days: ${{ steps.identity.outputs.tier == 'release' && 180 || steps.identity.outputs.tier == 'nightly' && 30 || 14 }}
