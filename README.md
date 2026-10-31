@@ -301,7 +301,7 @@ consumer contract.
 
 Known implementations and clients:
 
-- [Honua Server](https://github.com/honua-io/honua-server) — reference server implementation (ELv2)
+- [Honua Server](https://github.com/honua-io/honua-server) — reference server implementation (Fair Source, FCL-1.0-ALv2)
 - [Honua .NET SDK](https://github.com/honua-io/honua-sdk-dotnet) and [Honua Mobile](https://github.com/honua-io/honua-mobile) — .NET / MAUI clients
 - [Honua JS SDK](https://github.com/honua-io/honua-sdk-js) — JavaScript/TypeScript clients
 - Your implementation here — PRs welcome.
