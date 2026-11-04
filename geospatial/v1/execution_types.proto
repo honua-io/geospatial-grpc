@@ -137,7 +137,7 @@ message PlanStep {
 // (severity, remedy) used by surfaces that classify errors at a severity level,
 // such as SpecService plan and apply diagnostics.
 message ErrorDetail {
-  // Numeric, machine-parseable error code. Aligned with GeoServices/Esri REST
+  // Numeric, machine-parseable error code. Aligned with GeoServices REST
   // error-code semantics where applicable (e.g. 400 invalid/missing parameters,
   // 403 forbidden, 404 not found, 498/499 token/auth, 500 internal server
   // error); these also line up with HTTP/gRPC status conventions. 0 means
