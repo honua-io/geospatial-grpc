@@ -21,8 +21,8 @@ assert SPEC and SPEC.loader
 SPEC.loader.exec_module(MODULE)
 
 GOVERNED_CLIENT_VERSION = "1.0.3"
-# 2026.1 gRPC scope ruling (#88, honua-release#376): only the RPCs honua-server
-# implements are governed cells; the other 66 are excluded_operations.
+# Scope ruling: only the RPCs honua-server implements are governed cells.
+# The other 66 are excluded_operations.
 IN_SCOPE_RPCS = 14
 IN_SCOPE_CELLS = 3 * IN_SCOPE_RPCS
 EXCLUDED_RPCS = 66

@@ -541,10 +541,9 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         self.assertNotIn("geospatial-grpc-v*", workflow)
         self.assertIn("workflow_dispatch never publishes", workflow)
         self.assertIn("BUF_TOKEN is required; refusing a partial release", workflow)
-        # Trusted Publishing (2026-08-31): nuget.org credentials come from an
-        # in-job OIDC exchange, never a long-lived repository secret. The
-        # fail-closed contract is unchanged — an empty exchanged key still
-        # refuses the whole release.
+        # nuget.org credentials come from an in-job OIDC exchange, never a
+        # long-lived repository secret. An empty exchanged key still refuses
+        # the whole release.
         self.assertIn(
             "Trusted Publishing exchange produced no key; refusing a partial release",
             workflow,

@@ -16,7 +16,6 @@ import type { FormDefinition } from './gen/geospatial/v1/form_service_pb.js';
 import { createClient, type Client } from '@connectrpc/connect';
 import { createGrpcTransport } from '@connectrpc/connect-node';
 
-// Configure transport
 const transport = createGrpcTransport({
   baseUrl: 'https://demo.geospatial-grpc.org',
 });
@@ -36,9 +35,8 @@ async function runFeatureServiceExample() {
   const client = createClient(FeatureService, transport);
 
   try {
-    // Query parks in San Francisco with area > 1000 sq ft. Connect's client
-    // methods accept a plain message-init object; nested messages (outSr) and
-    // int64 fields (bigint) are written inline.
+    // Connect's client methods accept a plain message-init object; nested
+    // messages (outSr) and int64 fields (bigint) are written inline.
     const response = await client.queryFeatures({
       serviceId: 'sf-parks',
       layerId: 0,
@@ -76,7 +74,6 @@ async function runFormServiceExample() {
   const client = createClient(FormService, transport);
 
   try {
-    // Get park inspection form definition
     const formResponse = await client.getFormDefinition({
       formId: 'park-inspection',
       serviceId: 'sf-parks',
@@ -115,7 +112,6 @@ async function runFormServiceExample() {
       }
     }
 
-    // Demonstrate form submission
     await demonstrateFormSubmission(client, form);
   } catch (error) {
     console.error('❌ Error with form service:', error);
@@ -225,5 +221,4 @@ function getControlTypeName(controlType: string | undefined): string {
   }
 }
 
-// Run the example
 main().catch(console.error);

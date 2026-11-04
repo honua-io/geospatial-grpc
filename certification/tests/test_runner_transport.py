@@ -293,7 +293,7 @@ class RunnerTransportContract:
         self.assertEqual(len(CALLS) - 1, sum(item["result"] == "pass" for item in report["operations"].values()))
 
     def test_excluded_operation_failure_is_reported_but_does_not_fail_the_lane(self):
-        # FormService and ExecutePlan are excluded by the 2026.1 scope ruling (#88).
+        # FormService and ExecutePlan are excluded by the 2026.1 scope ruling.
         completed, report = self.execute(
             unimplemented=("FormService/GetFormDefinition", "ProcessService/ExecutePlan"))
         self.assertEqual(0, completed.returncode, report)
