@@ -42,7 +42,7 @@ execution-plane service follows a validate / dry-run / execute pattern.
 | `BuilderService` | Application bundle synthesis; produces `AppPackage` bundles |
 | `DeploymentService` | Promotion to live targets with health telemetry and rollback |
 | `SpecService` | Declarative spec plan/apply workflows with streaming progress |
-| `StyleService` | 2D style catalog: `StyleRef` styles with typed encodings (MapLibre, SLD, Esri drawing info) |
+| `StyleService` | 2D style catalog: `StyleRef` styles with typed encodings (MapLibre, SLD, GeoServices REST drawing info) |
 | `ElevationService` | Point elevation and geodesic profile sampling |
 | `SceneService` | 3D scene catalog backed by 3D Tiles tilesets and optional terrain |
 | `TileService` | 3D tile delivery by node, or streamed by LOD and extent |
@@ -301,7 +301,7 @@ consumer contract.
 
 Known implementations and clients:
 
-- [Honua Server](https://github.com/honua-io/honua-server) — reference server implementation (ELv2)
+- [Honua Server](https://github.com/honua-io/honua-server) — reference server implementation (Fair Source, FCL-1.0-ALv2)
 - [Honua .NET SDK](https://github.com/honua-io/honua-sdk-dotnet) and [Honua Mobile](https://github.com/honua-io/honua-mobile) — .NET / MAUI clients
 - [Honua JS SDK](https://github.com/honua-io/honua-sdk-js) — JavaScript/TypeScript clients
 - Your implementation here — PRs welcome.

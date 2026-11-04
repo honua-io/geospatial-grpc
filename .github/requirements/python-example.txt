@@ -2,10 +2,10 @@
 # x86_64 GitHub-hosted Linux). The top-level pins MUST equal
 # examples/python/requirements.txt, which is what users are told to install;
 # the job fails if they drift, so refresh these hashes with any bump there.
-grpcio==1.84.0 \
-    --hash=sha256:986e9751d416d7a6eaa2fecdac38da63153d63a4b340ba7d624889c490451500
-grpcio-tools==1.84.0 \
-    --hash=sha256:fad2e65eed6e98ca01046bd8a47e446c7f760af89f2a958a497d61da203f9fd8
+grpcio==1.85.0 \
+    --hash=sha256:55cee7cfe71b29f6b377681936f9a5f35e59f5c941a4d84e2712cb309753e7a9
+grpcio-tools==1.85.0 \
+    --hash=sha256:ded3e21934f566cc9bdb265b9f425ab2cd640e9295639b89c0c3d0441e60df56
 protobuf==7.36.2 \
     --hash=sha256:89f23aa53c24553a2416fd4fd1ec06f74fa42b14b546d8883128813f775bbfd2 \
     --hash=sha256:bdb3a345d48db958e6ce1f18e508beb0cc981d64f24088427549c866cd039f1e

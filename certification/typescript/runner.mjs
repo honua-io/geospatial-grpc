@@ -45,7 +45,7 @@ export async function loadServerAssignedFields(file = SERVER_ASSIGNED_FIELDS) {
   return { required: document.operations, optional: document.optional_operations ?? {} };
 }
 
-// Operations the 2026.1 scope ruling excludes from the governed cells (#88).
+// Operations the 2026.1 scope ruling excludes from the governed cells.
 async function loadExcludedOperations(file = CATALOG) {
   const catalog = JSON.parse(await readFile(file, "utf8"));
   return new Set((catalog.excluded_operations ?? []).map((operation) => operation.operation));

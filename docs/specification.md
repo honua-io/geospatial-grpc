@@ -169,7 +169,7 @@ diagnostics — so clients parse one error shape everywhere. Fields 1-3 (`code`,
 execution context. It contains:
 
 - `code`: Numeric (`int32`) machine-parseable error code, aligned with
-  GeoServices/Esri REST error-code semantics where applicable
+  GeoServices REST error-code semantics where applicable
 - `message`: Human-readable error description
 - `details`: Optional key-value map for additional machine-readable context
 - `category`: Domain classification (validation, authorization, policy, execution, artifact, packaging, deployment)
