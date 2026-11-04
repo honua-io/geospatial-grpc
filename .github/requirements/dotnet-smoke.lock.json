@@ -9,7 +9,7 @@
         "contentHash": "<verified-release-artifact-sha512>",
         "dependencies": {
           "Google.Protobuf": "3.36.2",
-          "Grpc.Core.Api": "2.84.0"
+          "Grpc.Core.Api": "2.85.0"
         }
       },
       "Grpc.Net.Client": {
@@ -29,8 +29,8 @@
       },
       "Grpc.Core.Api": {
         "type": "Transitive",
-        "resolved": "2.84.0",
-        "contentHash": "p2SOMl6q/GZ4/5MLkgboC/z55g4zKUEruRn/g46QgppjQBVnsLZVBU/9VO7n60ll38G3Eo8Zu9b7x+W01GKFVg=="
+        "resolved": "2.85.0",
+        "contentHash": "cpYu/nw/QhwHcRZMJbYD8lEllKrdwYMiDS4U3oH61nhYPUMNkcCcef4ulv11svHvTBThYV+ju332N9bCrfe7cQ=="
       },
       "Grpc.Net.Common": {
         "type": "Transitive",
