@@ -86,10 +86,8 @@ def is_real_calendar_date(value: str) -> bool:
 
 
 MERMAID_RE = re.compile("```mermaid" + chr(13) + "?" + chr(10) + "(.*?)```", re.DOTALL)
-# A node is declared wherever an id carries a label, at any position on the line —
-# `A[Alpha] --> B[Beta]` declares both. An earlier version only looked at line
-# starts, so it missed the right-hand declaration, flagged the valid node as
-# dangling, and missed the genuinely dangling one beside it.
+# A node is declared wherever an id carries a label, at any position on the line:
+# `A[Alpha] --> B[Beta]` declares both.
 MERMAID_DECL_RE = re.compile(r"(\w+)\s*[\[\(\{]")
 MERMAID_SUBGRAPH_RE = re.compile(r"^\s*subgraph\s+(\w+)", re.MULTILINE)
 MERMAID_EDGE_LABEL_RE = re.compile(r"\|[^|]*\|")

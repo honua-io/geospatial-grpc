@@ -15,8 +15,7 @@ from typing import Optional
 import grpc
 from grpc import aio
 
-# Import generated protobuf modules
-# These would be generated from the .proto files
+# Generated from the .proto files; they are not checked in here.
 from geospatial.v1 import feature_service_pb2
 from geospatial.v1 import feature_service_pb2_grpc
 from geospatial.v1 import form_service_pb2
@@ -24,7 +23,6 @@ from geospatial.v1 import form_service_pb2_grpc
 from geospatial.v1 import common_pb2
 from geospatial.v1 import spatial_types_pb2
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -38,7 +36,6 @@ class GeospatialGrpcExample:
 
     async def __aenter__(self):
         """Async context manager entry."""
-        # Create secure gRPC channel
         credentials = grpc.ssl_channel_credentials()
         self.channel = aio.secure_channel(self.server_url, credentials)
         return self
@@ -59,7 +56,6 @@ class GeospatialGrpcExample:
         stub = feature_service_pb2_grpc.FeatureServiceStub(self.channel)
 
         try:
-            # Query parks in San Francisco with area > 1000 sq ft
             request = feature_service_pb2.QueryFeaturesRequest(
                 service_id="sf-parks",
                 layer_id=0,
@@ -73,13 +69,11 @@ class GeospatialGrpcExample:
 
             print(f"Found {len(response.features)} parks:")
             for feature in response.features:
-                # Get park name from attributes
                 name_attr = feature.attributes.get("NAME")
                 name = name_attr.string_value if name_attr else "Unknown"
 
                 print(f"  • {name} (ID: {feature.id})")
 
-                # Display location if point geometry
                 if feature.geometry.HasField("point"):
                     point = feature.geometry.point
                     print(f"    Location: {point.x:.6f}, {point.y:.6f}")
@@ -100,7 +94,6 @@ class GeospatialGrpcExample:
         stub = form_service_pb2_grpc.FormServiceStub(self.channel)
 
         try:
-            # Get park inspection form definition
             form_request = form_service_pb2.GetFormDefinitionRequest(
                 form_id="park-inspection",
                 service_id="sf-parks",
@@ -123,7 +116,6 @@ class GeospatialGrpcExample:
             print(f"Version: {form.version}")
             print(f"Controls ({len(form.controls)}):")
 
-            # Sort controls by display order
             sorted_controls = sorted(form.controls, key=lambda c: c.display_order)
 
             for control in sorted_controls:
@@ -135,7 +127,6 @@ class GeospatialGrpcExample:
                 if control.hint:
                     print(f"      Hint: {control.hint}")
 
-            # Demonstrate form submission
             await self._demonstrate_form_submission(stub, form)
 
         except grpc.RpcError as e:
@@ -147,7 +138,6 @@ class GeospatialGrpcExample:
         """Demonstrate submitting form data."""
         print("\n📤 Submitting sample form data...")
 
-        # Create form instance with sample data
         instance_id = str(uuid.uuid4())
         now_ms = int(datetime.utcnow().timestamp() * 1000)
 
@@ -160,12 +150,10 @@ class GeospatialGrpcExample:
             modified_at=now_ms
         )
 
-        # Add sample field values based on control types
         for control in form.controls:
             value = self._create_sample_value(control)
             instance.field_values[control.control_id].CopyFrom(value)
 
-        # Create submission request
         submission = form_service_pb2.SubmitFormDataRequest(
             form_id=form.form_id,
             form_version=form.version,
@@ -239,12 +227,10 @@ async def main():
     print("=" * 34)
     print()
 
-    # Use async context manager for proper cleanup
     async with GeospatialGrpcExample() as example:
         await example.run_feature_service_example()
         await example.run_form_service_example()
 
 
 if __name__ == "__main__":
-    # Run the async main function
     asyncio.run(main())

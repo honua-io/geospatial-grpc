@@ -8,7 +8,6 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        // Configure gRPC channel
         using var channel = GrpcChannel.ForAddress("https://demo.geospatial-grpc.org", new GrpcChannelOptions
         {
             MaxReceiveMessageSize = 16 * 1024 * 1024 // 16MB for large responses
@@ -30,7 +29,6 @@ class Program
 
         try
         {
-            // Query parks in San Francisco with area > 1000 sq ft
             var request = new QueryFeaturesRequest
             {
                 ServiceId = "sf-parks",
@@ -75,7 +73,6 @@ class Program
 
         try
         {
-            // Get park inspection form definition
             var formRequest = new GetFormDefinitionRequest
             {
                 FormId = "park-inspection",
@@ -123,7 +120,6 @@ class Program
                 }
             }
 
-            // Demonstrate form submission
             await DemonstrateFormSubmission(client, form);
         }
         catch (RpcException ex)
@@ -162,7 +158,6 @@ class Program
             }
         };
 
-        // Add sample field values based on form controls
         foreach (var control in form.Controls)
         {
             var value = control.ControlTypeCase switch

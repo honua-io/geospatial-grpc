@@ -121,7 +121,7 @@ class ConformanceFixtureSchemaTests(unittest.TestCase):
                 self.assertEqual([], dropped_paths(fixture, golden))
 
     def test_detects_a_value_nested_under_an_unknown_key(self):
-        # The pre-fix CreateWorkspace shape: RetentionPolicyRef has no `ref`.
+        # RetentionPolicyRef has no `ref`, so a value nested there is dropped.
         fixture = {"desired": {"defaultRetention": {"ref": {"retentionPolicyId": "standard-30d"}}}}
         golden = {"desired": {"defaultRetention": {}}}
         self.assertEqual(["$.desired.defaultRetention.ref"], dropped_paths(fixture, golden))
