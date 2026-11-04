@@ -88,9 +88,6 @@ def render(pages: list[tuple[str, str, str]]) -> str:
         entries = [p for p in pages if p[0] not in placed and matches(p[0], p[2])]
         if not entries:
             continue
-        # The landing page and the docs map lead their section; a reader
-        # arriving cold should not have to scan an alphabetical list to find
-        # the front door. Everything else keeps path order.
         # Front doors lead their section, ordered by how specific a door they
         # are: the product landing page, then the docs map, then the feature
         # map, then everything else in path order. A repo with no index.md
