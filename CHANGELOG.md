@@ -372,7 +372,7 @@ gate on the intended contract. These are deliberate, one-time pre-v1 breaks; no
   followed by the execution-context fields (`ErrorCategory category = 4`,
   `string phase = 5`, `string node_id = 6`, `Retryability retryability = 7`,
   `string suggested_action = 8`). Field 1 changed from `string error_code` to
-  `int32 code` (numeric codes aligned with GeoServices/Esri REST semantics), and
+  `int32 code` (numeric codes aligned with GeoServices REST semantics), and
   fields 2–8 were reordered/retyped to place the canonical core first. The
   string-code variants are removed.
 - **`FeatureService` error unification (`feature_service.proto`).** The former

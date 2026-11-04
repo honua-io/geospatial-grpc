@@ -23,16 +23,16 @@ package geospatial.v1;
 // The shape mirrors the honua-server metadata-v2 style contract
 // (MetadataV2ResourceStyle / MetadataV2StyleEncoding): one logical style,
 // identified by a stable style_id, may be published in several encodings
-// (for example MapLibre/Mapbox style JSON plus an SLD plus an Esri drawing
-// info) that all render the same cartography.
+// (for example MapLibre/Mapbox style JSON plus an SLD plus GeoServices REST
+// drawing info) that all render the same cartography.
 
 // StyleRef is a typed, addressable reference to a single logical 2D style.
 //
 // The canonical identifier is `style_id`, whose canonical URI form is
 // `honua://styles/{style_id}`. A style is encoding-independent at this level:
 // the concrete serialized representations live in `encodings`, one entry per
-// encoding (MapLibre, SLD, Esri drawing info, ...). At least one encoding is
-// expected for a publishable style.
+// encoding (MapLibre, SLD, GeoServices REST drawing info, ...). At least one
+// encoding is expected for a publishable style.
 message StyleRef {
   // Stable style identifier. Canonical URI form: `honua://styles/{style_id}`.
   string style_id = 1;
