@@ -1,0 +1,31 @@
+{
+  "roots": [
+    ".github/",
+    ".gitignore",
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
+    "VERSIONING.md",
+    "buf.gen.csharp.yaml",
+    "buf.gen.go.yaml",
+    "buf.gen.java.yaml",
+    "buf.gen.javascript.yaml",
+    "buf.gen.python.yaml",
+    "buf.gen.typescript-package.yaml",
+    "buf.gen.yaml",
+    "buf.yaml",
+    "certification/",
+    "conformance/",
+    "docs/",
+    "examples/",
+    "geospatial/",
+    "packages/",
+    "release/",
+    "scripts/",
+    "src/",
+    "tests/"
+  ],
+  "gate_inputs": {}
+}
