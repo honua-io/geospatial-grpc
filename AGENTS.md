@@ -166,7 +166,9 @@ gen/                    # Generated client libraries (output, not committed sour
   all with the pinned buf `1.66.0` and .NET `10.0.x`.
 - **.NET package builds with `TreatWarningsAsErrors=true`** and all analyzers
   enabled (`AnalysisMode=AllEnabledByDefault`); generated/compiled proto code
-  must stay warning-clean. Bump `<Version>` in the `.csproj`; the publish
+  must stay warning-clean. NuGet audit advisories (NU1901-NU1904) are the one
+  exception: the package and every generated smoke project keep them as
+  warnings (`WarningsNotAsErrors`) so a new advisory never fails a build. Bump `<Version>` in the `.csproj`; the publish
   workflow requires the single `v<Version>` tag to match it exactly. A manual
   workflow dispatch validates only; registry publication requires both
   `BUF_TOKEN` and `NUGET_API_KEY` and succeeds only after clean public
