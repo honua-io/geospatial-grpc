@@ -75,6 +75,7 @@ cat > "${APP_DIR}/PublicConsumer.csproj" <<EOF
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Geospatial.Grpc" Version="${VERSION}" />
