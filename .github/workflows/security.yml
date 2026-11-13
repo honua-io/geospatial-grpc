@@ -19,7 +19,7 @@ jobs:
     permissions:
       contents: read
       security-events: write # upload SARIF
-    uses: honua-io/.github/.github/workflows/reusable-trivy.yml@024e410fbbe63768af68604a5dd07f361590f26d # v0.36.0 Trivy workflow snapshot
+    uses: honua-io/.github/.github/workflows/reusable-trivy.yml@a1e43b6e72c716f33a61aeaf6674fd9cac09d17c # v0.36.0 Trivy workflow snapshot
     with:
       scan-type: fs
 
