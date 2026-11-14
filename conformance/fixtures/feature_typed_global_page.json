@@ -1,0 +1,28 @@
+{
+  "objectIdFieldName": "id",
+  "globalIdFieldName": "global_id",
+  "features": [
+    {
+      "id": "42",
+      "globalId": "a98facb0-319e-41e4-81e3-889218c47484",
+      "attributes": {
+        "day": {
+          "dateValue": "2026-11-14"
+        },
+        "clock": {
+          "timeValue": "23:59:59.1234567"
+        },
+        "observed": {
+          "timestampOffsetValue": "2026-11-14T09:30:00.1234567+05:30"
+        },
+        "amount": {
+          "decimalValue": "12345678901234567890.1234500"
+        },
+        "nullable": {
+          "nullValue": "NULL_VALUE"
+        }
+      }
+    }
+  ],
+  "isLastPage": true
+}
