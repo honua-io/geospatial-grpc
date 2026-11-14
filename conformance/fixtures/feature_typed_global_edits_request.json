@@ -1,0 +1,42 @@
+{
+  "serviceId": "survey",
+  "layerId": 2,
+  "adds": [
+    {
+      "globalId": "a98facb0-319e-41e4-81e3-889218c47484",
+      "attributes": {
+        "day": {
+          "dateValue": "2026-11-14"
+        },
+        "clock": {
+          "timeValue": "23:59:59.1234567"
+        },
+        "observed": {
+          "timestampOffsetValue": "2026-11-14T09:30:00.1234567+05:30"
+        },
+        "amount": {
+          "decimalValue": "12345678901234567890.1234500"
+        },
+        "nullable": {
+          "nullValue": "NULL_VALUE"
+        }
+      }
+    }
+  ],
+  "updates": [
+    {
+      "globalId": "e987fc10-7ac5-4abb-92e6-56e7a2841834",
+      "attributes": {
+        "amount": {
+          "decimalValue": "-0.0100"
+        }
+      }
+    }
+  ],
+  "useGlobalIds": true,
+  "deleteGlobalIds": [
+    "e100c384-b0ce-4fa1-b6e8-6314a7b47c70"
+  ],
+  "rollbackOnFailure": true,
+  "idempotencyKey": "edit-typed-1"
+}
