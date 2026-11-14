@@ -20,6 +20,10 @@ message AttributeValue {
     int64 datetime_value = 7; // UTC milliseconds since epoch
     bytes bytes_value = 8;
     NullValue null_value = 9;
+    string date_value = 10; // Calendar date: YYYY-MM-DD, no time zone
+    string time_value = 11; // Local time: HH:mm:ss[.fffffff], no date or time zone
+    string timestamp_offset_value = 12; // RFC 3339 timestamp retaining its UTC offset
+    string decimal_value = 13; // Exact base-10 value; never encode through binary floating point
   }
 }
 
@@ -60,6 +64,8 @@ enum FieldType {
   FIELD_TYPE_JSON = 11;
   FIELD_TYPE_BINARY = 12;
   FIELD_TYPE_UUID = 13;
+  FIELD_TYPE_TIMESTAMP_OFFSET = 14;
+  FIELD_TYPE_DECIMAL = 15;
 }
 
 // GeometryType enumerates supported geometry types.

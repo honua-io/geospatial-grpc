@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package geospatial.v1;
 
+import "geospatial/v1/attachment_types.proto";
 import "geospatial/v1/common.proto";
 import "geospatial/v1/execution_types.proto";
 import "geospatial/v1/metadata_types.proto";
@@ -33,6 +34,30 @@ service FeatureService {
 
   // ApplyEdits applies add/update/delete mutations and returns per-operation results.
   rpc ApplyEdits(ApplyEditsRequest) returns (ApplyEditsResponse);
+
+  // ListAttachments returns a bounded page of attachment metadata for one feature.
+  rpc ListAttachments(ListAttachmentsRequest) returns (ListAttachmentsResponse);
+
+  // GetAttachmentUrl grants a short-lived signed download URL after authorization.
+  rpc GetAttachmentUrl(GetAttachmentUrlRequest) returns (GetAttachmentUrlResponse);
+
+  // UploadAttachment validates and publishes a bounded unary upload.
+  rpc UploadAttachment(UploadAttachmentRequest) returns (UploadAttachmentResponse);
+
+  // BeginAttachmentUpload starts or resumes a durable large-file upload session.
+  rpc BeginAttachmentUpload(BeginAttachmentUploadRequest) returns (BeginAttachmentUploadResponse);
+
+  // UploadAttachmentChunk appends or replays one bounded unary upload chunk.
+  rpc UploadAttachmentChunk(UploadAttachmentChunkRequest) returns (UploadAttachmentChunkResponse);
+
+  // CommitAttachmentUpload validates and atomically publishes the completed file.
+  rpc CommitAttachmentUpload(CommitAttachmentUploadRequest) returns (CommitAttachmentUploadResponse);
+
+  // AbortAttachmentUpload discards temporary content without deleting a published file.
+  rpc AbortAttachmentUpload(AbortAttachmentUploadRequest) returns (AbortAttachmentUploadResponse);
+
+  // DeleteAttachment removes one attachment with caller-scoped retry protection.
+  rpc DeleteAttachment(DeleteAttachmentRequest) returns (DeleteAttachmentResponse);
 }
 
 // DescribeServiceRequest pages through layers accessible to the current caller.
@@ -83,6 +108,7 @@ message QueryFeaturesRequest {
   SpatialFilter spatial_filter = 19; // Spatial query constraint
   int64 result_offset_long = 20; // Pagination offset (int64; replaces retired field 8)
   int64 result_record_count_long = 21; // Pagination limit (int64; replaces retired field 9)
+  repeated string global_ids = 22; // UUID selectors; mutually exclusive with object_ids
 }
 
 // QueryFeaturesResponse contains the full result of a unary feature query.
@@ -99,6 +125,7 @@ message QueryFeaturesResponse {
   repeated int64 object_ids = 8;
   // For extent-only queries.
   Extent extent = 9;
+  string global_id_field_name = 10; // Empty when the layer has no global-ID field
 }
 
 // FeaturePage is a single page in a streaming query response.
@@ -112,6 +139,7 @@ message FeaturePage {
   repeated Feature features = 5;
   // True when this is the final page.
   bool is_last_page = 6;
+  string global_id_field_name = 7; // First page only; empty when unavailable
 }
 
 // ApplyEditsRequest specifies feature edits for a single service/layer.
@@ -134,6 +162,10 @@ message ApplyEditsRequest {
   // so a retry after a lost response cannot create duplicate features.
   // Recommended: a UUID per logical edit attempt.
   string idempotency_key = 8;
+  // Updates select Feature.global_id instead of Feature.id. The layer must
+  // declare a global-ID field. Integer and global-ID selectors cannot be mixed.
+  bool use_global_ids = 9;
+  repeated string delete_global_ids = 10; // Delete selectors when use_global_ids is true
 }
 
 // ApplyEditsResponse contains add/update/delete results.
@@ -152,6 +184,7 @@ message EditResult {
   bool success = 2; // Operation success status
   // Error details if failed. Canonical ErrorDetail (execution_types.proto).
   ErrorDetail error = 3;
+  string global_id = 4; // Stable identity of the affected feature, when available
 }
 
 // QueryRelatedRecordsRequest follows a relationship declared on the origin layer.

@@ -1,0 +1,15 @@
+{
+  "parent": {
+    "serviceId": "editing",
+    "layerId": 7,
+    "objectId": "9007199254740993"
+  },
+  "contentTypes": [
+    "text/plain"
+  ],
+  "keywords": [
+    "survey"
+  ],
+  "pageSize": 10,
+  "pageToken": "opaque-page"
+}

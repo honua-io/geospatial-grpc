@@ -14,6 +14,23 @@ rollback, partial outcomes and whole-batch idempotency semantics. Existing v1
 messages and RPC signatures are unchanged. These contracts do not imply server
 implementation or expand the governed certification surface.
 
+## v1.3.0
+
+- Add browser-compatible attachment listing, signed download grants, unary upload,
+  resumable unary chunk sessions, atomic replacement and idempotent deletion.
+- Define durable session recovery, authorization, digest validation and quota rules;
+  retain the frozen v1.0.0 contract and existing feature RPCs unchanged.
+
+## v1.2.0
+
+Add exact string-backed date, time, offset timestamp and decimal attribute values,
+plus global IDs on query results, edits and edit outcomes. Query filters and
+update/delete requests can address features by global ID. Document preflight,
+per-row and rollback failure semantics without changing existing v1 fields or
+RPC signatures. New oneof alternatives and field-type values require generated
+clients to handle unknown cases. These additions do not imply server support or
+expand the governed certification surface.
+
 ## v1.1.0
 
 Add unary `FeatureService.DescribeService` and `DescribeLayer` RPCs with typed

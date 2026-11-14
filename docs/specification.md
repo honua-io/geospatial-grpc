@@ -58,12 +58,30 @@ service FeatureService {
 
 #### ApplyEdits batch semantics
 
-With `rollback_on_failure = true` an `ApplyEdits` batch is all-or-nothing:
+The transport status describes whether a response exists; row results describe individual writes. Clients MUST inspect both the status and the response's global `error` and row errors. Results retain request order within each operation kind.
 
-- If every edit succeeds, the gRPC status is `OK` and `add_results`, `update_results` and `delete_results` report each edit with `success = true`. Created feature ids in `add_results` are server-assigned.
-- If an update or delete names a feature that does not exist, the server rejects the whole batch with gRPC status `NOT_FOUND` and returns no response message. It applies no edit: no add is created, and no other update or delete in the batch takes effect.
+| Condition | Transport / response | Writes committed |
+| --- | --- | --- |
+| Authentication or authorization denied | `UNAUTHENTICATED` / `PERMISSION_DENIED`; no response | None |
+| Invalid request, UUID, attribute or geometry detected before execution | `INVALID_ARGUMENT`; no response, for either rollback mode | None |
+| Layer cannot accept the requested operation or global-ID mode | `FAILED_PRECONDITION`; no response | None |
+| Update/delete target missing or inaccessible during preflight | `NOT_FOUND`; no response, for either rollback mode | None |
+| All writes succeed | `OK`; successful row results, no global error | All |
+| Writer reports a row failure, rollback disabled | `OK`; successful and failed row results, with row diagnostics | Successful rows |
+| Writer reports a row failure, rollback enabled | `OK`; row diagnostics plus global `error` describing rollback | None |
+| Transport interrupted after submission | Cancellation, timeout or `UNAVAILABLE`; response may be lost | Unknown to the client |
 
-The conformance fixtures pin both cases: `feature_apply_edits_{request,response}.json` is the successful batch, and `feature_apply_edits_missing_target_request.json` with `feature_apply_edits_missing_target_status.json` is the rejected batch. The certification runners then read the named features back (`feature_apply_edits_missing_target_verify_{request,response}.json`) to prove that nothing was applied.
+With `rollback_on_failure = true`, an accepted batch is all-or-nothing. A client MUST NOT interpret a successful row in a rolled-back response as a committed write. Preserve row identities and diagnostics even when surfacing the global error. Clients MUST NOT automatically retry writes without an idempotency key and server deduplication support. A deduplication key identifies one logical request; reusing it for different content is invalid.
+
+The existing `feature_apply_edits_{request,response}.json` fixtures cover success. The missing-target fixtures and certification readback prove whole-batch rejection without writes. These are distinct from writer-time row failures.
+
+#### Global feature identity
+
+`Feature.id` remains the server-assigned signed 64-bit object ID. `Feature.global_id` is a stable UUID for offline synchronization and relationships. UUIDs use the hyphenated `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` form without braces; input is case-insensitive and responses use lowercase. A layer without a declared global-ID field MUST reject global-ID selectors with `FAILED_PRECONDITION`.
+
+Queries may select `global_ids` instead of `object_ids`; specifying both is `INVALID_ARGUMENT`. Other filters still apply. Unary responses and the first streaming page identify the global-ID field; returned features carry their global IDs independently of the projected attributes. Row and field authorization still apply: hidden or masked global-ID values and their field metadata MUST NOT be exposed, and a global-ID selector MUST NOT bypass those restrictions.
+
+By default updates and deletes continue to use integer IDs. With `use_global_ids = true`, every update supplies `Feature.global_id`, integer update IDs and `deletes` MUST be absent, and deletes use `delete_global_ids`. Outside this mode `delete_global_ids` is invalid. Adds may carry a client-generated global ID in either mode; absent IDs are server-generated. Duplicate global IDs are rejected; a global ID MUST NOT be silently replaced or changed by an update. Edit results return both identities when known. Global-ID selection does not itself provide idempotency.
 
 #### Spatial Reference Handling
 
@@ -605,9 +623,24 @@ message AttributeValue {
     int64 datetime_value = 7; // UTC milliseconds since epoch
     bytes bytes_value = 8;
     NullValue null_value = 9;
+    string date_value = 10;
+    string time_value = 11;
+    string timestamp_offset_value = 12;
+    string decimal_value = 13;
   }
 }
 ```
+
+These additive cases preserve values that cannot be represented by the legacy UTC-millisecond or binary floating-point cases:
+
+| Case / field type | Wire value and validation |
+| --- | --- |
+| `date_value` / `DATE` | Gregorian `YYYY-MM-DD`, years 0001–9999, without a time or zone |
+| `time_value` / `TIME` | `HH:mm:ss` with optional 1–7 fractional digits; 00:00:00 through 23:59:59.9999999, without a date or zone |
+| `timestamp_offset_value` / `TIMESTAMP_OFFSET` | RFC 3339 date/time with required `Z` or `±HH:mm` offset, optional 1–7 fractional digits; offset within ±14:00, preserving local time, precision and offset |
+| `decimal_value` / `DECIMAL` | Exact text matching `-?(0|[1-9][0-9]*)(\.[0-9]+)?`; no exponent, grouping, plus sign, NaN or infinity; scale and trailing zeros are preserved |
+
+The legacy `datetime_value` remains UTC epoch milliseconds. Implementations MUST NOT coerce offset timestamps to it or decimals to `double_value`. Missing attributes mean unspecified; `null_value` means explicitly null, subject to schema nullability. Invalid lexical values fail request validation before writes. Numeric precision/range constraints declared by the target storage still apply and must be reported rather than rounded silently. If a storage mapping cannot preserve the declared type semantics, including an offset timestamp's original offset, the server MUST reject the unsupported mapping with `FAILED_PRECONDITION` before writes rather than silently normalizing it.
 
 #### SpatialReference
 
@@ -975,3 +1008,10 @@ with a changed request yields `INVALID_ARGUMENT` without additional writes.
 Concurrent equivalent submissions must be deduplicated atomically. An absent key
 provides no retry guarantee; clients must not automatically retry writes with
 unknown outcomes. Browser clients invoke these unary RPCs through gRPC-Web.
+
+## Feature attachments
+
+The additive attachment RPCs use unary requests and responses throughout, so
+browser clients can use gRPC-Web for both small files and resumable large uploads.
+Download grants return short-lived signed URLs. See [native attachments](features/attachments.md)
+for authorization, limits, retries, session recovery and publication semantics.
