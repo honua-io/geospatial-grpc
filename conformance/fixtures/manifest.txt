@@ -10,6 +10,12 @@
 # the committed golden in conformance/golden/. Lines beginning with '#' and
 # blank lines are ignored. Keep entries grouped by service and workflow.
 
+# FeatureService — native metadata.
+feature_describe_service_request.json  geospatial.v1.DescribeServiceRequest
+feature_describe_service_response.json  geospatial.v1.DescribeServiceResponse
+feature_describe_layer_request.json  geospatial.v1.DescribeLayerRequest
+feature_describe_layer_response.json  geospatial.v1.DescribeLayerResponse
+
 # FeatureService — query and edit workflows.
 feature_query_request.json          geospatial.v1.QueryFeaturesRequest
 feature_query_response.json         geospatial.v1.QueryFeaturesResponse

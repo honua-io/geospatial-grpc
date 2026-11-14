@@ -894,3 +894,41 @@ This protocol may be submitted to relevant standards bodies:
 - **OGC**: Open Geospatial Consortium for geospatial standards
 - **IETF**: Internet Engineering Task Force for protocol standards
 - **ISO**: International Organization for Standardization
+
+## Native feature metadata
+
+`FeatureService.DescribeService` and `DescribeLayer` are unary RPCs, including
+on gRPC-Web. They describe the canonical service/catalog schema without reading
+feature rows or depending on a GeoServices REST metadata document. Rendering,
+symbols, labels and legend presentation remain in the MapLibre style.
+
+`DescribeService` returns one `ServiceDescriptor` and a bounded page of
+`LayerSummary` entries, including non-spatial tables (`GEOMETRY_TYPE_NONE`).
+A zero page size selects a bounded server default; a negative size is
+`INVALID_ARGUMENT`. Servers cap larger requested sizes to their configured
+maximum. A next-page token is opaque, bound to the service, caller and discovery
+parameters, and must be reauthorized on use. Invalid or expired tokens produce
+`INVALID_ARGUMENT`. Only accessible layers and relationships may be returned;
+metadata calls use the same service/layer authorization and API-enablement
+checks as queries. Disabled endpoints fail rather than falling back to REST.
+Unimplemented metadata RPCs return `UNIMPLEMENTED`.
+
+`DescribeLayer` returns a `LayerDescriptor` for a spatial layer or table. Domain
+codes, range endpoints, subtype codes and attribute defaults use `AttributeValue`
+and the declared field type. An absent default inherits or supplies no default;
+`null_value` is an explicit null. A subtype's absent domain override inherits
+the field domain; selected `clear_domain = true` removes it. Selecting false is
+invalid. Templates contain attribute defaults only. Related layer identifiers
+are scoped to the described service, and relationship keys always name the
+origin and destination fields regardless of the described layer's role.
+
+Capabilities report implemented operations authorized for this caller. A false
+or absent capability never grants permission. Service flags are upper bounds;
+layer and feature authorization still apply to every operation. Missing optional
+editing flags mean unknown; clients must not assume permission from them.
+Editor-tracking fields remain server-owned even when a template supplies them.
+Time extents and edit timestamps use UTC epoch milliseconds, preserving epoch
+zero through optional presence. The time zone is an IANA name; an empty zone
+means unknown. Temporal field values retain their declared attribute semantics.
+Attachment limits use bytes; zero means unspecified/unavailable, never unlimited.
+Metadata does not itself enable attachment, related-record or temporal RPCs.

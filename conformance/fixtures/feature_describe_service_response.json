@@ -1,0 +1,38 @@
+{
+  "service": {
+    "serviceId": "inspections",
+    "name": "Inspections",
+    "description": "Field inspections",
+    "spatialReference": {
+      "wkid": 4326
+    },
+    "extent": {
+      "xmin": -120,
+      "ymin": 35,
+      "xmax": -119,
+      "ymax": 36,
+      "spatialReference": {
+        "wkid": 4326
+      }
+    },
+    "capabilities": {
+      "query": true,
+      "queryStream": true
+    },
+    "maxRecordCount": "2000"
+  },
+  "layers": [
+    {
+      "layerId": 2,
+      "name": "Sites",
+      "description": "Inspection sites",
+      "geometryType": "GEOMETRY_TYPE_POINT"
+    },
+    {
+      "layerId": 3,
+      "name": "Visits",
+      "geometryType": "GEOMETRY_TYPE_NONE"
+    }
+  ],
+  "nextPageToken": "next-opaque-cursor"
+}

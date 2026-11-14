@@ -1,0 +1,5 @@
+{
+  "serviceId": "inspections",
+  "pageSize": 25,
+  "pageToken": "opaque-cursor"
+}

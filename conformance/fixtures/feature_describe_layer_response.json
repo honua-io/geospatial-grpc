@@ -1,0 +1,298 @@
+{
+  "layer": {
+    "serviceId": "inspections",
+    "layerId": 2,
+    "name": "Sites",
+    "description": "Inspection sites",
+    "geometryType": "GEOMETRY_TYPE_POINT",
+    "spatialReference": {
+      "wkid": 4326
+    },
+    "extent": {
+      "xmin": -120,
+      "ymin": 35,
+      "xmax": -119,
+      "ymax": 36
+    },
+    "objectIdField": "objectid",
+    "globalIdField": "globalid",
+    "displayField": "name",
+    "fields": [
+      {
+        "definition": {
+          "name": "status",
+          "fieldType": "FIELD_TYPE_INTEGER",
+          "nullable": true,
+          "alias": "Status"
+        },
+        "editable": false,
+        "defaultValue": {
+          "nullValue": "NULL_VALUE"
+        },
+        "domain": {
+          "name": "status_codes",
+          "codedValues": {
+            "values": [
+              {
+                "code": {
+                  "int32Value": 1
+                },
+                "name": "Open",
+                "description": "Needs inspection"
+              },
+              {
+                "code": {
+                  "int32Value": 2
+                },
+                "name": "Closed"
+              }
+            ]
+          },
+          "mergePolicy": "default",
+          "splitPolicy": "duplicate"
+        },
+        "precision": 9,
+        "scale": 0
+      },
+      {
+        "definition": {
+          "name": "cost",
+          "fieldType": "FIELD_TYPE_BIG_INTEGER",
+          "length": 20,
+          "alias": "Cost",
+          "nullable": true
+        },
+        "editable": true,
+        "defaultValue": {
+          "int64Value": "9007199254740993"
+        },
+        "domain": {
+          "name": "cost_range",
+          "range": {
+            "minimum": {
+              "int64Value": "1"
+            },
+            "maximum": {
+              "int64Value": "9223372036854775807"
+            }
+          }
+        },
+        "precision": 19,
+        "scale": 0
+      },
+      {
+        "definition": {
+          "name": "objectid",
+          "fieldType": "FIELD_TYPE_BIG_INTEGER",
+          "nullable": false
+        },
+        "editable": false
+      },
+      {
+        "definition": {
+          "name": "globalid",
+          "fieldType": "FIELD_TYPE_UUID",
+          "nullable": false
+        },
+        "editable": false
+      },
+      {
+        "definition": {
+          "name": "name",
+          "fieldType": "FIELD_TYPE_STRING",
+          "nullable": true,
+          "length": 255
+        },
+        "editable": true
+      },
+      {
+        "definition": {
+          "name": "kind",
+          "fieldType": "FIELD_TYPE_INTEGER",
+          "nullable": false
+        },
+        "editable": true
+      },
+      {
+        "definition": {
+          "name": "observed_at",
+          "fieldType": "FIELD_TYPE_DATE_TIME",
+          "nullable": true
+        },
+        "editable": true
+      },
+      {
+        "definition": {
+          "name": "ended_at",
+          "fieldType": "FIELD_TYPE_DATE_TIME",
+          "nullable": true
+        },
+        "editable": true
+      },
+      {
+        "definition": {
+          "name": "created_by",
+          "fieldType": "FIELD_TYPE_STRING",
+          "nullable": true,
+          "length": 255
+        },
+        "editable": false
+      },
+      {
+        "definition": {
+          "name": "created_at",
+          "fieldType": "FIELD_TYPE_DATE_TIME",
+          "nullable": true
+        },
+        "editable": false
+      },
+      {
+        "definition": {
+          "name": "edited_by",
+          "fieldType": "FIELD_TYPE_STRING",
+          "nullable": true,
+          "length": 255
+        },
+        "editable": false
+      },
+      {
+        "definition": {
+          "name": "edited_at",
+          "fieldType": "FIELD_TYPE_DATE_TIME",
+          "nullable": true
+        },
+        "editable": false
+      }
+    ],
+    "subtypes": {
+      "field": "kind",
+      "defaultCode": {
+        "int32Value": 7
+      },
+      "subtypes": [
+        {
+          "code": {
+            "int32Value": 7
+          },
+          "name": "Routine",
+          "fieldOverrides": {
+            "status": {
+              "defaultValue": {
+                "int32Value": 1
+              },
+              "domain": {
+                "name": "routine_status",
+                "codedValues": {
+                  "values": [
+                    {
+                      "code": {
+                        "int32Value": 1
+                      },
+                      "name": "Open"
+                    }
+                  ]
+                }
+              }
+            },
+            "cost": {
+              "defaultValue": {
+                "nullValue": "NULL_VALUE"
+              },
+              "clearDomain": true
+            }
+          },
+          "templates": [
+            {
+              "name": "Routine site",
+              "defaultAttributes": {
+                "kind": {
+                  "int32Value": 7
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "templates": [
+      {
+        "name": "New site",
+        "description": "Attribute defaults only",
+        "defaultAttributes": {
+          "name": {
+            "stringValue": "New site"
+          },
+          "status": {
+            "int32Value": 1
+          }
+        }
+      }
+    ],
+    "relationships": [
+      {
+        "relationshipId": 4,
+        "name": "Visits",
+        "relatedLayerId": 3,
+        "originKeyField": "globalid",
+        "destinationKeyField": "site_globalid",
+        "cardinality": "RELATIONSHIP_CARDINALITY_ONE_TO_MANY",
+        "role": "RELATIONSHIP_ROLE_ORIGIN",
+        "composite": false,
+        "description": "Visits at a site"
+      }
+    ],
+    "capabilities": {
+      "query": true,
+      "queryStream": true,
+      "create": true,
+      "update": true,
+      "delete": true,
+      "queryRelated": true,
+      "applyServiceEdits": true,
+      "useGlobalIds": true,
+      "listAttachments": true,
+      "uploadAttachments": true,
+      "deleteAttachments": true,
+      "queryTime": true,
+      "queryStatistics": true,
+      "queryDistinct": true,
+      "queryOrderBy": true,
+      "queryPagination": true
+    },
+    "maxRecordCount": "2000",
+    "hasZ": true,
+    "hasM": true,
+    "timeInfo": {
+      "startField": "observed_at",
+      "endField": "ended_at",
+      "timeZone": "America/Los_Angeles",
+      "respectsDaylightSaving": false,
+      "extentStartUtcMs": "0",
+      "extentEndUtcMs": "1794614400000",
+      "defaultInterval": 1,
+      "intervalUnit": "TIME_INTERVAL_UNIT_DAYS"
+    },
+    "editingInfo": {
+      "creatorField": "created_by",
+      "createdAtField": "created_at",
+      "editorField": "edited_by",
+      "editedAtField": "edited_at",
+      "editorTrackingEnabled": true,
+      "ownershipAccessControlEnabled": true,
+      "allowUpdateOthers": false,
+      "allowDeleteOthers": false,
+      "lastEditUtcMs": "1794614400000"
+    },
+    "attachmentLimits": {
+      "maxFileBytes": "104857600",
+      "maxAttachmentsPerFeature": 5,
+      "maxTotalBytesPerFeature": "52428800",
+      "allowedContentTypes": [
+        "image/jpeg",
+        "application/pdf"
+      ],
+      "maxUnaryUploadBytes": "5242880",
+      "maxChunkBytes": "1048576"
+    }
+  }
+}
