@@ -5,7 +5,7 @@ Generated protobuf-es messages and service descriptors for the stable
 conformance fixture version.
 
 ```bash
-npm install @honua/geospatial-grpc@1.2.0
+npm install @honua/geospatial-grpc@1.3.0
 ```
 
 ```typescript

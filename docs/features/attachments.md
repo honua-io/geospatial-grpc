@@ -1,3 +1,9 @@
+---
+type: reference
+title: "Native attachment contract"
+description: "Unary browser uploads, durable chunk sessions and signed download grants."
+tags: [protocol, grpc, attachments]
+---
 # Native attachments over gRPC-Web
 
 Applications discover attachment capabilities and limits through `DescribeLayer`.

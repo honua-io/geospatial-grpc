@@ -932,3 +932,10 @@ zero through optional presence. The time zone is an IANA name; an empty zone
 means unknown. Temporal field values retain their declared attribute semantics.
 Attachment limits use bytes; zero means unspecified/unavailable, never unlimited.
 Metadata does not itself enable attachment, related-record or temporal RPCs.
+
+## Feature attachments
+
+The additive attachment RPCs use unary requests and responses throughout, so
+browser clients can use gRPC-Web for both small files and resumable large uploads.
+Download grants return short-lived signed URLs. See [native attachments](features/attachments.md)
+for authorization, limits, retries, session recovery and publication semantics.

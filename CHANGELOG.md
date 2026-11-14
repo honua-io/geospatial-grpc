@@ -5,6 +5,13 @@ client packages are recorded here. A single git release tag (`v<version>`)
 identifies the matching NuGet, PyPI, npm, BSR, and `conformance/VERSION`
 coordinates.
 
+## v1.3.0
+
+- Add browser-compatible attachment listing, signed download grants, unary upload,
+  resumable unary chunk sessions, atomic replacement and idempotent deletion.
+- Define durable session recovery, authorization, digest validation and quota rules;
+  retain the frozen v1.0.0 contract and existing feature RPCs unchanged.
+
 ## v1.2.0
 
 Add exact string-backed date, time, offset timestamp and decimal attribute values,

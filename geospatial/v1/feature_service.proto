@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package geospatial.v1;
 
+import "geospatial/v1/attachment_types.proto";
 import "geospatial/v1/common.proto";
 import "geospatial/v1/execution_types.proto";
 import "geospatial/v1/metadata_types.proto";
@@ -27,6 +28,30 @@ service FeatureService {
 
   // ApplyEdits applies add/update/delete mutations and returns per-operation results.
   rpc ApplyEdits(ApplyEditsRequest) returns (ApplyEditsResponse);
+
+  // ListAttachments returns a bounded page of attachment metadata for one feature.
+  rpc ListAttachments(ListAttachmentsRequest) returns (ListAttachmentsResponse);
+
+  // GetAttachmentUrl grants a short-lived signed download URL after authorization.
+  rpc GetAttachmentUrl(GetAttachmentUrlRequest) returns (GetAttachmentUrlResponse);
+
+  // UploadAttachment validates and publishes a bounded unary upload.
+  rpc UploadAttachment(UploadAttachmentRequest) returns (UploadAttachmentResponse);
+
+  // BeginAttachmentUpload starts or resumes a durable large-file upload session.
+  rpc BeginAttachmentUpload(BeginAttachmentUploadRequest) returns (BeginAttachmentUploadResponse);
+
+  // UploadAttachmentChunk appends or replays one bounded unary upload chunk.
+  rpc UploadAttachmentChunk(UploadAttachmentChunkRequest) returns (UploadAttachmentChunkResponse);
+
+  // CommitAttachmentUpload validates and atomically publishes the completed file.
+  rpc CommitAttachmentUpload(CommitAttachmentUploadRequest) returns (CommitAttachmentUploadResponse);
+
+  // AbortAttachmentUpload discards temporary content without deleting a published file.
+  rpc AbortAttachmentUpload(AbortAttachmentUploadRequest) returns (AbortAttachmentUploadResponse);
+
+  // DeleteAttachment removes one attachment with caller-scoped retry protection.
+  rpc DeleteAttachment(DeleteAttachmentRequest) returns (DeleteAttachmentResponse);
 }
 
 // DescribeServiceRequest pages through layers accessible to the current caller.

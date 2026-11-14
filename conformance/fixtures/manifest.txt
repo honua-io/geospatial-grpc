@@ -108,12 +108,9 @@ attachment_upload_request.json  geospatial.v1.UploadAttachmentRequest
 attachment_begin_request.json  geospatial.v1.BeginAttachmentUploadRequest
 attachment_begin_response.json  geospatial.v1.BeginAttachmentUploadResponse
 attachment_chunk_request.json  geospatial.v1.UploadAttachmentChunkRequest
-attachment_chunk_response.json  geospatial.v1.UploadAttachmentChunkResponse
 attachment_commit_request.json  geospatial.v1.CommitAttachmentUploadRequest
 attachment_commit_response.json  geospatial.v1.CommitAttachmentUploadResponse
-attachment_abort_request.json  geospatial.v1.AbortAttachmentUploadRequest
 attachment_delete_request.json  geospatial.v1.DeleteAttachmentRequest
-attachment_delete_response.json  geospatial.v1.DeleteAttachmentResponse
 # FeatureService — lossless temporal/decimal values and global identities.
 feature_typed_global_edits_request.json  geospatial.v1.ApplyEditsRequest
 feature_typed_global_edits_response.json  geospatial.v1.ApplyEditsResponse

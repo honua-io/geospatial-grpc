@@ -7,7 +7,6 @@
 ## Guides
 
 * [Generate a client and make your first call](getting-started.md)
-* [Native attachments over gRPC-Web](features/attachments.md)
 
 ## Concepts
 
@@ -15,4 +14,5 @@
 
 ## Reference
 
+* [Native attachment contract](features/attachments.md)
 * [geospatial.v1 protocol specification](specification.md)
