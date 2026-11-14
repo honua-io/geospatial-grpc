@@ -1,0 +1,222 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+import "geospatial/v1/common.proto";
+
+// ServiceDescriptor describes an authorized feature service, without rendering metadata.
+message ServiceDescriptor {
+  string service_id = 1;
+  string name = 2;
+  string description = 3;
+  SpatialReference spatial_reference = 4;
+  Extent extent = 5;
+  FeatureCapabilities capabilities = 6;
+  int64 max_record_count = 7;
+}
+
+// LayerSummary is a discoverable layer or non-spatial table in a service.
+message LayerSummary {
+  int32 layer_id = 1;
+  string name = 2;
+  string description = 3;
+  GeometryType geometry_type = 4;
+}
+
+// LayerDescriptor is the authoritative schema for native query and editing clients.
+message LayerDescriptor {
+  string service_id = 1;
+  int32 layer_id = 2;
+  string name = 3;
+  string description = 4;
+  GeometryType geometry_type = 5;
+  SpatialReference spatial_reference = 6;
+  Extent extent = 7;
+  string object_id_field = 8;
+  string global_id_field = 9;
+  string display_field = 10;
+  repeated LayerFieldDescriptor fields = 11;
+  SubtypeDefinition subtypes = 12;
+  repeated FeatureTemplate templates = 13;
+  repeated RelationshipDescriptor relationships = 14;
+  FeatureCapabilities capabilities = 15;
+  int64 max_record_count = 16;
+  bool has_z = 17;
+  bool has_m = 18;
+  LayerTimeInfo time_info = 19;
+  LayerEditingInfo editing_info = 20;
+  AttachmentLimits attachment_limits = 21;
+}
+
+// LayerFieldDescriptor adds editing constraints to the shared query field definition.
+message LayerFieldDescriptor {
+  FieldDefinition definition = 1;
+  optional bool editable = 2; // Absent means unknown; it MUST NOT grant edit permission.
+  AttributeValue default_value = 3; // Absent means no default; null_value means explicit null.
+  FieldDomain domain = 4;
+  optional int32 precision = 5;
+  optional int32 scale = 6;
+}
+
+// FieldDomain constrains values without converting numeric codes to strings or doubles.
+message FieldDomain {
+  string name = 1;
+  oneof constraint {
+    CodedValueDomain coded_values = 2;
+    RangeDomain range = 3;
+  }
+  string merge_policy = 4;
+  string split_policy = 5;
+}
+
+// CodedValueDomain lists the allowed typed codes and their labels.
+message CodedValueDomain {
+  repeated DomainCodedValue values = 1;
+}
+
+// DomainCodedValue is a typed code with a human-readable label.
+message DomainCodedValue {
+  AttributeValue code = 1;
+  string name = 2;
+  string description = 3;
+}
+
+// RangeDomain bounds values inclusively in the field's native attribute type.
+message RangeDomain {
+  AttributeValue minimum = 1;
+  AttributeValue maximum = 2;
+}
+
+// SubtypeDefinition selects defaults and domain overrides using a typed field value.
+message SubtypeDefinition {
+  string field = 1;
+  AttributeValue default_code = 2;
+  repeated LayerSubtype subtypes = 3;
+}
+
+// LayerSubtype overrides only the named fields; other field constraints are inherited.
+message LayerSubtype {
+  AttributeValue code = 1;
+  string name = 2;
+  map<string, SubtypeFieldOverride> field_overrides = 3;
+  repeated FeatureTemplate templates = 4;
+}
+
+// SubtypeFieldOverride preserves absent defaults, explicit nulls and domain inheritance.
+message SubtypeFieldOverride {
+  AttributeValue default_value = 1;
+  oneof domain_override {
+    FieldDomain domain = 2;
+    bool clear_domain = 3; // When selected MUST be true; absence inherits the field domain.
+  }
+}
+
+// FeatureTemplate supplies attribute defaults only; tools and symbols belong to the app/style.
+message FeatureTemplate {
+  string name = 1;
+  string description = 2;
+  map<string, AttributeValue> default_attributes = 3;
+}
+
+// RelationshipDescriptor describes a relationship to another layer in the same service.
+// It does not grant access to that layer or reveal inaccessible related layers.
+message RelationshipDescriptor {
+  int32 relationship_id = 1;
+  string name = 2;
+  int32 related_layer_id = 3;
+  string origin_key_field = 4;
+  string destination_key_field = 5;
+  RelationshipCardinality cardinality = 6;
+  RelationshipRole role = 7;
+  optional bool composite = 8;
+  string description = 9;
+}
+
+// RelationshipCardinality is measured from origin to destination.
+enum RelationshipCardinality {
+  RELATIONSHIP_CARDINALITY_UNSPECIFIED = 0;
+  RELATIONSHIP_CARDINALITY_ONE_TO_ONE = 1;
+  RELATIONSHIP_CARDINALITY_ONE_TO_MANY = 2;
+  RELATIONSHIP_CARDINALITY_MANY_TO_MANY = 3;
+}
+
+// RelationshipRole identifies the described layer's side of the relationship.
+enum RelationshipRole {
+  RELATIONSHIP_ROLE_UNSPECIFIED = 0;
+  RELATIONSHIP_ROLE_ORIGIN = 1;
+  RELATIONSHIP_ROLE_DESTINATION = 2;
+}
+
+// FeatureCapabilities reports effective operations supported for the current caller.
+// True requires both implementation support and authorization; false grants nothing.
+// Service-level flags are upper bounds; layer flags and per-call checks still apply.
+message FeatureCapabilities {
+  bool query = 1;
+  bool query_stream = 2;
+  bool create = 3;
+  bool update = 4;
+  bool delete = 5;
+  bool query_related = 6;
+  bool apply_service_edits = 7;
+  bool use_global_ids = 8;
+  bool list_attachments = 9;
+  bool upload_attachments = 10;
+  bool delete_attachments = 11;
+  bool query_time = 12;
+  bool query_statistics = 13;
+  bool query_distinct = 14;
+  bool query_order_by = 15;
+  bool query_pagination = 16;
+}
+
+// LayerTimeInfo describes temporal fields and their interpretation.
+message LayerTimeInfo {
+  string start_field = 1;
+  string end_field = 2; // Empty for instant observations.
+  string time_zone = 3; // IANA zone; empty means unknown, not the client's local zone.
+  optional bool respects_daylight_saving = 4;
+  optional int64 extent_start_utc_ms = 5;
+  optional int64 extent_end_utc_ms = 6;
+  optional double default_interval = 7;
+  TimeIntervalUnit interval_unit = 8;
+}
+
+// TimeIntervalUnit defines the unit of a temporal navigation interval.
+enum TimeIntervalUnit {
+  TIME_INTERVAL_UNIT_UNSPECIFIED = 0;
+  TIME_INTERVAL_UNIT_MILLISECONDS = 1;
+  TIME_INTERVAL_UNIT_SECONDS = 2;
+  TIME_INTERVAL_UNIT_MINUTES = 3;
+  TIME_INTERVAL_UNIT_HOURS = 4;
+  TIME_INTERVAL_UNIT_DAYS = 5;
+  TIME_INTERVAL_UNIT_WEEKS = 6;
+  TIME_INTERVAL_UNIT_MONTHS = 7;
+  TIME_INTERVAL_UNIT_YEARS = 8;
+}
+
+// LayerEditingInfo describes server-owned tracking and ownership restrictions.
+message LayerEditingInfo {
+  string creator_field = 1;
+  string created_at_field = 2;
+  string editor_field = 3;
+  string edited_at_field = 4;
+  optional bool editor_tracking_enabled = 5;
+  optional bool ownership_access_control_enabled = 6;
+  optional bool allow_update_others = 7;
+  optional bool allow_delete_others = 8;
+  optional int64 last_edit_utc_ms = 9;
+}
+
+// AttachmentLimits gives effective byte/count limits, not permission to upload.
+// Zero means unavailable/unspecified; clients MUST NOT interpret it as unlimited.
+message AttachmentLimits {
+  int64 max_file_bytes = 1;
+  int32 max_attachments_per_feature = 2;
+  int64 max_total_bytes_per_feature = 3;
+  repeated string allowed_content_types = 4;
+  int64 max_unary_upload_bytes = 5;
+  int64 max_chunk_bytes = 6;
+}
