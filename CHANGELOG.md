@@ -5,6 +5,16 @@ client packages are recorded here. A single git release tag (`v<version>`)
 identifies the matching NuGet, PyPI, npm, BSR, and `conformance/VERSION`
 coordinates.
 
+## v1.1.0
+
+Add unary `FeatureService.DescribeService` and `DescribeLayer` RPCs with typed
+native metadata: fields, domains, subtypes, attribute templates, relationships,
+effective capabilities, time information, editor tracking and attachment limits.
+Service discovery is paginated and authorization-filtered. Existing v1 messages
+and RPC signatures are unchanged. New metadata domain oneofs require exhaustive
+generated-client switches to handle their unset case. These contracts do not
+imply server implementation or expand the governed certification surface.
+
 ## v1.0.5
 
 Conformance fixture and certification-harness release. There are no `.proto`,

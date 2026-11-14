@@ -7,11 +7,18 @@ package geospatial.v1;
 
 import "geospatial/v1/common.proto";
 import "geospatial/v1/execution_types.proto";
+import "geospatial/v1/metadata_types.proto";
 import "geospatial/v1/spatial_types.proto";
 
 // FeatureService provides typed RPC access to geospatial feature queries and editing.
 // This service defines the core geospatial operations for feature data access.
 service FeatureService {
+  // DescribeService returns authorized service metadata and a bounded page of layers.
+  rpc DescribeService(DescribeServiceRequest) returns (DescribeServiceResponse);
+
+  // DescribeLayer returns the canonical schema and effective capabilities of one layer.
+  rpc DescribeLayer(DescribeLayerRequest) returns (DescribeLayerResponse);
+
   // QueryFeatures executes a feature query and returns all results in a single response.
   rpc QueryFeatures(QueryFeaturesRequest) returns (QueryFeaturesResponse);
 
@@ -20,6 +27,31 @@ service FeatureService {
 
   // ApplyEdits applies add/update/delete mutations and returns per-operation results.
   rpc ApplyEdits(ApplyEditsRequest) returns (ApplyEditsResponse);
+}
+
+// DescribeServiceRequest pages through layers accessible to the current caller.
+message DescribeServiceRequest {
+  string service_id = 1;
+  int32 page_size = 2; // Zero selects the server default; negative values are invalid.
+  string page_token = 3; // Opaque token from the preceding response, empty for the first page.
+}
+
+// DescribeServiceResponse omits inaccessible layers and contains no feature rows.
+message DescribeServiceResponse {
+  ServiceDescriptor service = 1;
+  repeated LayerSummary layers = 2;
+  string next_page_token = 3; // Empty when there are no more accessible layers.
+}
+
+// DescribeLayerRequest addresses a layer or table using the same scope as QueryFeatures.
+message DescribeLayerRequest {
+  string service_id = 1;
+  int32 layer_id = 2;
+}
+
+// DescribeLayerResponse contains metadata, without querying a sample feature.
+message DescribeLayerResponse {
+  LayerDescriptor layer = 1;
 }
 
 // QueryFeaturesRequest specifies the full set of query parameters.
