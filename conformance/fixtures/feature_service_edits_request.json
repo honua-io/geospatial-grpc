@@ -1,0 +1,40 @@
+{
+  "serviceId": "survey",
+  "edits": [
+    {
+      "layerId": 1,
+      "adds": [
+        {
+          "attributes": {
+            "name": {
+              "stringValue": "Parent"
+            }
+          }
+        }
+      ],
+      "updates": [
+        {
+          "id": "101",
+          "attributes": {
+            "name": {
+              "stringValue": "Revised"
+            }
+          }
+        }
+      ],
+      "deletes": [
+        "102"
+      ],
+      "forceWrite": true
+    },
+    {
+      "layerId": 3,
+      "useGlobalIds": true,
+      "deleteGlobalIds": [
+        "b2d2f29c-c69e-4fcb-8172-8be2c010aa10"
+      ]
+    }
+  ],
+  "rollbackOnFailure": true,
+  "idempotencyKey": "657a84e5-425c-4072-9120-79e5f099b129"
+}
