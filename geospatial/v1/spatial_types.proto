@@ -88,4 +88,5 @@ message Feature {
   int64 id = 1;
   map<string, AttributeValue> attributes = 2;
   Geometry geometry = 3;
+  string global_id = 4; // Stable UUID identity, independent of the server-assigned integer ID
 }

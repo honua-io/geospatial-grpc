@@ -92,3 +92,10 @@ spec_apply_invalid_request.json  geospatial.v1.ApplySpecRequest
 spec_cancel_apply_invalid_request.json  geospatial.v1.CancelJobRequest
 elevation_get_invalid_request.json  geospatial.v1.GetElevationRequest
 elevation_profile_invalid_request.json  geospatial.v1.GetElevationProfileRequest
+
+# FeatureService — lossless temporal/decimal values and global identities.
+feature_typed_global_edits_request.json  geospatial.v1.ApplyEditsRequest
+feature_typed_global_edits_response.json  geospatial.v1.ApplyEditsResponse
+feature_global_query_request.json  geospatial.v1.QueryFeaturesRequest
+feature_typed_global_query_response.json  geospatial.v1.QueryFeaturesResponse
+feature_typed_global_page.json  geospatial.v1.FeaturePage

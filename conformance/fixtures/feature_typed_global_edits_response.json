@@ -1,0 +1,23 @@
+{
+  "addResults": [
+    {
+      "objectId": "9223372036854775807",
+      "globalId": "a98facb0-319e-41e4-81e3-889218c47484",
+      "success": true
+    }
+  ],
+  "updateResults": [
+    {
+      "objectId": "42",
+      "globalId": "e987fc10-7ac5-4abb-92e6-56e7a2841834",
+      "success": true
+    }
+  ],
+  "deleteResults": [
+    {
+      "objectId": "7",
+      "globalId": "e100c384-b0ce-4fa1-b6e8-6314a7b47c70",
+      "success": true
+    }
+  ]
+}
