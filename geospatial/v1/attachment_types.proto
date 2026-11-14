@@ -1,0 +1,149 @@
+// Copyright (c) 2026 Geospatial gRPC Standard Contributors.
+// Licensed under the Apache License, Version 2.0. See LICENSE in the project root.
+
+syntax = "proto3";
+
+package geospatial.v1;
+
+// AttachmentParent addresses one feature; exactly one identity MUST be set.
+message AttachmentParent {
+  string service_id = 1;
+  int32 layer_id = 2;
+  oneof identity {
+    int64 object_id = 3;
+    string global_id = 4;
+  }
+}
+
+// AttachmentDescriptor contains metadata only; download URLs are issued separately.
+message AttachmentDescriptor {
+  int64 attachment_id = 1;
+  string name = 2;
+  string content_type = 3;
+  int64 size_bytes = 4;
+  repeated string keywords = 5;
+  string global_id = 6;
+  bytes sha256 = 7; // Empty if unavailable; otherwise exactly 32 bytes.
+}
+
+// ListAttachmentsRequest selects a bounded page for a single authorized feature.
+message ListAttachmentsRequest {
+  AttachmentParent parent = 1;
+  repeated string content_types = 2; // Empty accepts all; otherwise exact MIME types.
+  repeated string keywords = 3; // Empty accepts all; otherwise match any keyword.
+  int32 page_size = 4; // Zero selects a bounded server default; negative is invalid.
+  string page_token = 5;
+}
+
+// ListAttachmentsResponse preserves continuation independently of feature paging.
+message ListAttachmentsResponse {
+  repeated AttachmentDescriptor attachments = 1;
+  string next_page_token = 2;
+}
+
+// GetAttachmentUrlRequest requests an authenticated, short-lived download grant.
+message GetAttachmentUrlRequest {
+  AttachmentParent parent = 1;
+  int64 attachment_id = 2;
+}
+
+// GetAttachmentUrlResponse MUST NOT be cached beyond expires_at_utc_ms.
+// The URL is a bearer credential: clients MUST NOT persist or log it.
+message GetAttachmentUrlResponse {
+  string url = 1;
+  int64 expires_at_utc_ms = 2;
+  AttachmentDescriptor attachment = 3;
+}
+
+// AttachmentUpload describes a new file or an atomic replacement of an existing file.
+// Names are display names, never storage paths. The server validates MIME and limits.
+message AttachmentUpload {
+  AttachmentParent parent = 1;
+  string name = 2;
+  string content_type = 3;
+  repeated string keywords = 4;
+  int64 size_bytes = 5;
+  bytes sha256 = 6; // Required: exactly 32 bytes of the complete content digest.
+  optional int64 replace_attachment_id = 7; // Absent creates; present replaces this ID.
+  string idempotency_key = 8; // Required, scoped to caller, parent and operation.
+}
+
+// UploadAttachmentRequest is a bounded unary upload suitable for gRPC-Web.
+message UploadAttachmentRequest {
+  AttachmentUpload upload = 1;
+  bytes content = 2; // Must match size and digest, and advertised max_unary_upload_bytes.
+}
+
+// UploadAttachmentResponse reports a committed, validated attachment.
+message UploadAttachmentResponse {
+  AttachmentDescriptor attachment = 1;
+}
+
+// BeginAttachmentUploadRequest starts a large upload without a client stream.
+message BeginAttachmentUploadRequest {
+  AttachmentUpload upload = 1;
+}
+
+// AttachmentUploadSession is bound to the authenticated caller and original target.
+// Expired sessions cannot be resumed; session IDs alone never grant authorization.
+// Accepted state persists across restarts and is shared across serving instances.
+message AttachmentUploadSession {
+  string session_id = 1;
+  int64 expires_at_utc_ms = 2;
+  int64 next_offset_bytes = 3;
+  int64 max_chunk_bytes = 4;
+}
+
+// BeginAttachmentUploadResponse returns the current session for an identical retry.
+// A conflicting request with the same idempotency key fails ALREADY_EXISTS.
+message BeginAttachmentUploadResponse {
+  AttachmentUploadSession session = 1;
+}
+
+// UploadAttachmentChunkRequest appends at the exact next offset using a unary call.
+// Replaying identical bytes at an accepted offset succeeds without appending twice.
+// Conflicting replay or a gap fails FAILED_PRECONDITION without modifying content.
+message UploadAttachmentChunkRequest {
+  string session_id = 1;
+  int64 offset_bytes = 2;
+  bytes content = 3;
+  bytes sha256 = 4; // Required: exactly 32 bytes of this chunk's digest.
+}
+
+// UploadAttachmentChunkResponse permits recovery after an uncertain transport outcome.
+message UploadAttachmentChunkResponse {
+  AttachmentUploadSession session = 1;
+}
+
+// CommitAttachmentUploadRequest atomically publishes a complete, verified upload.
+// Before publication the server rechecks authorization, parent existence and quotas.
+// Size/digest mismatch or scanning failure MUST NOT expose a partial attachment.
+message CommitAttachmentUploadRequest {
+  string session_id = 1;
+}
+
+// CommitAttachmentUploadResponse is stable across retries within the session lifetime.
+message CommitAttachmentUploadResponse {
+  AttachmentDescriptor attachment = 1;
+}
+
+// AbortAttachmentUploadRequest discards temporary content; repeated abort succeeds.
+// Aborting never deletes committed content.
+message AbortAttachmentUploadRequest {
+  string session_id = 1;
+}
+
+// AbortAttachmentUploadResponse confirms the session cannot accept further chunks.
+message AbortAttachmentUploadResponse {}
+
+// DeleteAttachmentRequest removes one attachment after checking edit authorization.
+message DeleteAttachmentRequest {
+  AttachmentParent parent = 1;
+  int64 attachment_id = 2;
+  string idempotency_key = 3;
+}
+
+// DeleteAttachmentResponse is stable for retries using the same idempotency key.
+message DeleteAttachmentResponse {
+  int64 attachment_id = 1;
+}

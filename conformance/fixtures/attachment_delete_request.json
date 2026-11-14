@@ -1,0 +1,9 @@
+{
+  "parent": {
+    "serviceId": "editing",
+    "layerId": 7,
+    "globalId": "b7085218-c695-4c64-846f-12647b86b31d"
+  },
+  "attachmentId": "42",
+  "idempotencyKey": "delete-42"
+}

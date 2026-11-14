@@ -98,3 +98,19 @@ spec_apply_invalid_request.json  geospatial.v1.ApplySpecRequest
 spec_cancel_apply_invalid_request.json  geospatial.v1.CancelJobRequest
 elevation_get_invalid_request.json  geospatial.v1.GetElevationRequest
 elevation_profile_invalid_request.json  geospatial.v1.GetElevationProfileRequest
+
+# Native browser unary attachments and resumable sessions.
+attachment_list_request.json  geospatial.v1.ListAttachmentsRequest
+attachment_list_response.json  geospatial.v1.ListAttachmentsResponse
+attachment_url_request.json  geospatial.v1.GetAttachmentUrlRequest
+attachment_url_response.json  geospatial.v1.GetAttachmentUrlResponse
+attachment_upload_request.json  geospatial.v1.UploadAttachmentRequest
+attachment_begin_request.json  geospatial.v1.BeginAttachmentUploadRequest
+attachment_begin_response.json  geospatial.v1.BeginAttachmentUploadResponse
+attachment_chunk_request.json  geospatial.v1.UploadAttachmentChunkRequest
+attachment_chunk_response.json  geospatial.v1.UploadAttachmentChunkResponse
+attachment_commit_request.json  geospatial.v1.CommitAttachmentUploadRequest
+attachment_commit_response.json  geospatial.v1.CommitAttachmentUploadResponse
+attachment_abort_request.json  geospatial.v1.AbortAttachmentUploadRequest
+attachment_delete_request.json  geospatial.v1.DeleteAttachmentRequest
+attachment_delete_response.json  geospatial.v1.DeleteAttachmentResponse
