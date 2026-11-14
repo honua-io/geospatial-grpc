@@ -14,4 +14,5 @@
 
 ## Reference
 
+* [Native attachment contract](features/attachments.md)
 * [geospatial.v1 protocol specification](specification.md)

@@ -1,0 +1,14 @@
+{
+  "url": "https://storage.example.invalid/download?signature=fixture",
+  "expiresAtUtcMs": "1893456000000",
+  "attachment": {
+    "attachmentId": "9007199254740994",
+    "name": "survey.txt",
+    "contentType": "text/plain",
+    "sizeBytes": "3",
+    "keywords": [
+      "survey"
+    ],
+    "sha256": "ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0="
+  }
+}

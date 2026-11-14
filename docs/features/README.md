@@ -15,7 +15,7 @@ This repository owns deterministic, typed protocol contracts. It does not own se
 
 ## Implemented Protocol Surfaces
 
-- Feature data access through `FeatureService`: query, stream, and edit feature records.
+- Feature data access through `FeatureService`: describe, query, stream, and edit feature records, with [native attachments](attachments.md).
 - Mobile data collection through `FormService`: form definitions, controls, validation, and collaboration-oriented payloads.
 - Workspace and artifact lifecycle services with typed refs, retention policy refs, materialization state, promotion stages, and lifecycle enums.
 - Execution-plane services for processes, data publishing pipelines, rendering, app building, deployment, and spec plan/apply workflows.
