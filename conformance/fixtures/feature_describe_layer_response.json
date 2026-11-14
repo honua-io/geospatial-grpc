@@ -59,7 +59,8 @@
           "name": "cost",
           "fieldType": "FIELD_TYPE_BIG_INTEGER",
           "length": 20,
-          "alias": "Cost"
+          "alias": "Cost",
+          "nullable": true
         },
         "editable": true,
         "defaultValue": {
@@ -78,6 +79,89 @@
         },
         "precision": 19,
         "scale": 0
+      },
+      {
+        "definition": {
+          "name": "objectid",
+          "fieldType": "FIELD_TYPE_BIG_INTEGER",
+          "nullable": false
+        },
+        "editable": false
+      },
+      {
+        "definition": {
+          "name": "globalid",
+          "fieldType": "FIELD_TYPE_UUID",
+          "nullable": false
+        },
+        "editable": false
+      },
+      {
+        "definition": {
+          "name": "name",
+          "fieldType": "FIELD_TYPE_STRING",
+          "nullable": true,
+          "length": 255
+        },
+        "editable": true
+      },
+      {
+        "definition": {
+          "name": "kind",
+          "fieldType": "FIELD_TYPE_INTEGER",
+          "nullable": false
+        },
+        "editable": true
+      },
+      {
+        "definition": {
+          "name": "observed_at",
+          "fieldType": "FIELD_TYPE_DATE_TIME",
+          "nullable": true
+        },
+        "editable": true
+      },
+      {
+        "definition": {
+          "name": "ended_at",
+          "fieldType": "FIELD_TYPE_DATE_TIME",
+          "nullable": true
+        },
+        "editable": true
+      },
+      {
+        "definition": {
+          "name": "created_by",
+          "fieldType": "FIELD_TYPE_STRING",
+          "nullable": true,
+          "length": 255
+        },
+        "editable": false
+      },
+      {
+        "definition": {
+          "name": "created_at",
+          "fieldType": "FIELD_TYPE_DATE_TIME",
+          "nullable": true
+        },
+        "editable": false
+      },
+      {
+        "definition": {
+          "name": "edited_by",
+          "fieldType": "FIELD_TYPE_STRING",
+          "nullable": true,
+          "length": 255
+        },
+        "editable": false
+      },
+      {
+        "definition": {
+          "name": "edited_at",
+          "fieldType": "FIELD_TYPE_DATE_TIME",
+          "nullable": true
+        },
+        "editable": false
       }
     ],
     "subtypes": {
