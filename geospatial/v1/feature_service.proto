@@ -26,6 +26,12 @@ service FeatureService {
   // QueryFeaturesStream executes a feature query and streams results as pages.
   rpc QueryFeaturesStream(QueryFeaturesRequest) returns (stream FeaturePage);
 
+  // QueryRelatedRecords returns a bounded page grouped by origin feature identity.
+  rpc QueryRelatedRecords(QueryRelatedRecordsRequest) returns (QueryRelatedRecordsResponse);
+
+  // ApplyServiceEdits applies ordered layer batches within one service.
+  rpc ApplyServiceEdits(ApplyServiceEditsRequest) returns (ApplyServiceEditsResponse);
+
   // ApplyEdits applies add/update/delete mutations and returns per-operation results.
   rpc ApplyEdits(ApplyEditsRequest) returns (ApplyEditsResponse);
 
@@ -179,4 +185,67 @@ message EditResult {
   // Error details if failed. Canonical ErrorDetail (execution_types.proto).
   ErrorDetail error = 3;
   string global_id = 4; // Stable identity of the affected feature, when available
+}
+
+// QueryRelatedRecordsRequest follows a relationship declared on the origin layer.
+message QueryRelatedRecordsRequest {
+  string service_id = 1;
+  int32 layer_id = 2; // Origin layer, not the related destination layer
+  int32 relationship_id = 3;
+  repeated int64 object_ids = 4; // Bounded, distinct origin feature identities
+  repeated string out_fields = 5; // Destination layer fields
+  string where = 6; // Additional destination filter, combined with authorization
+  bool return_geometry = 7;
+  SpatialReference out_sr = 8;
+  int32 page_size = 9; // Maximum total destination rows; zero uses the server default
+  string page_token = 10; // Opaque continuation bound to this query and caller
+}
+
+// RelatedRecordGroup attributes destination rows to an origin without exposing join keys.
+message RelatedRecordGroup {
+  int64 object_id = 1; // Origin feature identity
+  repeated Feature features = 2;
+}
+
+// QueryRelatedRecordsResponse repeats destination metadata on every bounded page.
+message QueryRelatedRecordsResponse {
+  int32 related_layer_id = 1;
+  string object_id_field_name = 2;
+  GeometryType geometry_type = 3;
+  SpatialReference spatial_reference = 4;
+  repeated FieldDefinition fields = 5;
+  repeated RelatedRecordGroup groups = 6;
+  string next_page_token = 7; // Empty only when all requested origins are exhausted
+  string global_id_field_name = 8; // Empty when unavailable or hidden
+}
+
+// ServiceLayerEdits contains mutations for exactly one layer in the service.
+message ServiceLayerEdits {
+  int32 layer_id = 1;
+  repeated Feature adds = 2;
+  repeated Feature updates = 3;
+  repeated int64 deletes = 4;
+  bool force_write = 5;
+  bool use_global_ids = 6;
+  repeated string delete_global_ids = 7;
+}
+
+// ApplyServiceEditsRequest uses one transaction policy and retry identity for all layers.
+message ApplyServiceEditsRequest {
+  string service_id = 1;
+  repeated ServiceLayerEdits edits = 2; // Distinct layers, executed in request order
+  bool rollback_on_failure = 3; // True requires atomic rollback across every layer
+  string idempotency_key = 4; // Deduplicates the complete request, not individual layers
+}
+
+// ServiceLayerEditResults preserves the single-layer operation ordering and errors.
+message ServiceLayerEditResults {
+  int32 layer_id = 1;
+  ApplyEditsResponse results = 2;
+}
+
+// ApplyServiceEditsResponse preserves request layer order, including failed layers.
+message ApplyServiceEditsResponse {
+  repeated ServiceLayerEditResults results = 1;
+  ErrorDetail error = 2; // Global transaction failure; no edit committed when rollback is true
 }

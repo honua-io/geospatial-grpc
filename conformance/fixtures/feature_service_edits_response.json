@@ -1,0 +1,46 @@
+{
+  "results": [
+    {
+      "layerId": 1,
+      "results": {
+        "addResults": [
+          {
+            "objectId": "103",
+            "success": true
+          }
+        ],
+        "updateResults": [
+          {
+            "objectId": "101",
+            "success": true
+          }
+        ],
+        "deleteResults": [
+          {
+            "objectId": "102",
+            "success": true
+          }
+        ]
+      }
+    },
+    {
+      "layerId": 3,
+      "results": {
+        "deleteResults": [
+          {
+            "objectId": "301",
+            "success": false,
+            "error": {
+              "code": 1000,
+              "message": "Relationship constraint rejected deletion"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "error": {
+    "code": 1000,
+    "message": "No edits committed"
+  }
+}

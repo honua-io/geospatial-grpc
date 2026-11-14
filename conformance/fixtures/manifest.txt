@@ -99,6 +99,12 @@ spec_cancel_apply_invalid_request.json  geospatial.v1.CancelJobRequest
 elevation_get_invalid_request.json  geospatial.v1.GetElevationRequest
 elevation_profile_invalid_request.json  geospatial.v1.GetElevationProfileRequest
 
+# FeatureService — related records and service-wide edits.
+feature_related_request.json  geospatial.v1.QueryRelatedRecordsRequest
+feature_related_response.json  geospatial.v1.QueryRelatedRecordsResponse
+feature_service_edits_request.json  geospatial.v1.ApplyServiceEditsRequest
+feature_service_edits_response.json  geospatial.v1.ApplyServiceEditsResponse
+
 # Native browser unary attachments and resumable sessions.
 attachment_list_request.json  geospatial.v1.ListAttachmentsRequest
 attachment_list_response.json  geospatial.v1.ListAttachmentsResponse

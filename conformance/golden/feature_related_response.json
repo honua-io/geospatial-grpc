@@ -1,0 +1,1 @@
+{"relatedLayerId":3,"objectIdFieldName":"objectid","geometryType":"GEOMETRY_TYPE_POINT","spatialReference":{"wkid":4326},"fields":[{"name":"name","fieldType":"FIELD_TYPE_STRING"}],"groups":[{"objectId":"101","features":[{"id":"301","attributes":{"name":{"stringValue":"Inspection"}}}]},{"objectId":"102"}],"nextPageToken":"opaque-page-3","globalIdFieldName":"globalid"}

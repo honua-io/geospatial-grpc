@@ -1,0 +1,19 @@
+{
+  "serviceId": "survey",
+  "layerId": 1,
+  "relationshipId": 2,
+  "objectIds": [
+    "101",
+    "102"
+  ],
+  "outFields": [
+    "name"
+  ],
+  "where": "active = 1",
+  "returnGeometry": true,
+  "outSr": {
+    "wkid": 4326
+  },
+  "pageSize": 20,
+  "pageToken": "opaque-page-2"
+}

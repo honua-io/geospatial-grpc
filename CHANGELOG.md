@@ -5,6 +5,15 @@ client packages are recorded here. A single git release tag (`v<version>`)
 identifies the matching NuGet, PyPI, npm, BSR, and `conformance/VERSION`
 coordinates.
 
+## v1.4.0
+
+Add unary `FeatureService.QueryRelatedRecords` and `ApplyServiceEdits` RPCs.
+Related queries use declared relationships, authorization-filtered groups and
+bounded continuation tokens. Service-wide edits define preflight, atomic
+rollback, partial outcomes and whole-batch idempotency semantics. Existing v1
+messages and RPC signatures are unchanged. These contracts do not imply server
+implementation or expand the governed certification surface.
+
 ## v1.3.0
 
 - Add browser-compatible attachment listing, signed download grants, unary upload,

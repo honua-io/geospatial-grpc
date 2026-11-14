@@ -933,6 +933,82 @@ means unknown. Temporal field values retain their declared attribute semantics.
 Attachment limits use bytes; zero means unspecified/unavailable, never unlimited.
 Metadata does not itself enable attachment, related-record or temporal RPCs.
 
+### Related-record queries
+
+`FeatureService.QueryRelatedRecords` resolves `relationship_id` from the authorized
+origin layer's `RelationshipDescriptor`, including its declared role and join
+direction; clients never supply join field names or a destination layer override. Both origin and destination resources, row scopes,
+field visibility, filters and geometry permissions apply. Inaccessible resources
+and relationships follow the same non-disclosure rules as feature queries. A
+relationship whose backing storage cannot execute the declared join fails with
+`FAILED_PRECONDITION`, rather than falling back to a different protocol.
+
+`object_ids` must be nonempty, distinct, and within the advertised server query
+limits. Invalid selectors, negative page sizes, malformed filters, inaccessible
+requested fields and invalid continuation tokens fail the whole call before any
+rows are returned. Missing or inaccessible origin rows produce no group. An
+accessible origin with no visible matches produces an empty group, once across
+the complete traversal. Hidden join keys must never be added to output fields to
+implement attribution.
+
+Results are grouped by origin object ID. A destination matching multiple origins
+appears in each corresponding group. The server applies `page_size` to the total
+number of destination rows across groups, not independently to each origin, and
+also bounds the number of groups and the total serialized response size. Zero
+selects a finite server default; a positive size above the server limit is
+rejected. A group may continue on a later page; callers append groups sharing an
+origin identity. Each destination row appears once per origin during a stable
+data traversal, ordered by origin ID then destination object ID. Every nonterminal
+page must advance even when origins have no visible matches. Only an empty
+`next_page_token` signals exhaustion.
+
+Tokens bind the authenticated scope, service, origin layer, relationship,
+selectors, projection, filter, spatial reference and page size; token reuse with
+changed parameters is `INVALID_ARGUMENT`. Tokens are opaque, expire, and must not
+reveal hidden keys. Servers may reject an expired or invalidated traversal with
+`FAILED_PRECONDITION`; clients restart rather than silently skipping data. No
+snapshot isolation across separate calls is implied. Concurrent mutations may
+change traversal membership, just as for ordinary paged feature queries.
+
+### Service-wide edit batches
+
+`FeatureService.ApplyServiceEdits` accepts bounded `ServiceLayerEdits` entries for
+one service. Layer IDs must be distinct and results preserve input layer order;
+per-operation results preserve add, update and delete order within each layer.
+The single-layer edit identity, typed-value and error rules apply to each entry.
+The server preflights authorization, resource existence, capability, schema,
+selectors and total mutation/payload limits across **all** layers before any
+write. Invalid batch shape or values yield `INVALID_ARGUMENT`; unsupported
+transaction/storage capabilities yield `FAILED_PRECONDITION`; resource visibility
+uses the single-layer non-disclosure policy. These whole-call failures commit
+nothing and return no response message.
+
+With `rollback_on_failure = true`, the server must use one atomic transaction
+across all addressed layers. It must reject unsupported cross-layer transactions
+before writing and must never downgrade to independent per-layer transactions.
+Layers execute in request order, enabling a parent add followed by child edits
+that refer to a client-generated global ID. A runtime row failure rolls back all
+layers. The successful RPC response includes a global `error` and per-row
+outcomes; any previously successful row outcome describes an attempted operation
+and does not imply a commit. Unattempted operations receive explicit failed
+outcomes, so every submitted mutation has a result. Missing update/delete targets
+retain the single-layer whole-call `NOT_FOUND` behavior with no committed writes.
+
+With `rollback_on_failure = false`, row-level failures return an OK RPC with
+per-row errors and other eligible mutations may commit. Authorization, malformed
+values and unsupported capability errors remain whole-call preflight failures.
+A transport or unexpected server failure after writes leaves the outcome unknown;
+clients must not infer rollback from a non-OK RPC.
+
+The optional `idempotency_key` covers the complete ordered request and is scoped
+to the authenticated caller and service. Repeating the same request within the
+server's deduplication window returns its original complete outcome, including
+partial or rolled-back outcomes, without repeating any mutation. Reusing a key
+with a changed request yields `INVALID_ARGUMENT` without additional writes.
+Concurrent equivalent submissions must be deduplicated atomically. An absent key
+provides no retry guarantee; clients must not automatically retry writes with
+unknown outcomes. Browser clients invoke these unary RPCs through gRPC-Web.
+
 ## Feature attachments
 
 The additive attachment RPCs use unary requests and responses throughout, so
