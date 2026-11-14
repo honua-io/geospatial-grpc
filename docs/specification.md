@@ -79,7 +79,7 @@ The existing `feature_apply_edits_{request,response}.json` fixtures cover succes
 
 `Feature.id` remains the server-assigned signed 64-bit object ID. `Feature.global_id` is a stable UUID for offline synchronization and relationships. UUIDs use the hyphenated `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` form without braces; input is case-insensitive and responses use lowercase. A layer without a declared global-ID field MUST reject global-ID selectors with `FAILED_PRECONDITION`.
 
-Queries may select `global_ids` instead of `object_ids`; specifying both is `INVALID_ARGUMENT`. Other filters still apply. Unary responses and the first streaming page identify the global-ID field; returned features carry their global IDs independently of the projected attributes.
+Queries may select `global_ids` instead of `object_ids`; specifying both is `INVALID_ARGUMENT`. Other filters still apply. Unary responses and the first streaming page identify the global-ID field; returned features carry their global IDs independently of the projected attributes. Row and field authorization still apply: hidden or masked global-ID values and their field metadata MUST NOT be exposed, and a global-ID selector MUST NOT bypass those restrictions.
 
 By default updates and deletes continue to use integer IDs. With `use_global_ids = true`, every update supplies `Feature.global_id`, integer update IDs and `deletes` MUST be absent, and deletes use `delete_global_ids`. Outside this mode `delete_global_ids` is invalid. Adds may carry a client-generated global ID in either mode; absent IDs are server-generated. Duplicate global IDs are rejected; a global ID MUST NOT be silently replaced or changed by an update. Edit results return both identities when known. Global-ID selection does not itself provide idempotency.
 
@@ -640,7 +640,7 @@ These additive cases preserve values that cannot be represented by the legacy UT
 | `timestamp_offset_value` / `TIMESTAMP_OFFSET` | RFC 3339 date/time with required `Z` or `±HH:mm` offset, optional 1–7 fractional digits; offset within ±14:00, preserving local time, precision and offset |
 | `decimal_value` / `DECIMAL` | Exact text matching `-?(0|[1-9][0-9]*)(\.[0-9]+)?`; no exponent, grouping, plus sign, NaN or infinity; scale and trailing zeros are preserved |
 
-The legacy `datetime_value` remains UTC epoch milliseconds. Implementations MUST NOT coerce offset timestamps to it or decimals to `double_value`. Missing attributes mean unspecified; `null_value` means explicitly null, subject to schema nullability. Invalid lexical values fail request validation before writes. Numeric precision/range constraints declared by the target storage still apply and must be reported rather than rounded silently.
+The legacy `datetime_value` remains UTC epoch milliseconds. Implementations MUST NOT coerce offset timestamps to it or decimals to `double_value`. Missing attributes mean unspecified; `null_value` means explicitly null, subject to schema nullability. Invalid lexical values fail request validation before writes. Numeric precision/range constraints declared by the target storage still apply and must be reported rather than rounded silently. If a storage mapping cannot preserve the declared type semantics, including an offset timestamp's original offset, the server MUST reject the unsupported mapping with `FAILED_PRECONDITION` before writes rather than silently normalizing it.
 
 #### SpatialReference
 
