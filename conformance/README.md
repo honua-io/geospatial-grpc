@@ -33,6 +33,9 @@ Canonical fixtures exist for the core workflows of the primary services:
 | Service            | Workflow                          | Fixtures                                              |
 | ------------------ | --------------------------------- | ----------------------------------------------------- |
 | `FeatureService`   | Describe service and layer metadata | `feature_describe_{service,layer}_{request,response}.json` |
+| `FeatureService`   | List attachments and signed download URL | `attachment_{list,url}_{request,response}.json` |
+| `FeatureService`   | Unary upload and resumable upload session | `attachment_{upload,begin,chunk,commit,abort}_{request,response}.json` |
+| `FeatureService`   | Delete attachment | `attachment_delete_{request,response}.json` |
 | `FeatureService`   | Query features                    | `feature_query_{request,response}.json`               |
 | `FeatureService`   | Apply edits (add/update/delete)   | `feature_apply_edits_{request,response}.json`         |
 | `FeatureService`   | Apply edits, missing target (negative: the batch fails as a whole and changes nothing) | `feature_apply_edits_missing_target_request.json`, `feature_apply_edits_missing_target_status.json`, `feature_apply_edits_missing_target_verify_{request,response}.json` |
