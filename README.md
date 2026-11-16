@@ -304,7 +304,8 @@ consumer contract.
    require every service.
 3. Validate payload compatibility against the pinned
    [conformance fixtures](conformance/README.md) in your CI.
-4. Follow [CONTRIBUTING.md](CONTRIBUTING.md) to propose schema changes —
+4. Propose schema changes through GitHub Issues, following
+   [CONTRIBUTING.md](CONTRIBUTING.md) —
    contracts evolve here first, never in downstream copies
    ([proto ownership](docs/proto-ownership.md)).
 
@@ -313,7 +314,8 @@ Known implementations and clients:
 - [Honua Server](https://github.com/honua-io/honua-server) — reference server implementation (Fair Source, FCL-1.0-ALv2)
 - [Honua .NET SDK](https://github.com/honua-io/honua-sdk-dotnet) and [Honua Mobile](https://github.com/honua-io/honua-mobile) — .NET / MAUI clients
 - [Honua JS SDK](https://github.com/honua-io/honua-sdk-js) — JavaScript/TypeScript clients
-- Your implementation here — PRs welcome.
+- Report your implementation through GitHub Issues; see
+  [CONTRIBUTING.md](CONTRIBUTING.md) for the feedback policy.
 
 ## Documentation
 
