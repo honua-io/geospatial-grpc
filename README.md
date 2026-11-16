@@ -147,23 +147,32 @@ dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj --configuration Release -
 descriptors, so a JS or TS project does not need buf at all:
 
 ```bash
-npm install @honua/geospatial-grpc@1.3.0 @connectrpc/connect @connectrpc/connect-node
+npm install @honua/geospatial-grpc@1.0.5 @connectrpc/connect @connectrpc/connect-node
 ```
 
-Generate locally instead only when you are working against an unreleased `.proto`
-change. Note that the TypeScript target lives in the all-language `buf.gen.yaml`
+Generate locally when you need schema definitions newer than this published client. Note that the TypeScript target lives in the all-language `buf.gen.yaml`
 (`target=ts`); `buf.gen.javascript.yaml` is `target=js` and emits no `.d.ts`.
 
-### Python: generate from the protos
+### Python: use the published client
 
-There is no published Python client yet — generate one:
+`geospatial-grpc` includes the generated messages and gRPC stubs:
+
+```bash
+python -m pip install geospatial-grpc==1.0.5
+```
+
+The npm and PyPI commands above pin versions available in their public registries.
+These packages contain the `v1.0.5` schema, which predates this checkout's newer
+contracts. For newer definitions, generate from the matching schema checkout or
+release tag instead; for Python:
 
 ```bash
 buf generate --template buf.gen.python.yaml --output generated/python
+# Prefer this generated package even if an older wheel is installed:
+touch generated/python/geospatial/__init__.py generated/python/geospatial/v1/__init__.py
+# Make the generated modules importable in this shell:
+export PYTHONPATH="$PWD/generated/python${PYTHONPATH:+:$PYTHONPATH}"
 ```
-
-Publication is tracked in [#107](https://github.com/honua-io/geospatial-grpc/pull/107);
-this section changes to an install command when it lands.
 
 The [.NET GitHub Packages workflow](.github/workflows/publish-dotnet-github-packages.yml)
 packs and verifies a synthetic prerelease on every PR to `trunk`; manual runs
@@ -208,7 +217,7 @@ foreach (var feature in response.Features)
 TypeScript (protobuf-es + Connect v2):
 
 ```typescript
-import { FeatureService } from './gen/typescript/geospatial/v1/feature_service_pb.js';
+import { FeatureService } from '@honua/geospatial-grpc/geospatial/v1/feature_service_pb.js';
 import { createClient } from '@connectrpc/connect';
 import { createGrpcTransport } from '@connectrpc/connect-node';
 
