@@ -304,7 +304,8 @@ consumer contract.
    require every service.
 3. Validate payload compatibility against the pinned
    [conformance fixtures](conformance/README.md) in your CI.
-4. Follow [CONTRIBUTING.md](CONTRIBUTING.md) to propose schema changes —
+4. Propose schema changes through GitHub Issues, following
+   [CONTRIBUTING.md](CONTRIBUTING.md) —
    contracts evolve here first, never in downstream copies
    ([proto ownership](docs/proto-ownership.md)).
 
@@ -313,7 +314,8 @@ Known implementations and clients:
 - [Honua Server](https://github.com/honua-io/honua-server) — reference server implementation (Fair Source, FCL-1.0-ALv2)
 - [Honua .NET SDK](https://github.com/honua-io/honua-sdk-dotnet) and [Honua Mobile](https://github.com/honua-io/honua-mobile) — .NET / MAUI clients
 - [Honua JS SDK](https://github.com/honua-io/honua-sdk-js) — JavaScript/TypeScript clients
-- Your implementation here — PRs welcome.
+- Report your implementation through GitHub Issues; see
+  [CONTRIBUTING.md](CONTRIBUTING.md) for the feedback policy.
 
 ## Documentation
 
@@ -336,11 +338,11 @@ Known implementations and clients:
 
 ## Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for local
-validation (`buf lint`, `buf format --diff --exit-code`,
-`buf breaking --against '.git#branch=trunk'`), the proto change workflow, and
-what must not change within `v1`. Questions and proposals go through
-[GitHub Issues](https://github.com/honua-io/geospatial-grpc/issues).
+This repository does not accept outside code contributions. Bug reports, feature
+requests, and interoperability reports are welcome through GitHub Issues. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the policy and security-reporting guidance.
+Standards questions and design feedback are welcome in issues; maintainers
+implement accepted schema changes.
 
 ## Security
 

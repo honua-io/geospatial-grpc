@@ -1,6 +1,21 @@
 # Contributing
 
-Thank you for your interest in the Geospatial gRPC protocol. This guide covers how to validate and submit proto changes.
+**This repository does not accept code contributions from outside Honua Geo Inc.**
+Pull requests from outside the organization are closed automatically, regardless
+of the repository's license.
+
+We welcome:
+
+- Bug reports and feature requests through GitHub Issues.
+- Interoperability reports with reproducible requests, responses, and version details.
+- Private security reports to <security@honua.io>, following the
+  [organization security policy](https://github.com/honua-io/.github/blob/main/SECURITY.md).
+  Do not disclose vulnerabilities in public issues.
+- Standards questions and design feedback through GitHub Issues; maintainers implement accepted changes.
+
+## Maintainer development guide
+
+The sections below describe how Honua Geo Inc. maintainers validate and submit proto changes.
 
 ## Prerequisites
 
