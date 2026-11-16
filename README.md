@@ -336,11 +336,11 @@ Known implementations and clients:
 
 ## Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for local
-validation (`buf lint`, `buf format --diff --exit-code`,
-`buf breaking --against '.git#branch=trunk'`), the proto change workflow, and
-what must not change within `v1`. Questions and proposals go through
-[GitHub Issues](https://github.com/honua-io/geospatial-grpc/issues).
+This repository does not accept outside code contributions. Bug reports, feature
+requests, and interoperability reports are welcome through GitHub Issues. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the policy and security-reporting guidance.
+Standards questions and design feedback are welcome in issues; maintainers
+implement accepted schema changes.
 
 ## Security
 
