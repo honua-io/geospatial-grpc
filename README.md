@@ -168,6 +168,8 @@ release tag instead; for Python:
 
 ```bash
 buf generate --template buf.gen.python.yaml --output generated/python
+# Prefer this generated package even if an older wheel is installed:
+touch generated/python/geospatial/__init__.py generated/python/geospatial/v1/__init__.py
 # Make the generated modules importable in this shell:
 export PYTHONPATH="$PWD/generated/python${PYTHONPATH:+:$PYTHONPATH}"
 ```
