@@ -58,6 +58,8 @@ message CoordinateSequence {
   repeated double ordinates = 2; // Packed interleaved [x0, y0, (z0), (m0), x1, y1, ...] ordinates
   repeated sint64 delta_coords = 3; // Packed delta + ZigZag quantized integer coordinates using CoordinateTransform
   uint32 stride = 4; // Ordinate stride per vertex for ordinates/delta_coords (2=XY, 3=XYZ/XYM, 4=XYZM)
+  bool has_z = 5; // True when packed ordinates/delta_coords include Z (disambiguates stride=3 XYZ vs XYM)
+  bool has_m = 6; // True when packed ordinates/delta_coords include M (disambiguates stride=3 XYZ vs XYM)
 }
 
 // PolylineGeometry represents one or more paths (LineString/MultiLineString).

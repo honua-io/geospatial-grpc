@@ -101,8 +101,8 @@ Geometries are encoded using structured Protocol Buffer messages rather than WKT
 For high-density vector paths and rings (`CoordinateSequence`), servers and clients support three additive representations:
 
 1. **Per-vertex `coords`** (`repeated Coordinate coords = 1`): Default backward-compatible representation.
-2. **Packed `ordinates`** (`repeated double ordinates = 2`, `uint32 stride = 4`): Contiguous packed IEEE-754 doubles `[x0, y0, (z0), (m0), x1, y1, ...]` with `stride` (`2` for XY, `3` for XYZ/XYM, `4` for XYZM), requested via `QueryFeaturesRequest.use_packed_coordinates = true`.
-3. **Quantized delta-encoded `delta_coords`** (`repeated sint64 delta_coords = 3`, `uint32 stride = 4`): ZigZag-encoded delta integers paired with `CoordinateTransform` (`coordinate_transform` on `QueryFeaturesResponse` or the first `FeaturePage`), where world coordinates decode as `world = accumulated_quantized * scale + translate`.
+2. **Packed `ordinates`** (`repeated double ordinates = 2`, `uint32 stride = 4`, `bool has_z = 5`, `bool has_m = 6`): Contiguous packed IEEE-754 doubles `[x0, y0, (z0), (m0), x1, y1, ...]` with `stride` (`2` for XY, `3` for XYZ/XYM disambiguated by `has_z`/`has_m`, `4` for XYZM), requested via `QueryFeaturesRequest.use_packed_coordinates = true`.
+3. **Quantized delta-encoded `delta_coords`** (`repeated sint64 delta_coords = 3`, `uint32 stride = 4`, `bool has_z = 5`, `bool has_m = 6`): ZigZag-encoded delta integers paired with `CoordinateTransform` (`coordinate_transform` on `QueryFeaturesResponse` or the first `FeaturePage`), where world coordinates decode as `world = accumulated_quantized * scale + translate`.
 
 #### Positional Attribute Values
 
