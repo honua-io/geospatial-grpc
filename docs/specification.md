@@ -85,7 +85,9 @@ By default updates and deletes continue to use integer IDs. With `use_global_ids
 
 #### Spatial Reference Handling
 
-All geometry coordinates are assumed to be in the spatial reference specified by the layer's metadata. Clients can request output in a different spatial reference using the `out_sr` parameter.
+All geometry coordinates are assumed to be in the spatial reference specified by the layer's metadata. Clients can request output in a different spatial reference using the `out_sr` parameter, optionally specifying an explicit datum transformation WKID via `QueryFeaturesRequest.datum_transformation_wkid`. `SpatialReference` also supports vertical coordinate reference system identifiers via `vcs_wkid` and `latest_vcs_wkid` (for example, `5773` for EGM96 or `5703` for NAVD88).
+
+`DistanceUnit` supports metric, imperial, surveying, and maritime units including `DISTANCE_UNIT_SURVEY_FEET` (`1200/3937` meters) and `DISTANCE_UNIT_NAUTICAL_MILES` (`1852` meters).
 
 #### Geometry Encoding
 
@@ -95,6 +97,16 @@ Geometries are encoded using structured Protocol Buffer messages rather than WKT
 - `PolylineGeometry`: One or more paths (LineString/MultiLineString)
 - `PolygonGeometry`: Exterior ring plus optional holes
 - `MultiPolygonGeometry`: Collection of polygons
+
+For high-density vector paths and rings (`CoordinateSequence`), servers and clients support three additive representations:
+
+1. **Per-vertex `coords`** (`repeated Coordinate coords = 1`): Default backward-compatible representation.
+2. **Packed `ordinates`** (`repeated double ordinates = 2`, `uint32 stride = 4`): Contiguous packed IEEE-754 doubles `[x0, y0, (z0), (m0), x1, y1, ...]` with `stride` (`2` for XY, `3` for XYZ/XYM, `4` for XYZM), requested via `QueryFeaturesRequest.use_packed_coordinates = true`.
+3. **Quantized delta-encoded `delta_coords`** (`repeated sint64 delta_coords = 3`, `uint32 stride = 4`): ZigZag-encoded delta integers paired with `CoordinateTransform` (`coordinate_transform` on `QueryFeaturesResponse` or the first `FeaturePage`), where world coordinates decode as `world = accumulated_quantized * scale + translate`.
+
+#### Positional Attribute Values
+
+By default, `Feature.attributes` encodes feature attributes as a `map<string, AttributeValue>`. When `QueryFeaturesRequest.use_positional_attributes = true`, the server populates `Feature.attribute_values` (`repeated AttributeValue`) positionally aligned 1:1 with `QueryFeaturesResponse.fields` (or `FeaturePage.fields` from the first page), eliminating repeated field-name keys across rows.
 
 ### FormService
 
@@ -644,13 +656,15 @@ The legacy `datetime_value` remains UTC epoch milliseconds. Implementations MUST
 
 #### SpatialReference
 
-Identifies coordinate systems using multiple formats:
+Identifies horizontal and optional vertical coordinate systems using WKIDs or WKT:
 
 ```protobuf
 message SpatialReference {
-  int32 wkid = 1;           // Well-known ID (EPSG code)
-  int32 latest_wkid = 2;    // Latest EPSG code for this CRS
-  string wkt = 3;           // Well-Known Text definition
+  int32 wkid = 1;            // Well-known ID (EPSG code)
+  int32 latest_wkid = 2;     // Latest EPSG code for this CRS
+  string wkt = 3;            // Well-Known Text definition
+  int32 vcs_wkid = 4;        // Vertical coordinate system WKID (e.g. 5773 EGM96, 5703 NAVD88)
+  int32 latest_vcs_wkid = 5; // Latest vertical coordinate system WKID
 }
 ```
 
