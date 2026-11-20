@@ -109,6 +109,9 @@ message QueryFeaturesRequest {
   int64 result_offset_long = 20; // Pagination offset (int64; replaces retired field 8)
   int64 result_record_count_long = 21; // Pagination limit (int64; replaces retired field 9)
   repeated string global_ids = 22; // UUID selectors; mutually exclusive with object_ids
+  int32 datum_transformation_wkid = 23; // Optional explicit datum transformation WKID when reprojecting via out_sr
+  bool use_positional_attributes = 24; // Populate Feature.attribute_values positionally aligned with fields instead of Feature.attributes map
+  bool use_packed_coordinates = 25; // Encode CoordinateSequence using packed ordinates/delta_coords instead of per-vertex Coordinate submessages
 }
 
 // QueryFeaturesResponse contains the full result of a unary feature query.
@@ -126,6 +129,7 @@ message QueryFeaturesResponse {
   // For extent-only queries.
   Extent extent = 9;
   string global_id_field_name = 10; // Empty when the layer has no global-ID field
+  CoordinateTransform coordinate_transform = 11; // Optional quantization transform when delta_coords are used
 }
 
 // FeaturePage is a single page in a streaming query response.
@@ -140,6 +144,7 @@ message FeaturePage {
   // True when this is the final page.
   bool is_last_page = 6;
   string global_id_field_name = 7; // First page only; empty when unavailable
+  CoordinateTransform coordinate_transform = 8; // Optional quantization transform (populated on first page when delta_coords are used)
 }
 
 // ApplyEditsRequest specifies feature edits for a single service/layer.

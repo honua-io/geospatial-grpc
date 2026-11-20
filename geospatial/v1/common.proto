@@ -37,6 +37,21 @@ message SpatialReference {
   int32 wkid = 1; // Well-known ID (EPSG code)
   int32 latest_wkid = 2; // Latest EPSG code for this CRS
   string wkt = 3; // Well-Known Text definition
+  int32 vcs_wkid = 4; // Vertical coordinate system WKID (e.g. 5773 EGM96, 5703 NAVD88)
+  int32 latest_vcs_wkid = 5; // Latest vertical coordinate system WKID
+}
+
+// CoordinateTransform defines scale and translation parameters for decoding
+// quantized delta-encoded coordinates (world = quantized * scale + translate).
+message CoordinateTransform {
+  double scale_x = 1;
+  double scale_y = 2;
+  optional double scale_z = 3;
+  optional double scale_m = 4;
+  double translate_x = 5;
+  double translate_y = 6;
+  optional double translate_z = 7;
+  optional double translate_m = 8;
 }
 
 // FieldDefinition describes a field in the layer schema.
@@ -105,6 +120,8 @@ enum DistanceUnit {
   DISTANCE_UNIT_FEET = 2;
   DISTANCE_UNIT_KILOMETERS = 3;
   DISTANCE_UNIT_MILES = 4;
+  DISTANCE_UNIT_SURVEY_FEET = 5; // US Survey Feet (1200/3937 m)
+  DISTANCE_UNIT_NAUTICAL_MILES = 6; // International Nautical Miles (1852 m)
 }
 
 // StatisticType enumerates supported aggregate functions.

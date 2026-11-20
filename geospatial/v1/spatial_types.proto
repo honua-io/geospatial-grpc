@@ -55,6 +55,11 @@ message Coordinate {
 // CoordinateSequence is a sequence of coordinates forming a path or ring.
 message CoordinateSequence {
   repeated Coordinate coords = 1;
+  repeated double ordinates = 2; // Packed interleaved [x0, y0, (z0), (m0), x1, y1, ...] ordinates
+  repeated sint64 delta_coords = 3; // Packed delta + ZigZag quantized integer coordinates using CoordinateTransform
+  uint32 stride = 4; // Ordinate stride per vertex for ordinates/delta_coords (2=XY, 3=XYZ/XYM, 4=XYZM)
+  bool has_z = 5; // True when packed ordinates/delta_coords include Z (disambiguates stride=3 XYZ vs XYM)
+  bool has_m = 6; // True when packed ordinates/delta_coords include M (disambiguates stride=3 XYZ vs XYM)
 }
 
 // PolylineGeometry represents one or more paths (LineString/MultiLineString).
@@ -89,4 +94,5 @@ message Feature {
   map<string, AttributeValue> attributes = 2;
   Geometry geometry = 3;
   string global_id = 4; // Stable UUID identity, independent of the server-assigned integer ID
+  repeated AttributeValue attribute_values = 5; // Optional positional attribute values aligned 1:1 with QueryFeaturesResponse.fields / FeaturePage.fields
 }
