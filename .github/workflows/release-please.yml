@@ -1,0 +1,42 @@
+name: Release Please
+
+# Opens and maintains the release pull request that moves conformance/VERSION,
+# release/component-versions.json, the .NET/Python/TypeScript package versions
+# and CHANGELOG.md together. CHANGELOG.md is owned by release automation (the
+# repository hygiene check rejects hand edits), so a release is cut by merging
+# that pull request. Merging it creates the v<version> tag with the app token,
+# which starts the publish workflows; their protected production environment
+# still gates every public publication.
+
+on:
+  push:
+    branches:
+      - trunk
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint release automation token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          target-branch: trunk
+          config-file: .github/release-please-config.json
+          manifest-file: .github/.release-please-manifest.json
