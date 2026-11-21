@@ -3,11 +3,11 @@
 Generated protobuf-es messages and service descriptors for the stable
 `geospatial.v1` protocol. The package version matches the schema tag and
 conformance fixture version. The install command below pins the published
-`v1.0.5` schema; generate from a newer schema checkout when you need contracts
+`v1.5.0` schema; generate from a newer schema checkout when you need contracts
 added after that release.
 
 ```bash
-npm install @honua/geospatial-grpc@1.0.5
+npm install @honua/geospatial-grpc@1.5.0
 ```
 
 ```typescript

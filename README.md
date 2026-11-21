@@ -69,7 +69,7 @@ cd geospatial-grpc
 npm install -g @bufbuild/buf
 
 # Generate every configured language from the immutable stable public schema
-buf generate buf.build/honua-io/geospatial-grpc:v1.3.0
+buf generate buf.build/honua-io/geospatial-grpc:v1.5.0
 # gen/csharp, gen/go, gen/java, gen/python, gen/rust, gen/swift, gen/typescript
 
 # Or generate the local checkout / a single language with its dedicated template
@@ -83,12 +83,19 @@ buf generate --template buf.gen.go.yaml --output generated/go
 ### .NET: use the published protocol package
 
 gRPC remains **supported for 2026.1**. The `Geospatial.Grpc` NuGet package
-(netstandard2.0, protos compiled via `Grpc.Tools`) releases through
-[GitHub Packages](https://github.com/orgs/honua-io/packages?repo_name=geospatial-grpc).
-Historical versions remain on [nuget.org](https://www.nuget.org/packages/Geospatial.Grpc).
-Downstream .NET projects should pin a published version instead of copying protos.
+(netstandard2.0, protos compiled via `Grpc.Tools`) releases to
+[nuget.org](https://www.nuget.org/packages/Geospatial.Grpc), which needs no
+credential. Downstream .NET projects should pin a published version instead of
+copying protos:
 
-For a new consumer project, add this minimal `nuget.config` beside the project.
+```bash
+dotnet add package Geospatial.Grpc --version 1.5.0
+```
+
+Release tags are also pushed to
+[GitHub Packages](https://github.com/orgs/honua-io/packages?repo_name=geospatial-grpc).
+To restore from there instead, for a new consumer project, add this minimal
+`nuget.config` beside the project.
 For an existing project, merge the `github` source and `Geospatial.Grpc` mapping
 into its configuration, preserving other sources and mappings: `<clear />` in
 this standalone example removes inherited feeds. The mapping resolves
@@ -129,7 +136,7 @@ restore step (`packages: read` alone does not supply registry credentials):
   run: dotnet restore
 ```
 
-Replace `X.Y.Z` with an exact version listed in GitHub Packages:
+Then pin an exact version listed in GitHub Packages, replacing `X.Y.Z`:
 
 ```bash
 dotnet add package Geospatial.Grpc --version X.Y.Z
@@ -147,7 +154,7 @@ dotnet pack src/Geospatial.Grpc/Geospatial.Grpc.csproj --configuration Release -
 descriptors, so a JS or TS project does not need buf at all:
 
 ```bash
-npm install @honua/geospatial-grpc@1.0.5 @connectrpc/connect @connectrpc/connect-node
+npm install @honua/geospatial-grpc@1.5.0 @connectrpc/connect @connectrpc/connect-node
 ```
 
 Generate locally when you need schema definitions newer than this published client. Note that the TypeScript target lives in the all-language `buf.gen.yaml`
@@ -158,13 +165,13 @@ Generate locally when you need schema definitions newer than this published clie
 `geospatial-grpc` includes the generated messages and gRPC stubs:
 
 ```bash
-python -m pip install geospatial-grpc==1.0.5
+python -m pip install geospatial-grpc==1.5.0
 ```
 
-The npm and PyPI commands above pin versions available in their public registries.
-These packages contain the `v1.0.5` schema, which predates this checkout's newer
-contracts. For newer definitions, generate from the matching schema checkout or
-release tag instead; for Python:
+The npm and PyPI commands above pin the `v1.5.0` release, which is also the
+NuGet package version and the BSR label. For definitions added on `trunk` after
+that release, generate from the matching schema checkout or release tag instead;
+for Python:
 
 ```bash
 buf generate --template buf.gen.python.yaml --output generated/python
