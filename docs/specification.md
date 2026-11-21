@@ -108,6 +108,8 @@ For high-density vector paths and rings (`CoordinateSequence`), servers and clie
 
 By default, `Feature.attributes` encodes feature attributes as a `map<string, AttributeValue>`. When `QueryFeaturesRequest.use_positional_attributes = true`, the server populates `Feature.attribute_values` (`repeated AttributeValue`) positionally aligned 1:1 with `QueryFeaturesResponse.fields` (or `FeaturePage.fields` from the first page), eliminating repeated field-name keys across rows.
 
+`fields` declares the returned attributes in layer schema order, not the layer's full schema: every visible field when `out_fields` is empty or `*`, otherwise the visible `out_fields` selection plus the object ID field unless `return_distinct` is set. Positional values align with that declared list, not with the order of `out_fields`.
+
 ### FormService
 
 The `FormService` provides mobile data collection capabilities as a modern alternative to OpenRosa XML forms:
