@@ -123,9 +123,11 @@ def read_contract(root: Path) -> dict[str, object]:
         )
 
     changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
-    if not re.search(
-        rf"^## v{re.escape(project_version)}\s*$", changelog, re.MULTILINE
-    ):
+    # Accept the hand-written "## v1.2.3" heading and the Release Please
+    # "## [1.2.3](compare-url) (date)" heading for exactly this version.
+    version = re.escape(project_version)
+    heading = rf"^## (?:v{version}\s*$|\[v?{version}\]\([^)\s]*\)(?: \(\d{{4}}-\d{{2}}-\d{{2}}\))?\s*$)"
+    if not re.search(heading, changelog, re.MULTILINE):
         raise ContractError(f"CHANGELOG.md has no '## v{project_version}' release entry")
 
     return {

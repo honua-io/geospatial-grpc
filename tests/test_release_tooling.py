@@ -67,6 +67,21 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertEqual("v1.0.0", contract["tag"])
         release_contract.validate_tag(contract, "v1.0.0")
 
+    def test_release_please_changelog_heading_is_accepted(self) -> None:
+        (self.root / "CHANGELOG.md").write_text(
+            "# Changelog\n\n## [1.0.0](https://github.com/honua-io/geospatial-grpc/compare/v0.9.0...v1.0.0) (2026-11-21)\n",
+            encoding="utf-8",
+        )
+        self.assertEqual("v1.0.0", release_contract.read_contract(self.root)["tag"])
+
+    def test_changelog_heading_for_another_version_fails(self) -> None:
+        (self.root / "CHANGELOG.md").write_text(
+            "## [1.0.10](https://github.com/honua-io/geospatial-grpc/compare/v1.0.9...v1.0.10) (2026-11-21)\n## v1.0.00\n",
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(release_contract.ContractError, "no '## v1.0.0' release entry"):
+            release_contract.read_contract(self.root)
+
     def test_fixture_drift_fails(self) -> None:
         (self.root / "conformance" / "VERSION").write_text("1.0.1\n", encoding="utf-8")
         with self.assertRaisesRegex(release_contract.ContractError, "version drift"):
