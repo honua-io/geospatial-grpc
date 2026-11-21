@@ -5,6 +5,21 @@ client packages are recorded here. A single git release tag (`v<version>`)
 identifies the matching NuGet, PyPI, npm, BSR, and `conformance/VERSION`
 coordinates.
 
+## [1.5.0](https://github.com/honua-io/geospatial-grpc/compare/v1.4.0...v1.5.0) (2026-11-21)
+
+
+### Features
+
+* **v1:** add has_z and has_m flags on CoordinateSequence to disambiguate stride=3 ([#198](https://github.com/honua-io/geospatial-grpc/issues/198)) ([7e98363](https://github.com/honua-io/geospatial-grpc/commit/7e983633fb609f4f10f93772153f09fffdd02ea8))
+* **v1:** add packed/quantized coordinates, positional attributes, and geodetic CRS extensions ([#198](https://github.com/honua-io/geospatial-grpc/issues/198)) ([9a43dce](https://github.com/honua-io/geospatial-grpc/commit/9a43dcebef905beb2ea10a7caec53f48055edc28))
+* **v1:** add packed/quantized coordinates, positional attributes, and geodetic CRS extensions ([#198](https://github.com/honua-io/geospatial-grpc/issues/198)) ([6bd707b](https://github.com/honua-io/geospatial-grpc/commit/6bd707bead32dbd0c79356bc2b5c3e3b26b2930d))
+
+
+### Documentation
+
+* clarify outside contribution policy ([#197](https://github.com/honua-io/geospatial-grpc/issues/197)) ([9c16bc7](https://github.com/honua-io/geospatial-grpc/commit/9c16bc70e862e5d90202a7aebb5c4ff81febc8a5))
+* fix published Python and TypeScript client setup ([#195](https://github.com/honua-io/geospatial-grpc/issues/195)) ([ac6e191](https://github.com/honua-io/geospatial-grpc/commit/ac6e191f2ff027bc2784f515c197567fa73f4add))
+
 ## v1.4.0
 
 Add unary `FeatureService.QueryRelatedRecords` and `ApplyServiceEdits` RPCs.
