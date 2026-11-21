@@ -616,11 +616,12 @@ jobs:
             fi
             # Release Please creates the release (with its changelog notes and
             # no assets) when the release pull request merges; attach the
-            # verified assets to it. A release that already has assets is
-            # left as is and checked by the diff below.
+            # verified assets to it. --clobber lets a rerun finish a partial
+            # upload; the diff below still checks the result.
             asset_count="$(python3 -c 'import json; print(len(json.load(open("release.json"))["assets"]))')"
-            if [[ "${asset_count}" == "0" ]]; then
-              gh release upload "${TAG}" release-assets/*
+            expected_count="$(find release-assets -maxdepth 1 -type f | wc -l)"
+            if [[ "${asset_count}" -lt "${expected_count}" ]]; then
+              gh release upload "${TAG}" --clobber release-assets/*
             fi
           else
             cat > release-notes.md <<EOF
@@ -650,4 +651,4 @@ jobs:
       - name: Release summary
         run: |
           echo "Published and verified ${{ needs.build-and-smoke.outputs.tag }}." >> "${GITHUB_STEP_SUMMARY}"
-          echo "Both public registries and clean consumption passed before the GitHub release was created." >> "${GITHUB_STEP_SUMMARY}"
+          echo "Both public registries and clean consumption passed before the release assets were attached." >> "${GITHUB_STEP_SUMMARY}"
