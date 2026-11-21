@@ -12,6 +12,9 @@ on:
   push:
     branches:
       - trunk
+  # Rebuilds a stale or conflicting release pull request without waiting for
+  # the next trunk push (Release Please only refreshes on a run).
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,6 +25,9 @@ concurrency:
 
 jobs:
   release-please:
+    # A dispatch from another branch would run that branch's copy of this job
+    # with the release app secrets.
+    if: github.ref == 'refs/heads/trunk'
     runs-on: ubuntu-latest
     steps:
       - name: Mint release automation token
