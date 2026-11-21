@@ -12,7 +12,7 @@
     <AnalysisLevel>latest</AnalysisLevel>
     <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <PackageId>Geospatial.Grpc</PackageId>
-    <Version>1.4.0</Version>
+    <Version>1.5.0</Version>
     <Description>Generated .NET bindings for the Geospatial gRPC protocol standard.</Description>
     <Authors>Geospatial gRPC Standard Contributors</Authors>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -30,23 +30,19 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Google.Protobuf" Version="3.36.2" />
-    <PackageReference Include="Grpc.Core.Api" Version="2.85.0" />
-    <PackageReference Include="Grpc.Tools" Version="2.85.0" PrivateAssets="All" />
+    <PackageReference Include="Google.Protobuf" Version="3.36.2"/>
+    <PackageReference Include="Grpc.Core.Api" Version="2.85.0"/>
+    <PackageReference Include="Grpc.Tools" Version="2.85.0" PrivateAssets="All"/>
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\..\geospatial\v1\*.proto"
-              GrpcServices="Both"
-              ProtoRoot="..\.." />
+    <Protobuf Include="..\..\geospatial\v1\*.proto" GrpcServices="Both" ProtoRoot="..\.."/>
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
-    <None Include="..\..\geospatial\v1\*.proto"
-          Pack="true"
-          PackagePath="proto/geospatial/v1/%(Filename)%(Extension)" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\"/>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+    <None Include="..\..\geospatial\v1\*.proto" Pack="true" PackagePath="proto/geospatial/v1/%(Filename)%(Extension)"/>
   </ItemGroup>
 
 </Project>
