@@ -15,7 +15,7 @@ This repository owns deterministic, typed protocol contracts. It does not own se
 
 ## Implemented Protocol Surfaces
 
-- Feature data access through `FeatureService`: describe, query, stream, and edit feature records, with [native attachments](attachments.md).
+- Feature data access through `FeatureService`: describe, query, and stream feature records; query related records across a layer relationship (`QueryRelatedRecords`); edit one layer (`ApplyEdits`) or several layers of a service in one call (`ApplyServiceEdits`); and [native attachments](attachments.md). Per-row versus whole-call edit failures are defined in [ApplyEdits batch semantics](../specification.md#applyedits-batch-semantics) and, across layers, [service-wide edit batches](../specification.md#service-wide-edit-batches).
 - Mobile data collection through `FormService`: form definitions, controls, validation, and collaboration-oriented payloads.
 - Workspace and artifact lifecycle services with typed refs, retention policy refs, materialization state, promotion stages, and lifecycle enums.
 - Execution-plane services for processes, data publishing pipelines, rendering, app building, deployment, and spec plan/apply workflows.

@@ -32,7 +32,7 @@ execution-plane service follows a validate / dry-run / execute pattern.
 
 | Service | Purpose |
 |---------|---------|
-| `FeatureService` | Feature CRUD: query, server-streaming pages, batch edits |
+| `FeatureService` | Feature data: describe, query, server-streaming pages, related records, single- and multi-layer batch edits, attachments |
 | `FormService` | Mobile data collection: dynamic forms, validation, submission |
 | `WorkspaceService` | Workspace lifecycle: create/open/list, promote, retain/release, quotas |
 | `ArtifactService` | Artifact lifecycle: publish/read/inspect, retention policies |
