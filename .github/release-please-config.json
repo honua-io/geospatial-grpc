@@ -16,9 +16,8 @@
           "jsonpath": "$.schemaVersions.conformance"
         },
         {
-          "type": "xml",
-          "path": "src/Geospatial.Grpc/Geospatial.Grpc.csproj",
-          "xpath": "//Project/PropertyGroup/Version"
+          "type": "generic",
+          "path": "src/Geospatial.Grpc/Geospatial.Grpc.csproj"
         },
         {
           "type": "toml",

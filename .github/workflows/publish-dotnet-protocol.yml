@@ -608,11 +608,19 @@ jobs:
           python3 scripts/release_contract.py --require-stable --tag "${TAG}"
           test "$(git rev-parse "${TAG}^{commit}")" = "${GITHUB_SHA}"
 
-          if gh release view "${TAG}" --json targetCommitish > release.json 2>/dev/null; then
+          if gh release view "${TAG}" --json targetCommitish,assets > release.json 2>/dev/null; then
             target="$(python3 -c 'import json; print(json.load(open("release.json"))["targetCommitish"])')"
             if [[ "${target}" != "${GITHUB_SHA}" ]]; then
               echo "Existing release targets ${target}, expected ${GITHUB_SHA}." >&2
               exit 1
+            fi
+            # Release Please creates the release (with its changelog notes and
+            # no assets) when the release pull request merges; attach the
+            # verified assets to it. A release that already has assets is
+            # left as is and checked by the diff below.
+            asset_count="$(python3 -c 'import json; print(len(json.load(open("release.json"))["assets"]))')"
+            if [[ "${asset_count}" == "0" ]]; then
+              gh release upload "${TAG}" release-assets/*
             fi
           else
             cat > release-notes.md <<EOF
