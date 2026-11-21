@@ -5,6 +5,19 @@ client packages are recorded here. A single git release tag (`v<version>`)
 identifies the matching NuGet, PyPI, npm, BSR, and `conformance/VERSION`
 coordinates.
 
+## v1.5.0
+
+Add optional compact encodings and coordinate-system detail to `geospatial.v1`
+(#199). `CoordinateSequence` can carry packed interleaved `ordinates` or
+ZigZag delta-encoded `delta_coords` with a `stride` and explicit `has_z` /
+`has_m` flags, decoded through the new `CoordinateTransform`; queries opt in
+with `use_packed_coordinates`. `Feature.attribute_values` carries positional
+attributes aligned with the response `fields` when `use_positional_attributes`
+is set. `SpatialReference` adds vertical CRS WKIDs, queries add
+`datum_transformation_wkid`, and `DistanceUnit` adds US Survey Feet and
+nautical miles. All additions are optional fields and enum values; existing v1
+messages, RPC signatures and wire behaviour are unchanged.
+
 ## v1.4.0
 
 Add unary `FeatureService.QueryRelatedRecords` and `ApplyServiceEdits` RPCs.
