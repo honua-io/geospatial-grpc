@@ -5,6 +5,16 @@ client packages are recorded here. A single git release tag (`v<version>`)
 identifies the matching NuGet, PyPI, npm, BSR, and `conformance/VERSION`
 coordinates.
 
+## [1.5.1](https://github.com/honua-io/geospatial-grpc/compare/v1.5.0...v1.5.1) (2026-11-23)
+
+
+### Documentation
+
+* name related records and multi-layer edits in FeatureService summaries ([de82b27](https://github.com/honua-io/geospatial-grpc/commit/de82b27016985ed5125e4ce37727bf08d1b44516)), closes [#213](https://github.com/honua-io/geospatial-grpc/issues/213)
+* pin the published 1.5.0 release in install commands ([01f4eee](https://github.com/honua-io/geospatial-grpc/commit/01f4eee3bd78bf9cabb6e9bd7d3d65870bf1c6a6)), closes [#212](https://github.com/honua-io/geospatial-grpc/issues/212)
+* **proto:** fields declares the returned attributes, not the layer schema ([fd777dd](https://github.com/honua-io/geospatial-grpc/commit/fd777dd5926727dc7494fc5ed5f0db4ce37a7ff1)), closes [#211](https://github.com/honua-io/geospatial-grpc/issues/211)
+* published 1.5.0 pins, FeatureService summaries and the fields contract ([34e6bfb](https://github.com/honua-io/geospatial-grpc/commit/34e6bfb947185e40e5c5e07f3ba5d523e0a6f518))
+
 ## [1.5.0](https://github.com/honua-io/geospatial-grpc/compare/v1.4.0...v1.5.0) (2026-11-21)
 
 
